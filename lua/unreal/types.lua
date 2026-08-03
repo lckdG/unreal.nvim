@@ -1,0 +1,23 @@
+---@class (exact) UprojectFindOpts
+---@field nameOnly boolean
+
+---@class (exact) ParseEnginePathOpts
+---@field path string
+---@field silent boolean
+---@field savePath boolean
+
+---@class (exact) QueryInfo
+---@field bufnr number
+---@field cursorRow number
+---@field lang string?
+---@field root TSNode?
+
+---@class (exact) CustomTreesitterOpts
+---@field url string
+---@field revision string
+
+---@class (exact) ConfigOpts
+---@field custom_treesitter CustomTreesitterOpts?
+---@field cmd_abbreviations table?
+---@field telescope_extended_ignores table?
+---@field clangd_build_args table?
