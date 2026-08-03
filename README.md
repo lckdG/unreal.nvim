@@ -4,15 +4,14 @@ A Neovim plugin for working on Unreal Engine C++ projects: source/header switchi
 
 ## Features
 
-- Switch between a header and its matching `.cpp`/`.h` source file (falls back to clangd's `SwitchSourceHeader` if no match is found)
-- Generate the `.cpp` implementation stub for a function declared in a header, placed under the matching class
-- Rebuild the clangd compilation database (`compile_commands.json`) via `UnrealBuildTool -mode=GenerateClangDatabase`
-- Complete `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` macro attributes (e.g. `BlueprintCallable`, `EditAnywhere`) through clangd, picked with telescope
-- Find/grep source files restricted to headers, cpp, or both, through telescope
-- Open the `.uproject` in the working directory with the OS default handler
-- Per-project engine path, resolved from the nearest `.uproject` upward from cwd and cached across sessions
-- Extends telescope's `file_ignore_patterns` with Unreal-generated directories/files (`Binaries/`, `Intermediate/`, `*.uasset`, ...)
-- Registers a custom treesitter grammar for Unreal C++ (`UCLASS`, `UPROPERTY`, etc. as real nodes)
+- Switch between header and source
+- Generate function implementation stubs from a header declaration
+- Rebuild the clangd compilation database
+- Complete `UCLASS`/`UFUNCTION`/`UPROPERTY` macro attributes
+- Find/grep source files via telescope
+- Open the `.uproject` with the OS default handler
+- Per-project engine path, cached across sessions
+- Unreal-aware treesitter grammar (via [taku25/tree-sitter-unreal-cpp](https://github.com/taku25/tree-sitter-unreal-cpp)) and telescope ignore patterns
 
 ## Requirements
 
@@ -100,6 +99,10 @@ All functionality is exposed through a single command with subcommand completion
 If multiple `.uproject` files are found in the working directory tree, commands that need one (`OpenProject`, `RebuildClangd`) will prompt you to choose.
 
 The engine path is resolved per-project (keyed by the nearest `.uproject` directory found upward from the current working directory) and cached in `stdpath('data')/unreal.nvim/lock.dat`.
+
+## Acknowledgements
+
+The custom Unreal C++ treesitter grammar is [tree-sitter-unreal-cpp](https://github.com/taku25/tree-sitter-unreal-cpp) by [taku25](https://github.com/taku25).
 
 ## License
 
