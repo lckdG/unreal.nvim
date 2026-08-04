@@ -135,7 +135,7 @@ function M.ParseToolPaths(opts)
     end
 end
 
----
+---Set (and optionally persist) the Unreal Engine path used to locate UnrealBuildTool.
 ---@param opts ParseEnginePathOpts
 function M.SetEnginePath(opts)
     M.EnginePath = nil

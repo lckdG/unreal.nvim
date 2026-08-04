@@ -6,7 +6,8 @@ local logLevel = vim.log.levels
 
 local M = {}
 
----Switching between source and header files by a simple custom search, fallback to clangd if the search fails
+---Open the matching source/header file. Searches under the Public/Private
+---source root first, falls back to clangd's switch-source-header if unresolved.
 function M.SwitchSourceHeader()
     local switchingFile = utils.GetSourceHeader()
     if switchingFile ~= nil then
@@ -18,7 +19,9 @@ function M.SwitchSourceHeader()
     end
 end
 
----Select the uproject file in current directory and perform action 'fn' on it
+---Resolve the `.uproject` file(s) in the current directory tree and run `fn(path)` on it.
+---If more than one is found, prompts the user to pick one by index first.
+---If none are found, the picker prompt is shown empty and `fn` is never called.
 ---@param fn function
 ---@param findOpts UprojectFindOpts
 function M.SelectUproject(fn, findOpts)
@@ -43,7 +46,8 @@ function M.SelectUproject(fn, findOpts)
     end
 end
 
----Quickly open the uproject file in working directory
+---Open the `.uproject` file in the current directory with the OS default handler.
+---Prompts to choose one if multiple are found; no-ops if none are found.
 function M.OpenUproject()
     M.SelectUproject(function (projectPath)
         local executeCmd = utils.GetExecuteCmd()
@@ -51,6 +55,9 @@ function M.OpenUproject()
     end, { nameOnly = false })
 end
 
+---Regenerate `compile_commands.json` via UnrealBuildTool and copy it into the working directory.
+---Uses `clangd_build_args` from setup() config for extra UBT arguments.
+---Prompts for an engine path if none is set yet; aborts if still unresolved.
 function M.RebuildClangd()
     if config.EnginePathSet == false then
         vim.cmd("Unreal SetEnginePath")
@@ -86,6 +93,9 @@ function M.RebuildClangd()
     end, { nameOnly = false })
 end
 
+---Generate a `.cpp` implementation stub for the function declaration under the cursor.
+---Requires an open header file; jumps to the existing implementation instead of
+---duplicating it if one is already present in the target `.cpp` file.
 function M.ImplementFunction()
     local res = M.PrepareForFunctionImpl()
     if not res.success then
@@ -334,6 +344,12 @@ local function EntryPicker(completionList, callback)
     }):find()
 end
 
+---Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` attribute under the cursor via telescope.
+---Requires an attached clangd client; silently no-ops without one or if no macro is under the cursor.
+---Completions are pulled from the IntelliSense-only specifier namespaces declared in
+---`UObject/ObjectMacros.h`; this header can be missing/stripped in some engine builds, in
+---which case results are empty. Treat the specifier list there as a reference, not exhaustive --
+---see unreal-garden (https://unreal-garden.com) for the complete set of specifiers per macro.
 function M.CompleteMacro()
     local clients = vim.lsp.get_clients({ name = "clangd" })
     if clients == nil or #clients <= 0 then
@@ -394,6 +410,12 @@ function M.getInputSourceTypes()
     return nil
 end
 
+---Find header/cpp/both files via telescope. Prompts for scope:
+---  1. All     - `*.{h,cpp}`
+---  2. Headers - `*.h`
+---  3. Cpp     - `*.cpp`
+---The chosen glob is sent to telescope's ripgrep-backed `find_files` to filter results.
+---No-ops if the prompt is dismissed or an invalid choice is entered.
 function M.FindSource()
     local globPattern = M.getInputSourceTypes()
     if globPattern == nil then return end
@@ -404,6 +426,12 @@ function M.FindSource()
     })
 end
 
+---Live grep header/cpp/both files via telescope. Prompts for scope:
+---  1. All     - `*.{h,cpp}`
+---  2. Headers - `*.h`
+---  3. Cpp     - `*.cpp`
+---The chosen glob is sent to telescope's ripgrep-backed `live_grep` to filter results.
+---No-ops if the prompt is dismissed or an invalid choice is entered.
 function M.GrepSource()
     local globPattern = M.getInputSourceTypes()
     if globPattern == nil then return end

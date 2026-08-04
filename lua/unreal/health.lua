@@ -42,6 +42,8 @@ local function check_engine_path()
     end
 end
 
+---Run `:checkhealth unreal` diagnostics: telescope.nvim, `rg`/`clangd`/`dotnet` on PATH
+---(with version if found), and whether an engine path is resolved for the current project.
 function M.check()
     local health = vim.health
 
