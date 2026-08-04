@@ -1,0 +1,166 @@
+*unreal.txt*  Neovim plugin for Unreal Engine C++ projects
+
+==============================================================================
+INTRODUCTION                                                    *unreal-intro*
+
+unreal.nvim helps working on Unreal Engine C++ projects: source/header
+switching, clangd compilation-database generation, UFUNCTION/UCLASS macro
+attribute completion, function implementation stubbing, and Unreal-aware
+treesitter/telescope integration.
+
+WARNING: this plugin is a work in progress. Commands, config options, and
+behavior may change without notice.
+
+The custom Unreal C++ treesitter grammar is tree-sitter-unreal-cpp by
+taku25: https://github.com/taku25/tree-sitter-unreal-cpp
+
+==============================================================================
+================================================================================
+M.defaults()                                                    *M.defaults()*
+
+
+
+M.ParseToolPaths({opts})                                  *M.ParseToolPaths()*
+
+
+    Parameters: ~
+        {opts} (ParseEnginePathOpts)
+
+    Return: ~
+        boolean
+
+
+M.SetEnginePath({opts})                                    *M.SetEnginePath()*
+    Set (and optionally persist) the Unreal Engine path used to locate
+    UnrealBuildTool.
+
+
+    Parameters: ~
+        {opts} (ParseEnginePathOpts)
+
+
+
+================================================================================
+M.SwitchSourceHeader()                                *M.SwitchSourceHeader()*
+    Open the matching source/header file. Searches under the Public/Private
+    source root first, falls back to clangd's switch-source-header if
+    unresolved.
+
+
+
+M.SelectUproject({fn}, {findOpts})                        *M.SelectUproject()*
+    Resolve the `.uproject` file(s) in the current directory tree and run
+    `fn(path)` on it. If more than one is found, prompts the user to pick one
+    by index first. If none are found, the picker prompt is shown empty and
+    `fn` is never called.
+
+
+    Parameters: ~
+        {fn}       (function)
+        {findOpts} (UprojectFindOpts)
+
+
+M.OpenUproject()                                            *M.OpenUproject()*
+    Open the `.uproject` file in the current directory with the OS default
+    handler. Prompts to choose one if multiple are found; no-ops if none are
+    found.
+
+
+
+M.RebuildClangd()                                          *M.RebuildClangd()*
+    Regenerate `compile_commands.json` via UnrealBuildTool and copy it into the
+    working directory. Uses `clangd_build_args` from setup() config for extra
+    UBT arguments. Prompts for an engine path if none is set yet; aborts if
+    still unresolved.
+
+
+
+M.ImplementFunction()                                  *M.ImplementFunction()*
+    Generate a `.cpp` implementation stub for the function declaration under
+    the cursor. Requires an open header file; jumps to the existing
+    implementation instead of duplicating it if one is already present in the
+    target `.cpp` file.
+
+
+
+M.ParseImplementation({declaration})                 *M.ParseImplementation()*
+
+
+    Parameters: ~
+        {declaration} (table)
+
+    Return: ~
+        table
+
+
+M.CompleteMacro()                                          *M.CompleteMacro()*
+    Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` attribute under the
+    cursor via telescope. Requires an attached clangd client; silently no-ops
+    without one or if no macro is under the cursor. Completions are pulled from
+    the IntelliSense-only specifier namespaces declared in
+    `UObject/ObjectMacros.h`; this header can be missing/stripped in some
+    engine builds, in which case results are empty. Treat the specifier list
+    there as a reference, not exhaustive -- see unreal-garden
+    (https://unreal-garden.com) for the complete set of specifiers per macro.
+
+
+
+M.FindSource()                                                *M.FindSource()*
+    Find header/cpp/both files via telescope. Prompts for scope:
+     1. All - `*.{h,cpp}`
+     2. Headers - `*.h`
+     3. Cpp - `*.cpp` The chosen glob is sent to telescope's ripgrep-backed
+        `find_files` to filter results. No-ops if the prompt is dismissed or an
+        invalid choice is entered.
+
+
+
+M.GrepSource()                                                *M.GrepSource()*
+    Live grep header/cpp/both files via telescope. Prompts for scope:
+     1. All - `*.{h,cpp}`
+     2. Headers - `*.h`
+     3. Cpp - `*.cpp` The chosen glob is sent to telescope's ripgrep-backed
+        `live_grep` to filter results. No-ops if the prompt is dismissed or an
+        invalid choice is entered.
+
+
+
+
+================================================================================
+M.check()                                                          *M.check()*
+    Run `:checkhealth unreal` diagnostics: telescope.nvim,
+    `rg`/`clangd`/`dotnet` on PATH (with version if found), and whether an
+    engine path is resolved for the current project.
+
+
+
+
+================================================================================
+M.setup({opts})                                                    *M.setup()*
+    Entry point for the plugin. Applies config, then registers the `:Unreal`
+    command.
+
+
+    Parameters: ~
+        {opts} (ConfigOpts)  ?
+
+
+
+================================================================================
+M.Setup({pluginName})                                              *M.Setup()*
+
+
+    Parameters: ~
+        {pluginName} (string)
+
+
+M.Notify({msg}, {level})                                          *M.Notify()*
+
+
+    Parameters: ~
+        {msg}   (string)
+        {level} (vim)     .log.levels
+
+
+
+ vim:tw=78:ts=8:ft=help:norl:
