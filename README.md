@@ -27,7 +27,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
-    "your-username/unreal.nvim", -- replace with the actual repo path
+    "lckdG/unreal.nvim",
     dependencies = {
         "nvim-treesitter/nvim-treesitter",
         "nvim-telescope/telescope.nvim",
