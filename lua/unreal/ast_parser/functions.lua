@@ -84,7 +84,7 @@ function M.GetDeclarationTemplate(queryInfo, className)
                         (_
                             ((identifier) @function.params.identifier)
                         )
-                    )
+                    )?
                 ) @function.params
                 (type_qualifier)? @function.const
             )
