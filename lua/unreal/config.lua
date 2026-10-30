@@ -122,7 +122,7 @@ function M.ParseToolPaths(opts)
     local path = opts.path
     local silent = opts.silent
 
-    local buildTool = vim.fs.joinpath(path, "Engine", "Binaries", "DotNET", "UnrealBuildTool", "UnrealBuildTool.dll")
+    local buildTool = require('unreal.utils').GetUbtPath(path)
 
     if exists(buildTool) == false then
         if silent == false then
@@ -225,6 +225,14 @@ function M.GetClangdBuildArgs()
     if args == nil then return "" end
 
     return table.concat(args, " ")
+end
+
+function M.EnsureEnginePath()
+    if M.EnginePathSet == false then
+        vim.cmd("Unreal SetEnginePath")
+    end
+
+    return M.EnginePathSet
 end
 
 return M

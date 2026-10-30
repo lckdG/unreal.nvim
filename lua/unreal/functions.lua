@@ -49,8 +49,14 @@ end
 ---Open the `.uproject` file in the current directory with the OS default handler.
 ---Prompts to choose one if multiple are found; no-ops if none are found.
 function M.OpenUproject()
+    if config.EnsureEnginePath() == false then
+        return
+    end
+
     M.SelectUproject(function (projectPath)
-        local executeCmd = utils.GetExecuteCmd()
+        local engineRoot = config.ReadEnginePath()
+        local executeCmd = utils.GetExecuteCmd(engineRoot)
+
         os.execute(executeCmd .. '"' .. projectPath .. '"')
     end, { nameOnly = false })
 end
@@ -59,8 +65,8 @@ end
 ---Uses `clangd_build_args` from setup() config for extra UBT arguments.
 ---Prompts for an engine path if none is set yet; aborts if still unresolved.
 function M.RebuildClangd()
-    if config.EnginePathSet == false then
-        vim.cmd("Unreal SetEnginePath")
+    if config.EnsureEnginePath() == false then
+        return
     end
 
     if config.BuildTool == nil then

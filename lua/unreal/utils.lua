@@ -91,14 +91,51 @@ function M.GetPlatform()
     end
 end
 
-function M.GetExecuteCmd()
+function M.parseBinariesPath(engineRoot)
+    return vim.fs.joinpath(
+        engineRoot,
+        "Engine",
+        "Binaries"
+    )
+end
+
+function M.GetUbtPath(engineRoot)
+    local binariesPath = M.parseBinariesPath(engineRoot)
+    return vim.fs.joinpath(
+        binariesPath,
+        "DotNET",
+        "UnrealBuildTool",
+        "UnrealBuildTool.dll"
+    )
+end
+
+function M.GetEngineExecutable(engineRoot)
+    local binariesPath = M.parseBinariesPath(engineRoot)
+    local platform = M.GetPlatform()
+
+    return vim.fs.joinpath(
+        binariesPath,
+        platform,
+        M.getEngineExecutableName(platform)
+    )
+end
+
+function M.getEngineExecutableName(platform)
+    if platform == "Win64" then
+        return "UnrealEditor.exe"
+    elseif platform == "Linux" then
+        return "UnrealEditor"
+    else
+        return "UnrealEditor.app"
+    end
+end
+
+function M.GetExecuteCmd(engineRoot)
     local platform = M.GetPlatform()
     if platform == "Win64" then
         return 'start "" '
-    elseif platform == "Linux" then
-        return 'xdg-open '
     else
-        return 'open '
+        return M.GetEngineExecutable(engineRoot)
     end
 end
 
