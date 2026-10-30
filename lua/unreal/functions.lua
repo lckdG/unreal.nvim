@@ -57,7 +57,8 @@ function M.OpenUproject()
         local engineRoot = config.ReadEnginePath()
         local executeCmd = utils.GetExecuteCmd(engineRoot)
 
-        os.execute(executeCmd .. '"' .. projectPath .. '"')
+        table.insert(executeCmd, projectPath)
+        vim.fn.jobstart(executeCmd, { detach = true })
     end, { nameOnly = false })
 end
 

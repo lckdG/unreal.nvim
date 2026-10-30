@@ -133,9 +133,9 @@ end
 function M.GetExecuteCmd(engineRoot)
     local platform = M.GetPlatform()
     if platform == "Win64" then
-        return 'start "" '
+        return { "cmd", "/c", "start", "" }
     else
-        return M.GetEngineExecutable(engineRoot)
+        return { M.GetEngineExecutable(engineRoot) }
     end
 end
 
