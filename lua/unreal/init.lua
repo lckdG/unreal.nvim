@@ -9,7 +9,7 @@ function M.setup(opts)
 end
 
 local function SetEnginePath()
-    vim.ui.input({ prompt = "Enter Unreal path: " }, function (input)
+    vim.ui.input({ prompt = "Enter Unreal path: ", completion = "dir" }, function (input)
         require('unreal.config').SetEnginePath({ path = input, silent = false, savePath = true })
     end)
 end
