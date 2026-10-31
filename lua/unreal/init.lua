@@ -11,6 +11,8 @@ function M.setup(opts)
 
     require('unreal.log').init(info)
 
+    require('unreal.engine').init()
+    require('unreal.project').init()
     require('unreal.treesitter').init(configOpts)
     require('unreal.telescope').init(configOpts)
 
