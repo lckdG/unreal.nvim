@@ -1,4 +1,6 @@
-local keys = {
+local M = {}
+
+M.Keys = {
     DeclType = "function.type",
     DeclName = "function.name",
     DeclParamIdentifier = "function.params.identifier",
@@ -36,7 +38,7 @@ local function getTreeRoot(bufnr, lang)
 end
 
 local function findDeclaration(childNode)
-    local typeDeclaration = keys.TypeDeclaration
+    local typeDeclaration = M.Keys.TypeDeclaration
 
     ---
     ---@param node? TSNode
@@ -63,8 +65,6 @@ local function findDeclaration(childNode)
 end
 
 --#endregion
-
-local M = {}
 
 ---@param opts ConfigOpts
 function M.init(opts)
@@ -127,7 +127,7 @@ function M.GetTypeName(node)
     end
 
     for childNode, _ in declarationNode:iter_children() do
-        if childNode:type() == keys.TypeIdentifier then
+        if childNode:type() == M.Keys.TypeIdentifier then
             return vim.treesitter.get_node_text(childNode, 0)
         end
     end
@@ -151,7 +151,7 @@ function M.GetDeclarationTemplate(className)
     local lang = queryInfo.lang
     local root = queryInfo.root
 
-    local query = vim.treesitter.query.get(lang, "function_declaration")
+    local query = vim.treesitter.query.get(lang, "unreal_function_declaration")
     if query == nil then
         return result
     end
@@ -162,9 +162,9 @@ function M.GetDeclarationTemplate(className)
         local queryId = query.captures[id]
         local text = vim.treesitter.get_node_text(capturedNode, bufnr)
 
-        if queryId == keys.DeclParamIdentifier then
+        if queryId == M.Keys.DeclParamIdentifier then
             table.insert(paramIdentifiers, text)
-        elseif queryId == keys.DeclName then
+        elseif queryId == M.Keys.DeclName then
             result[queryId] = className .. "::" .. text
         else
             result[queryId] = text
@@ -192,7 +192,7 @@ function M.GetMacro()
     local lang = queryInfo.lang
     local root = queryInfo.root
 
-    local query = vim.treesitter.query.get(lang, "macro")
+    local query = vim.treesitter.query.get(lang, "unreal_macro")
     if query == nil then
         return nil, "", existedVariables
     end
@@ -201,7 +201,7 @@ function M.GetMacro()
     local identifier = ""
 
     for id, capturedNode, _ in query:iter_captures(root, bufnr, cursorRow, cursorRow + 1) do
-        if query.captures[id] == keys.MacroDeclaration then
+        if query.captures[id] == M.Keys.MacroDeclaration then
             macroNode = capturedNode
 
             local text = vim.treesitter.get_node_text(capturedNode, bufnr)
