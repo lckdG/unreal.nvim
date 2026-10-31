@@ -23,6 +23,7 @@ M.defaults = {
         url = 'https://github.com/taku25/tree-sitter-unreal-cpp',
         revision = '2d2d5c19a9a83e432e43c041252106995614b29a',
     },
+    command_lead = "Unreal",
     cmd_abbreviations = {},
     telescope_extended_ignores = {
         "%.exe", -- Executables
@@ -59,7 +60,7 @@ local function exists(path)
     end
 end
 
-function M.config(opts, command_lead)
+function M.config(opts)
     M.opts = vim.tbl_deep_extend('force', M.defaults, opts or {})
 
     logs.Setup(M.info.PluginName)
@@ -87,7 +88,6 @@ function M.config(opts, command_lead)
 
     M.HijackTreesitter()
     M.AppendIgnorePatterns()
-    M.CreateAbbrevs(command_lead)
 end
 
 local function getProjectRoot()
@@ -207,17 +207,6 @@ function M.AppendIgnorePatterns()
             file_ignore_patterns = telescope_ignore_patterns
         }
     )
-end
-
-function M.CreateAbbrevs(command_lead)
-    local abbrev_config = M.opts.cmd_abbreviations
-    if abbrev_config == nil then return end
-
-    local cabbr = vim.cmd.cabbrev
-
-    for key, command in pairs(abbrev_config) do
-        cabbr(key, command_lead .. " " .. command)
-    end
 end
 
 function M.GetClangdBuildArgs()
