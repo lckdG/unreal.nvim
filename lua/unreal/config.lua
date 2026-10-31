@@ -1,4 +1,4 @@
-local logs = require('unreal.logs')
+local log = require('unreal.log')
 local pathUtils = require('unreal.path_utils')
 
 local M = {}
@@ -45,7 +45,7 @@ local dataRoot = vim.fn.stdpath('data')
 function M.config(opts)
     M.opts = vim.tbl_deep_extend('force', M.defaults, opts or {})
 
-    logs.Setup(M.info.PluginName)
+    log.Setup(M.info.PluginName)
 
     M.ConfigDir = vim.fs.joinpath(dataRoot, M.info.PluginName)
     M.LockFilePath = vim.fs.joinpath(M.ConfigDir, M.info.LockFile)
@@ -108,7 +108,7 @@ function M.ParseToolPaths(opts)
 
     if exists(buildTool) == false then
         if silent == false then
-            logs.Notify("Failed to parse tool paths!", vim.log.levels.ERROR)
+            log.Notify("Failed to parse tool paths!", vim.log.levels.ERROR)
         end
         return false
     else
@@ -141,9 +141,9 @@ function M.SaveEnginePath(path)
 
     local success, msg = utils.WriteLockfile(M.LockFilePath, lockData)
     if success then
-        logs.Notify("Engine path updated successfully", vim.log.levels.INFO)
+        log.Notify("Engine path updated successfully", vim.log.levels.INFO)
     else
-        logs.Notify("Save lock file failed: " .. msg, vim.log.levels.ERROR)
+        log.Notify("Save lock file failed: " .. msg, vim.log.levels.ERROR)
     end
 end
 

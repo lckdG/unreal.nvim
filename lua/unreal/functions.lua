@@ -1,7 +1,7 @@
 local config = require('unreal.config')
 local info = config.info
 local utils = require('unreal.utils')
-local logs = require('unreal.logs')
+local log = require('unreal.log')
 local logLevel = vim.log.levels
 
 local M = {}
@@ -15,7 +15,7 @@ function M.SwitchSourceHeader()
     elseif utils.HasClangdEnabled() then
         vim.cmd("LspClangdSwitchSourceHeader")
     else
-        logs.Notify("No matching file name or clangd enabled!", logLevel.ERROR)
+        log.Notify("No matching file name or clangd enabled!", logLevel.ERROR)
     end
 end
 
@@ -71,7 +71,7 @@ function M.RebuildClangd()
     end
 
     if config.BuildTool == nil then
-        logs.Notify("No valid engine path found, aborting ", logLevel.WARN)
+        log.Notify("No valid engine path found, aborting ", logLevel.WARN)
         return
     end
 
@@ -93,9 +93,9 @@ function M.RebuildClangd()
 
         local ok, err = vim.uv.fs_copyfile(sourceCC, destCC)
         if ok then
-            logs.Notify("Rebuild database successfully!", logLevel.INFO)
+            log.Notify("Rebuild database successfully!", logLevel.INFO)
         else
-            logs.Notify("Failed to copy compile_commands file: " .. tostring(err), logLevel.ERROR)
+            log.Notify("Failed to copy compile_commands file: " .. tostring(err), logLevel.ERROR)
         end
     end, { nameOnly = false })
 end
@@ -106,13 +106,13 @@ end
 function M.ImplementFunction()
     local res = M.PrepareForFunctionImpl()
     if not res.success then
-        logs.Notify(res.err, logLevel.ERROR)
+        log.Notify(res.err, logLevel.ERROR)
         return
     end
 
     local parser = require('unreal.ast_parser')
     if not parser.PrepareForQuery() then
-        logs.Notify("Failed to prepare for treesitter query", logLevel.ERROR)
+        log.Notify("Failed to prepare for treesitter query", logLevel.ERROR)
         return
     end
 
@@ -123,13 +123,13 @@ function M.ImplementFunction()
 
     local className = parser.GetRootIdentifier(node)
     if className == "" then
-        logs.Notify("Unable to find class name for implementation creation!", logLevel.ERROR)
+        log.Notify("Unable to find class name for implementation creation!", logLevel.ERROR)
         return
     end
 
     local declarationTemplate = parser.GetDeclarationTemplate(className)
     if next(declarationTemplate) == nil then
-        logs.Notify("Unable to create declaration template!", logLevel.ERROR)
+        log.Notify("Unable to create declaration template!", logLevel.ERROR)
         return
     end
 
@@ -228,7 +228,7 @@ function M.FindImplementation(buf, marker)
     local bufLines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
     for index, line in ipairs(bufLines) do
         if line == marker then
-            logs.Notify("Function already defined at line " .. tostring(index), logLevel.INFO)
+            log.Notify("Function already defined at line " .. tostring(index), logLevel.INFO)
             return index
         end
     end
@@ -367,7 +367,7 @@ function M.CompleteMacro()
     local parser = require('unreal.ast_parser')
 
     if not parser.PrepareForQuery() then
-        logs.Notify("Failed to prepare for treesitter query", logLevel.ERROR)
+        log.Notify("Failed to prepare for treesitter query", logLevel.ERROR)
         return
     end
 
@@ -375,7 +375,7 @@ function M.CompleteMacro()
     local macroNode, macroIdentifier, existedVariables = parser.GetMacro()
 
     if macroNode == nil then
-        logs.Notify(errorMsg, logLevel.ERROR)
+        log.Notify(errorMsg, logLevel.ERROR)
         return
     end
 
@@ -402,7 +402,7 @@ function M.getInputSourceTypes()
     local index = vim.fn.inputlist({'Select source types:', '1. All', '2. Headers', '3. Cpp'})
 
     if index <= 0 or index > 3 then
-        logs.Notify("Invalid search choice " .. index, vim.log.levels.WARN)
+        log.Notify("Invalid search choice " .. index, vim.log.levels.WARN)
         return nil
     end
 

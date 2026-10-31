@@ -23,7 +23,7 @@ local function createCommands(config)
         if func ~= nil then
             func()
         else
-            require('unreal.logs').Notify("Error: unavailable command " .. arg, vim.log.levels.ERROR)
+            require('unreal.log').Notify("Error: unavailable command " .. arg, vim.log.levels.ERROR)
         end
     end, {
         nargs = 1,
