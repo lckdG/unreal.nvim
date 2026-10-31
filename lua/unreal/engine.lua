@@ -148,4 +148,35 @@ function M.EnsureEnginePath()
     return M.EnginePathSet
 end
 
+-----------------------------------
+local engineExecutable = {
+    Win64 = "UnrealEditor.exe",
+    Linux = "UnrealEditor",
+    Mac = "UnrealEditor.app"
+}
+
+local function getEngineExecutable(platform)
+    local binariesPath = vim.fs.joinpath(
+        M.EnginePath,
+        "Engine",
+        "Binaries"
+    )
+
+    local executableName = engineExecutable[platform]
+    return vim.fs.joinpath(
+        binariesPath,
+        platform,
+        executableName
+    )
+end
+
+function M.GetExecuteCmd()
+    local platform = require('unreal.system').GetPlatform()
+    if platform == "Win64" then
+        return { "cmd", "/c", "start", "" }
+    else
+        return { getEngineExecutable(platform) }
+    end
+end
+
 return M
