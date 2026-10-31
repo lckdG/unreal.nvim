@@ -42,29 +42,8 @@ M.defaults = {
 function M.config(opts)
     M.opts = vim.tbl_deep_extend('force', M.defaults, opts or {})
 
-    --TODO: move to init.lua
-    M.HijackTreesitter()
-
     --TODO: move to telescope.lua
     M.AppendIgnorePatterns()
-end
-
-function M.HijackTreesitter()
-    local custom_treesitter_opts = M.opts.custom_treesitter
-    if custom_treesitter_opts == nil then return end
-
-    vim.api.nvim_create_autocmd("User", {
-        pattern = "TSUpdate",
-        callback = function ()
-            require('nvim-treesitter.parsers').cpp = {
-                install_info = {
-                    url = custom_treesitter_opts.url,
-                    revision = custom_treesitter_opts.revision,
-                },
-                tier = 2
-            }
-        end
-    })
 end
 
 function M.AppendIgnorePatterns()

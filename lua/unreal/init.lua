@@ -10,6 +10,9 @@ function M.setup(opts)
     local configOpts = config.opts
 
     require('unreal.log').init(info)
+
+    require('unreal.treesitter').init(configOpts)
+
     require('unreal.commands').init(configOpts)
 end
 
