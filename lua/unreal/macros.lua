@@ -108,7 +108,7 @@ function M.CompleteMacro()
             local insertRow = endRow
             local insertCol = endCol - 1
 
-            local insertion = #existedVariables > 0 and ", " .. entry or entry
+            local insertion = #existedVariables > 1 and ", " .. entry or entry
             vim.api.nvim_buf_set_text(0, insertRow, insertCol, insertRow, insertCol, { insertion })
             vim.api.nvim_win_set_cursor(0, { insertRow + 1, insertCol + #insertion })
         end)
