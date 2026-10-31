@@ -1,6 +1,7 @@
 local config = require('unreal.config')
 local system = require('unreal.system')
 local search = require('unreal.search')
+local treesitter = require('unreal.treesitter')
 local log = require('unreal.log')
 
 local info = config.info
@@ -18,24 +19,18 @@ function M.ImplementFunction()
         return
     end
 
-    local parser = require('unreal.ast_parser')
-    if not parser.PrepareForQuery() then
-        log.Notify("Failed to prepare for treesitter query", logLevel.ERROR)
-        return
-    end
-
     local node = res.ts_node
     local cppFile = res.cppFile
 
     if node == nil or cppFile == nil then return end
 
-    local className = parser.GetRootIdentifier(node)
+    local className = treesitter.GetTypeName(node)
     if className == "" then
         log.Notify("Unable to find class name for implementation creation!", logLevel.ERROR)
         return
     end
 
-    local declarationTemplate = parser.GetDeclarationTemplate(className)
+    local declarationTemplate = treesitter.GetDeclarationTemplate(className)
     if next(declarationTemplate) == nil then
         log.Notify("Unable to create declaration template!", logLevel.ERROR)
         return
@@ -99,10 +94,8 @@ end
 ---@param declaration table
 ---@return table
 function M.ParseImplementation(declaration)
-    local ast_parser = require('unreal.ast_parser')
-
-    local declTypeKey = ast_parser.GetDeclTypeKey()
-    local declKeys = ast_parser.GetDeclKeys()
+    local declTypeKey = treesitter.Keys.DeclType
+    local declKeys = treesitter.Keys.DeclKeys
 
     local content = {}
     local declarationText = ""
