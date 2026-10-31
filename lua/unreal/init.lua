@@ -12,6 +12,7 @@ function M.setup(opts)
     require('unreal.log').init(info)
 
     require('unreal.treesitter').init(configOpts)
+    require('unreal.telescope').init(configOpts)
 
     require('unreal.commands').init(configOpts)
 end

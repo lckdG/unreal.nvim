@@ -41,35 +41,6 @@ M.defaults = {
 
 function M.config(opts)
     M.opts = vim.tbl_deep_extend('force', M.defaults, opts or {})
-
-    --TODO: move to telescope.lua
-    M.AppendIgnorePatterns()
-end
-
-function M.AppendIgnorePatterns()
-    local success, _ = pcall(require, 'telescope')
-    if success == false then
-        return
-    end
-
-    local telescope_extended_ignores = M.opts.telescope_extended_ignores
-    if telescope_extended_ignores == nil then return end
-
-    local telescopeConfig = require('telescope.config')
-    local configValues = telescopeConfig.values
-    local telescope_ignore_patterns = configValues.file_ignore_patterns or {}
-
-    local ignore_patterns = vim.deepcopy(telescope_ignore_patterns)
-    vim.list_extend(ignore_patterns, telescope_extended_ignores)
-
-    telescopeConfig.set_defaults(
-        {
-            file_ignore_patterns = ignore_patterns
-        },
-        {
-            file_ignore_patterns = telescope_ignore_patterns
-        }
-    )
 end
 
 function M.GetClangdBuildArgs()
