@@ -1,6 +1,7 @@
 local config = require('unreal.config')
 local system = require('unreal.system')
 local search = require('unreal.search')
+local pathUtils = require('unreal.path_utils')
 local treesitter = require('unreal.treesitter')
 local log = require('unreal.log')
 
@@ -74,7 +75,7 @@ function M.PrepareForFunctionImpl()
         }
     end
 
-    local cppFile = search.GetSourceHeader()
+    local cppFile = pathUtils.GetSourceHeader()
     if cppFile == nil then
         return {
             success = false,

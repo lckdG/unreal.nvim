@@ -73,4 +73,18 @@ function M.GetSourceFilesRoot()
     return rootPath ~= "." and rootPath or defaultRoot
 end
 
+function M.GetSourceHeader()
+    local extension = vim.fn.expand("%:t:e")
+    local info = require('unreal.config').info
+    local desiredExt = extension == info.CppExt and info.HeaderExt or info.CppExt
+
+    local fileName = vim.fn.expand("%:t:r")
+    local directory = M.GetSourceFilesRoot()
+    local switchingFiles = vim.fs.find(function (name, _)
+        return name:match(fileName .. "%." .. desiredExt)
+    end, { limit = 1, type = "file", path = directory })
+
+    return #switchingFiles > 0 and switchingFiles[1] or nil
+end
+
 return M
