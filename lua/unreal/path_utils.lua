@@ -56,11 +56,6 @@ function M.GetSourceFilesRoot()
 
     local rootPath = vim.fn.expand("%:.:h")
     while isWanted(getFolderName(rootPath)) == false do
-        rootPath = bubbleUp(rootPath)
-    end
-
-    -- If this is Public or Private dir, take its root directory
-    if isWanted(getFolderName(rootPath)) then
         local parentPath = bubbleUp(rootPath)
 
         if rootPath == parentPath then
@@ -68,6 +63,11 @@ function M.GetSourceFilesRoot()
         end
 
         rootPath = parentPath
+    end
+
+    -- If this is Public or Private dir, take its root directory
+    if isWanted(getFolderName(rootPath)) then
+        rootPath = bubbleUp(rootPath)
     end
 
     return rootPath ~= "." and rootPath or defaultRoot
