@@ -1,5 +1,6 @@
 ---@class (exact) UprojectFindOpts
 ---@field nameOnly boolean
+---@field upward boolean
 
 ---@class (exact) ParseEnginePathOpts
 ---@field path string
