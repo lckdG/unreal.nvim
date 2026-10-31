@@ -1,4 +1,3 @@
-local log = require('unreal.log')
 local pathUtils = require('unreal.path_utils')
 
 local M = {}
@@ -42,9 +41,6 @@ M.defaults = {
 
 function M.config(opts)
     M.opts = vim.tbl_deep_extend('force', M.defaults, opts or {})
-
-    --TODO: move to init.lua
-    log.Setup(M.info.PluginName)
 
     --TODO: move to init.lua
     M.HijackTreesitter()

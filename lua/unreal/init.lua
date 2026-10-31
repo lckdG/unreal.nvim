@@ -3,9 +3,13 @@ local M = {}
 ---Entry point for the plugin. Applies config, then registers the `:Unreal` command.
 ---@param opts ConfigOpts?
 function M.setup(opts)
-    require('unreal.config').config(opts)
+    local config = require('unreal.config')
+    config.config(opts)
 
-    local configOpts = require('unreal.config').opts
+    local info = config.info
+    local configOpts = config.opts
+
+    require('unreal.log').init(info)
     require('unreal.commands').init(configOpts)
 end
 
