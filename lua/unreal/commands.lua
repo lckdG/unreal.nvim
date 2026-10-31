@@ -8,13 +8,13 @@ end
 local function createCommands(config)
     local subcommands = {
         SetEnginePath = SetEnginePath,
-        OpenProject = require('unreal.functions').OpenUproject,
-        RebuildClangd = require('unreal.functions').RebuildClangd,
-        SwitchSourceHeader = require('unreal.functions').SwitchSourceHeader,
-        CreateImpl = require('unreal.functions').ImplementFunction,
-        CompleteMacro = require('unreal.functions').CompleteMacro,
-        FindSource = require('unreal.functions').FindSource,
-        GrepSource = require('unreal.functions').GrepSource,
+        OpenProject = require('unreal.project').OpenUproject,
+        RebuildClangd = require('unreal.project').RebuildClangd,
+        SwitchSourceHeader = require('unreal.search').SwitchSourceHeader,
+        CreateImpl = require('unreal.impl').ImplementFunction,
+        CompleteMacro = require('unreal.macros').CompleteMacro,
+        FindSource = require('unreal.search').FindSource,
+        GrepSource = require('unreal.search').GrepSource,
     }
 
     vim.api.nvim_create_user_command(config.command_lead, function (opts)
