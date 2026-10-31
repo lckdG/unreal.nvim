@@ -20,7 +20,7 @@ function M.OpenUproject()
         return
     end
 
-    function OpenUproject_Internal(projectPath)
+    local function OpenUproject_Internal(projectPath)
         local executeCmd = engine.GetExecuteCmd()
         table.insert(executeCmd, projectPath)
         vim.fn.jobstart(executeCmd, { detach = true })
@@ -55,7 +55,7 @@ function M.RebuildClangd()
         return
     end
 
-    function RebuildClangd_Internal(uprojectPath)
+    local function RebuildClangd_Internal(uprojectPath)
         local projectName = vim.fn.fnamemodify(uprojectPath, ":t:r")
         local projectEditor = projectName .. "Editor"
 
