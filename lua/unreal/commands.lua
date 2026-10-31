@@ -1,13 +1,7 @@
-local function SetEnginePath()
-    vim.ui.input({ prompt = "Enter Unreal path: ", completion = "dir" }, function (input)
-        require('unreal.config').SetEnginePath{ path = input, silent = false, savePath = true }
-    end)
-end
-
 ---@param config ConfigOpts
 local function createCommands(config)
     local subcommands = {
-        SetEnginePath = SetEnginePath,
+        SetEnginePath = require('unreal.engine').InputEnginePath,
         OpenProject = require('unreal.project').OpenUproject,
         RebuildClangd = require('unreal.project').RebuildClangd,
         SwitchSourceHeader = require('unreal.search').SwitchSourceHeader,

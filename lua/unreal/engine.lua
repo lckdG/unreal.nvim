@@ -140,9 +140,16 @@ function M.ReadEnginePath()
     return lockData[getProjectRoot()]
 end
 
+
+function M.InputEnginePath()
+    require('unreal.ui').Input("Enter Unreal Engine path: ", "dir", function (input)
+        M.SetEnginePath{ path = input, silent = false, savePath = true }
+    end)
+end
+
 function M.EnsureEnginePath()
     if M.EnginePathSet == false then
-        vim.cmd("Unreal SetEnginePath")
+        M.InputEnginePath()
     end
 
     return M.EnginePathSet

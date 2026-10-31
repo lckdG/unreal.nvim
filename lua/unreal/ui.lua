@@ -1,5 +1,13 @@
 local M = {}
 
+---
+---@param prompt string
+---@param completion string
+---@param callback function
+function M.Input(prompt, completion, callback)
+    vim.ui.input({ prompt = prompt, completion = completion }, callback)
+end
+
 ---Prompt an option panel for user to select.
 ---Inputs are numbers from 1-n for a n-options panel
 ---@param prompt string
