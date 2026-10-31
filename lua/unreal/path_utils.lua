@@ -81,7 +81,7 @@ function M.GetSourceHeader()
     local fileName = vim.fn.expand("%:t:r")
     local directory = M.GetSourceFilesRoot()
     local switchingFiles = vim.fs.find(function (name, _)
-        return name:match(fileName .. "%." .. desiredExt)
+        return name == fileName .. "." .. desiredExt
     end, { limit = 1, type = "file", path = directory })
 
     return #switchingFiles > 0 and switchingFiles[1] or nil
