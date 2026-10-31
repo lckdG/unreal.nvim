@@ -40,111 +40,17 @@ M.defaults = {
     }
 }
 
-local dataRoot = vim.fn.stdpath('data')
-
 function M.config(opts)
     M.opts = vim.tbl_deep_extend('force', M.defaults, opts or {})
 
+    --TODO: move to init.lua
     log.Setup(M.info.PluginName)
 
-    M.ConfigDir = vim.fs.joinpath(dataRoot, M.info.PluginName)
-    M.LockFilePath = vim.fs.joinpath(M.ConfigDir, M.info.LockFile)
-
-    if path.Exists(M.ConfigDir) == false then
-        vim.fn.mkdir(M.ConfigDir, "p")
-    end
-
-    if path.Exists(M.LockFilePath) == false then
-        local file = io.open(M.LockFilePath, "w")
-        if file then
-            file:close()
-        end
-    end
-
-    local enginePath = M.ReadEnginePath()
-    if enginePath == nil then
-        M.InitDefaults()
-    else
-        M.SetEnginePath { path = enginePath, silent = true, savePath = false }
-    end
-
+    --TODO: move to init.lua
     M.HijackTreesitter()
+
+    --TODO: move to telescope.lua
     M.AppendIgnorePatterns()
-end
-
-local function getProjectRoot()
-    local uprojects = require('unreal.utils').FindUprojects({
-        upward = true,
-        nameOnly = false,
-    })
-
-    if #uprojects == 0 then return vim.fn.getcwd() end
-    return vim.fn.fnamemodify(uprojects[1], ":p:h")
-end
-
-function M.ReadEnginePath()
-    local lockData = require('unreal.utils').ReadLockfile(M.LockFilePath)
-    if lockData == nil then return nil end
-
-    return lockData[getProjectRoot()]
-end
-
-function M.InitDefaults()
-    M.EnginePathSet = false
-    M.EnginePath = nil
-    M.BuildTool = nil
-end
-
----
----@param opts ParseEnginePathOpts
----@return boolean
-function M.ParseToolPaths(opts)
-    M.BuildTool = nil
-
-    local path = opts.path
-    local silent = opts.silent
-
-    local buildTool = require('unreal.utils').GetUbtPath(path)
-
-    if exists(buildTool) == false then
-        if silent == false then
-            log.Notify("Failed to parse tool paths!", vim.log.levels.ERROR)
-        end
-        return false
-    else
-        M.BuildTool = buildTool
-        return true
-    end
-end
-
----Set (and optionally persist) the Unreal Engine path used to locate UnrealBuildTool.
----@param opts ParseEnginePathOpts
-function M.SetEnginePath(opts)
-    M.EnginePath = nil
-    M.EnginePathSet = false
-
-    if M.ParseToolPaths(opts) then
-        M.EnginePath = opts.path
-        M.EnginePathSet = true
-
-        if opts.savePath then
-            M.SaveEnginePath(opts.path)
-        end
-    end
-end
-
-function M.SaveEnginePath(path)
-    local utils = require('unreal.utils')
-
-    local lockData = utils.ReadLockfile(M.LockFilePath) or {}
-    lockData[getProjectRoot()] = path
-
-    local success, msg = utils.WriteLockfile(M.LockFilePath, lockData)
-    if success then
-        log.Notify("Engine path updated successfully", vim.log.levels.INFO)
-    else
-        log.Notify("Save lock file failed: " .. msg, vim.log.levels.ERROR)
-    end
 end
 
 function M.HijackTreesitter()
@@ -196,14 +102,6 @@ function M.GetClangdBuildArgs()
     if args == nil then return "" end
 
     return table.concat(args, " ")
-end
-
-function M.EnsureEnginePath()
-    if M.EnginePathSet == false then
-        vim.cmd("Unreal SetEnginePath")
-    end
-
-    return M.EnginePathSet
 end
 
 return M

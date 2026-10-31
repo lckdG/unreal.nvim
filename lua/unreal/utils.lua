@@ -5,37 +5,6 @@ function M.HasClangdEnabled()
     return #clients > 0
 end
 
----Find uproject files in current directory
----@param opts UprojectFindOpts
----@return table
-function M.FindUprojects(opts)
-    if opts == nil then
-        opts = {
-            upward = false,
-            nameOnly = false,
-        }
-    end
-
-    local files = vim.fs.find(function(name, _)
-        return name:match('.*%.uproject')
-    end, {
-        upward = opts.upward or false,
-        path = opts.upward and vim.fn.getcwd() or nil,
-        type = "file",
-    })
-
-    if opts.nameOnly then
-        local result = {}
-        for _, file in ipairs(files) do
-            table.insert(result, vim.fs.basename(file))
-        end
-
-        return result
-    end
-
-    return files
-end
-
 function M.IsUnrealProject()
     local uprojectFiles = M.FindUprojects { nameOnly = false }
     return #uprojectFiles > 0
@@ -149,34 +118,7 @@ function M.OpenBuffer(fileName)
     return buf
 end
 
-function M.ReadLockfile(filePath)
-    local file = io.open(filePath, "r")
-    if file == nil then return nil end
 
-    local content = file:read('a')
-    file:close()
-
-    local ok, data = pcall(vim.json.decode, content)
-    if not ok or type(data) ~= "table" then return nil end
-
-    return data
-end
-
-function M.WriteLockfile(filePath, data)
-    if type(data) ~= "table" then
-        return false, "Incorrect data format"
-    end
-
-    local file = io.open(filePath, "w")
-    if file then
-        file:write(vim.json.encode(data))
-        file:close()
-
-        return true, ""
-    end
-
-    return false, "Unable to write to lock file"
-end
 
 return M
 
