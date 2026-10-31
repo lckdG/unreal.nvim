@@ -32,7 +32,7 @@ function M.OpenUproject()
     elseif #uprojectFiles == 1 then
         OpenUproject_Internal(uprojectFiles[1])
     else
-        require('unreal.ui').SelectOptions(
+        require('unreal.ui').SelectOptionsCb(
             "Multiple uproject found, choose one",
             uprojectFiles,
             OpenUproject_Internal
@@ -85,7 +85,7 @@ function M.RebuildClangd()
     elseif #uprojectFiles == 1 then
         RebuildClangd_Internal(uprojectFiles[1])
     else
-        require('unreal.ui').SelectOptions(
+        require('unreal.ui').SelectOptionsCb(
             "Multiple uproject found, choose one",
             uprojectFiles,
             RebuildClangd_Internal

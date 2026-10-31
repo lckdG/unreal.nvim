@@ -4,20 +4,28 @@ local M = {}
 ---Inputs are numbers from 1-n for a n-options panel
 ---@param prompt string
 ---@param options table
----@param callback function
-function M.SelectOptions(prompt, options, callback)
-    for index, file in ipairs(options) do
-        prompt = prompt .. tostring(index) .. ": " .. file .. "\n"
+---@return number
+function M.SelectOptions(prompt, options)
+    for index, opt in ipairs(options) do
+        prompt = prompt .. tostring(index) .. ": " .. opt .. "\n"
     end
 
-    vim.ui.input({ prompt = prompt }, function (input)
-        if input == nil or input == "" then
-            return
-        end
+    return vim.fn.inputlist(prompt)
+end
 
-        local chosen = tonumber(input)
-        callback(options[chosen])
-    end)
+---Prompt an option panel for user to select.
+---Inputs are numbers from 1-n for a n-options panel
+---This option also trigger a callback
+---@param prompt string
+---@param options table
+---@param callback function
+function M.SelectOptionsCb(prompt, options, callback)
+    local index = M.SelectOptions(prompt, options)
+    if index == nil or index <= 0 or index > #options then
+        return
+    end
+
+    callback(options[index])
 end
 
 return M
