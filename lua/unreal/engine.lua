@@ -16,6 +16,17 @@ local function getProjectRoot()
     return vim.fn.fnamemodify(uprojects[1], ":p:h")
 end
 
+local function parseUbtPath(engineDir)
+    return vim.fs.joinpath(
+        engineDir,
+        "Engine",
+        "Binaries",
+        "DotNET",
+        "UnrealBuildTool",
+        "UnrealBuildTool.dll"
+    )
+end
+
 local function readLockfile(filePath)
     local file = io.open(filePath, "r")
     if file == nil then return nil end
@@ -106,7 +117,7 @@ function M.parseToolPaths(opts)
     local path = opts.path
     local silent = opts.silent
 
-    local buildTool = require('unreal.utils').GetUbtPath(path)
+    local buildTool = parseUbtPath(path)
 
     if pathUtils.Exists(buildTool) == false then
         if silent == false then

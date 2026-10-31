@@ -26,7 +26,7 @@ function M.OpenUproject()
         vim.fn.jobstart(executeCmd, { detach = true })
     end
 
-    local uprojectFiles = pathUtils.FindUprojects{ nameOnly = false }
+    local uprojectFiles = pathUtils.FindUprojects{ nameOnly = false, upward = false }
     if #uprojectFiles == 0 then
         log.Notify("No uproject file found!", logLevel.ERROR)
     elseif #uprojectFiles == 1 then
@@ -38,8 +38,6 @@ function M.OpenUproject()
             OpenUproject_Internal
         )
     end
-    M.SelectUproject(function (projectPath)
-    end, { nameOnly = false })
 end
 
 ---Regenerate `compile_commands.json` via UnrealBuildTool and copy it into the working directory.
