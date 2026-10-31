@@ -39,12 +39,14 @@ function M.ImplementFunction()
     local parsed = M.ParseImplementation(declarationTemplate)
     local buf = system.OpenBuffer(cppFile)
 
-    local implLine = M.FindImplementation(buf, parsed[2])
+    local implLine = search.FindImplementation(buf, parsed[2])
     if implLine == -1 then
         local insertLine = vim.api.nvim_buf_line_count(buf)
         vim.api.nvim_buf_set_lines(buf, insertLine, insertLine, false, parsed)
 
         implLine = insertLine
+    else
+        log.Notify("Function is already implemented at line " .. implLine, logLevel.INFO)
     end
 
     vim.api.nvim_set_current_buf(buf)
@@ -122,19 +124,6 @@ function M.ParseImplementation(declaration)
     table.insert(content, "}")
 
     return content
-end
-
-function M.FindImplementation(buf, marker)
-    -- String matching, should be token checks
-    local bufLines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-    for index, line in ipairs(bufLines) do
-        if line == marker then
-            log.Notify("Function already defined at line " .. tostring(index), logLevel.INFO)
-            return index
-        end
-    end
-
-    return -1
 end
 
 return M
