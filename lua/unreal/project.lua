@@ -68,7 +68,7 @@ function M.RebuildClangd()
                             .. " " .. system.GetPlatform() .. " Development"
         vim.cmd(buildCommand)
 
-        local sourceCC = vim.fs.joinpath(config.EnginePath, info.CCFile)
+        local sourceCC = vim.fs.joinpath(engine.EnginePath, info.CCFile)
         local destCC = vim.fs.joinpath(vim.fn.getcwd(), info.CCFile)
 
         local ok, err = vim.uv.fs_copyfile(sourceCC, destCC)
