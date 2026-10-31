@@ -14,11 +14,12 @@ end
 ---@param options table
 ---@return number
 function M.SelectOptions(prompt, options)
+    local prompts = { prompt }
     for index, opt in ipairs(options) do
-        prompt = prompt .. tostring(index) .. ": " .. opt .. "\n"
+        table.insert(prompts,  tostring(index) .. ": " .. opt)
     end
 
-    return vim.fn.inputlist(prompt)
+    return vim.fn.inputlist(prompts)
 end
 
 ---Prompt an option panel for user to select.
