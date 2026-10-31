@@ -25,6 +25,7 @@ function M.FindUprojects(opts)
     end, {
         upward = opts.upward or false,
         path = opts.upward and vim.fn.getcwd() or nil,
+        limit = math.huge,
         type = "file",
     })
 
