@@ -58,26 +58,37 @@ function M.RebuildClangd()
         local projectEditor = projectName .. "Editor"
 
         local buildTool = engine.BuildTool
-        local buildCommand = "!dotnet " .. buildTool
-                            .. " -mode=GenerateClangDatabase"
-                            .. " " .. config.GetClangdBuildArgs()
-                            .. " -project=" .. uprojectPath
-                            .. " -game -engine " .. projectEditor
-                            .. " " .. system.GetPlatform() .. " Development"
-        vim.cmd(buildCommand)
+        local commandParts = {
+            "dotnet",
+            buildTool,
+            "-mode=GenerateClangDatabase"
+        }
 
-        local sourceCC = vim.fs.joinpath(engine.EnginePath, info.CCFile)
-        local destCC = vim.fs.joinpath(vim.fn.getcwd(), info.CCFile)
+        commandParts = vim.iter({
+                commandParts,
+                config.GetClangdBuildArgs(),
+                { "-project=" .. uprojectPath, "-game", "-engine", projectEditor, system.GetPlatform(), "Development" }
+            }):flatten():totable()
 
-        local ok, err = vim.uv.fs_copyfile(sourceCC, destCC)
-        if ok then
-            log.Notify("Rebuild database successfully!", logLevel.INFO)
-        else
-            log.Notify("Failed to copy compile_commands file: " .. tostring(err), logLevel.ERROR)
-        end
+        vim.system(commandParts, function (exitInfo)
+            if exitInfo.code ~= 0 then
+                log.Notify("Rebuild Clangd failed", logLevel.ERROR)
+                return
+            end
+
+            local sourceCC = vim.fs.joinpath(engine.EnginePath, info.CCFile)
+            local destCC = vim.fs.joinpath(vim.fn.getcwd(), info.CCFile)
+
+            local ok, err = vim.uv.fs_copyfile(sourceCC, destCC)
+            if ok then
+                log.Notify("Rebuild database successfully!", logLevel.INFO)
+            else
+                log.Notify("Failed to copy compile_commands file: " .. tostring(err), logLevel.ERROR)
+            end
+        end)
     end
 
-    local uprojectFiles = pathUtils.FindUprojects{ nameOnly = false }
+    local uprojectFiles = pathUtils.FindUprojects{ nameOnly = false, upward = false }
     if #uprojectFiles == 0 then
         log.Notify("No uproject file found!", logLevel.ERROR)
     elseif #uprojectFiles == 1 then

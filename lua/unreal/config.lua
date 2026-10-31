@@ -45,9 +45,9 @@ end
 
 function M.GetClangdBuildArgs()
     local args = M.opts.clangd_build_args
-    if args == nil then return "" end
+    if args == nil then return {} end
 
-    return table.concat(args, " ")
+    return args
 end
 
 return M
