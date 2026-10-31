@@ -1,4 +1,5 @@
 local logs = require('unreal.logs')
+local pathUtils = require('unreal.path_utils')
 
 local M = {}
 
@@ -11,11 +12,6 @@ M.info = {
 
     CCFile = "compile_commands.json",
 }
-
-local function makeDirectory(name)
-    local slash = package.config:sub(1, 1)
-    return name .. slash
-end
 
 ---@type ConfigOpts
 M.defaults = {
@@ -33,11 +29,11 @@ M.defaults = {
         "%.uexp", "%.dmp", "%.pb", "%.bin", -- Something I dont really know :)
 
         -- Generated Directories
-        makeDirectory("Binaries"),
-        makeDirectory("Build"),
-        makeDirectory("DerivedDataCache"),
-        makeDirectory("Intermediate"),
-        makeDirectory("Cooked")
+        pathUtils.NameToDirectory("Binaries"),
+        pathUtils.NameToDirectory("Build"),
+        pathUtils.NameToDirectory("DerivedDataCache"),
+        pathUtils.NameToDirectory("Intermediate"),
+        pathUtils.NameToDirectory("Cooked")
     },
     clangd_build_args = {
         "-NoExecCodeGenActions",
@@ -45,20 +41,6 @@ M.defaults = {
 }
 
 local dataRoot = vim.fn.stdpath('data')
-
-local function exists(path)
-    local handle, err = io.open(path .. "/.", "r")
-    if handle then
-        io.close(handle)
-        return true
-    else
-        if string.match(tostring(err), "No such file or directory") then
-            return false
-        else
-            return true
-        end
-    end
-end
 
 function M.config(opts)
     M.opts = vim.tbl_deep_extend('force', M.defaults, opts or {})
@@ -68,11 +50,11 @@ function M.config(opts)
     M.ConfigDir = vim.fs.joinpath(dataRoot, M.info.PluginName)
     M.LockFilePath = vim.fs.joinpath(M.ConfigDir, M.info.LockFile)
 
-    if exists(M.ConfigDir) == false then
+    if path.Exists(M.ConfigDir) == false then
         vim.fn.mkdir(M.ConfigDir, "p")
     end
 
-    if exists(M.LockFilePath) == false then
+    if path.Exists(M.LockFilePath) == false then
         local file = io.open(M.LockFilePath, "w")
         if file then
             file:close()
