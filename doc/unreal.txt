@@ -20,16 +20,8 @@ M.defaults()                                                    *M.defaults()*
 
 
 
-M.ParseToolPaths({opts})                                  *M.ParseToolPaths()*
 
-
-    Parameters: ~
-        {opts} (ParseEnginePathOpts)
-
-    Return: ~
-        boolean
-
-
+================================================================================
 M.SetEnginePath({opts})                                    *M.SetEnginePath()*
     Set (and optionally persist) the Unreal Engine path used to locate
     UnrealBuildTool.
@@ -39,42 +31,24 @@ M.SetEnginePath({opts})                                    *M.SetEnginePath()*
         {opts} (ParseEnginePathOpts)
 
 
+M.parseToolPaths()                                        *M.parseToolPaths()*
+
+
+    Return: ~
+        boolean
+
+
 
 ================================================================================
-M.SwitchSourceHeader()                                *M.SwitchSourceHeader()*
-    Open the matching source/header file. Searches under the Public/Private
-    source root first, falls back to clangd's switch-source-header if
-    unresolved.
+M.check()                                                          *M.check()*
+    Run `:checkhealth unreal` diagnostics: telescope.nvim,
+    `rg`/`clangd`/`dotnet` on PATH (with version if found), and whether an
+    engine path is resolved for the current project.
 
 
 
-M.SelectUproject({fn}, {findOpts})                        *M.SelectUproject()*
-    Resolve the `.uproject` file(s) in the current directory tree and run
-    `fn(path)` on it. If more than one is found, prompts the user to pick one
-    by index first. If none are found, the picker prompt is shown empty and
-    `fn` is never called.
 
-
-    Parameters: ~
-        {fn}       (function)
-        {findOpts} (UprojectFindOpts)
-
-
-M.OpenUproject()                                            *M.OpenUproject()*
-    Open the `.uproject` file in the current directory with the OS default
-    handler. Prompts to choose one if multiple are found; no-ops if none are
-    found.
-
-
-
-M.RebuildClangd()                                          *M.RebuildClangd()*
-    Regenerate `compile_commands.json` via UnrealBuildTool and copy it into the
-    working directory. Uses `clangd_build_args` from setup() config for extra
-    UBT arguments. Prompts for an engine path if none is set yet; aborts if
-    still unresolved.
-
-
-
+================================================================================
 M.ImplementFunction()                                  *M.ImplementFunction()*
     Generate a `.cpp` implementation stub for the function declaration under
     the cursor. Requires an open header file; jumps to the existing
@@ -93,6 +67,36 @@ M.ParseImplementation({declaration})                 *M.ParseImplementation()*
         table
 
 
+
+================================================================================
+M.setup({opts})                                                    *M.setup()*
+    Entry point for the plugin. Applies config, then registers the `:Unreal`
+    command.
+
+
+    Parameters: ~
+        {opts} (ConfigOpts)  ?
+
+
+
+================================================================================
+M.init({info})                                                      *M.init()*
+
+
+    Parameters: ~
+        {info} (table)
+
+
+M.Notify({msg}, {level})                                          *M.Notify()*
+
+
+    Parameters: ~
+        {msg}   (string)
+        {level} (vim)     .log.levels
+
+
+
+================================================================================
 M.CompleteMacro()                                          *M.CompleteMacro()*
     Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` attribute under the
     cursor via telescope. Requires an attached clangd client; silently no-ops
@@ -103,6 +107,45 @@ M.CompleteMacro()                                          *M.CompleteMacro()*
     there as a reference, not exhaustive -- see unreal-garden
     (https://unreal-garden.com) for the complete set of specifiers per macro.
 
+
+
+
+================================================================================
+M.OpenUproject()                                            *M.OpenUproject()*
+    Open the `.uproject` file in the current directory with the OS default
+    handler. Prompts to choose one if multiple are found; no-ops if none are
+    found.
+
+
+
+M.RebuildClangd()                                          *M.RebuildClangd()*
+    Regenerate `compile_commands.json` via UnrealBuildTool and copy it into the
+    working directory. Uses `clangd_build_args` from setup() config for extra
+    UBT arguments. Prompts for an engine path if none is set yet; aborts if
+    still unresolved.
+
+
+
+
+================================================================================
+M.SwitchSourceHeader()                                *M.SwitchSourceHeader()*
+    Open the matching source/header file. Searches under the Public/Private
+    source root first, falls back to clangd's switch-source-header if
+    unresolved.
+
+
+
+M.FindImplementation({buf}, {marker})                 *M.FindImplementation()*
+    Compare a buffer content with the marker TODO: use treesitter token for
+    comparison
+
+
+    Parameters: ~
+        {buf}    (number)
+        {marker} (string)
+
+    Return: ~
+        number
 
 
 M.FindSource()                                                *M.FindSource()*
@@ -123,43 +166,6 @@ M.GrepSource()                                                *M.GrepSource()*
         `live_grep` to filter results. No-ops if the prompt is dismissed or an
         invalid choice is entered.
 
-
-
-
-================================================================================
-M.check()                                                          *M.check()*
-    Run `:checkhealth unreal` diagnostics: telescope.nvim,
-    `rg`/`clangd`/`dotnet` on PATH (with version if found), and whether an
-    engine path is resolved for the current project.
-
-
-
-
-================================================================================
-M.setup({opts})                                                    *M.setup()*
-    Entry point for the plugin. Applies config, then registers the `:Unreal`
-    command.
-
-
-    Parameters: ~
-        {opts} (ConfigOpts)  ?
-
-
-
-================================================================================
-M.Setup({pluginName})                                              *M.Setup()*
-
-
-    Parameters: ~
-        {pluginName} (string)
-
-
-M.Notify({msg}, {level})                                          *M.Notify()*
-
-
-    Parameters: ~
-        {msg}   (string)
-        {level} (vim)     .log.levels
 
 
 

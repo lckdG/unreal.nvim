@@ -3,8 +3,9 @@ local M = {}
 M.PluginName = ""
 
 ---
----@param pluginName string
-function M.Setup(pluginName)
+---@param info table
+function M.init(info)
+    local pluginName = info.PluginName
     M.PluginName = pluginName .. " "
 end
 

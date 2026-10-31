@@ -33,7 +33,7 @@ end
 
 local function check_engine_path()
     local health = vim.health
-    local enginePath = require("unreal.config").ReadEnginePath()
+    local enginePath = require("unreal.engine").ReadEnginePath()
 
     if enginePath then
         health.ok("Engine path found: " .. enginePath)

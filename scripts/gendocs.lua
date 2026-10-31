@@ -3,9 +3,13 @@ local docgen = require("docgen")
 local input_files = {
     "lua/unreal/init.lua",
     "lua/unreal/config.lua",
-    "lua/unreal/functions.lua",
+    "lua/unreal/engine.lua",
+    "lua/unreal/project.lua",
+    "lua/unreal/search.lua",
+    "lua/unreal/impl.lua",
+    "lua/unreal/macros.lua",
     "lua/unreal/health.lua",
-    "lua/unreal/logs.lua",
+    "lua/unreal/log.lua",
 }
 table.sort(input_files)
 

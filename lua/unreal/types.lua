@@ -1,5 +1,6 @@
 ---@class (exact) UprojectFindOpts
 ---@field nameOnly boolean
+---@field upward boolean
 
 ---@class (exact) ParseEnginePathOpts
 ---@field path string
@@ -18,6 +19,7 @@
 
 ---@class (exact) ConfigOpts
 ---@field custom_treesitter CustomTreesitterOpts?
+---@field command_lead string
 ---@field cmd_abbreviations table?
 ---@field telescope_extended_ignores table?
 ---@field clangd_build_args table?
