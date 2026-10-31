@@ -42,7 +42,7 @@ local function createAbbrevs(config)
     local command_lead = config.command_lead
 
     for abbrev, command in pairs(cmd_abbrevs) do
-        cabbr(abbrev, command_lead .. command)
+        cabbr(abbrev, command_lead .. " " .. command)
     end
 end
 
