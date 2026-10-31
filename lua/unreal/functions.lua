@@ -6,19 +6,6 @@ local logLevel = vim.log.levels
 
 local M = {}
 
----Open the matching source/header file. Searches under the Public/Private
----source root first, falls back to clangd's switch-source-header if unresolved.
-function M.SwitchSourceHeader()
-    local switchingFile = utils.GetSourceHeader()
-    if switchingFile ~= nil then
-        vim.cmd("e " .. switchingFile)
-    elseif utils.HasClangdEnabled() then
-        vim.cmd("LspClangdSwitchSourceHeader")
-    else
-        log.Notify("No matching file name or clangd enabled!", logLevel.ERROR)
-    end
-end
-
 ---Generate a `.cpp` implementation stub for the function declaration under the cursor.
 ---Requires an open header file; jumps to the existing implementation instead of
 ---duplicating it if one is already present in the target `.cpp` file.
@@ -315,56 +302,6 @@ function M.CompleteMacro()
             vim.api.nvim_win_set_cursor(0, { insertRow + 1, insertCol + #insertion })
         end)
     end)
-end
-
-function M.getInputSourceTypes()
-    local index = vim.fn.inputlist({'Select source types:', '1. All', '2. Headers', '3. Cpp'})
-
-    if index <= 0 or index > 3 then
-        log.Notify("Invalid search choice " .. index, vim.log.levels.WARN)
-        return nil
-    end
-
-    if index == 1 then
-        return "*.{h,cpp}"
-    elseif index == 2 then
-        return "*.h"
-    elseif index == 3 then
-        return "*.cpp"
-    end
-
-    return nil
-end
-
----Find header/cpp/both files via telescope. Prompts for scope:
----  1. All     - `*.{h,cpp}`
----  2. Headers - `*.h`
----  3. Cpp     - `*.cpp`
----The chosen glob is sent to telescope's ripgrep-backed `find_files` to filter results.
----No-ops if the prompt is dismissed or an invalid choice is entered.
-function M.FindSource()
-    local globPattern = M.getInputSourceTypes()
-    if globPattern == nil then return end
-
-    local types = { "rg", "--files", "-g" , globPattern }
-    require('telescope.builtin').find_files({
-        find_command = types
-    })
-end
-
----Live grep header/cpp/both files via telescope. Prompts for scope:
----  1. All     - `*.{h,cpp}`
----  2. Headers - `*.h`
----  3. Cpp     - `*.cpp`
----The chosen glob is sent to telescope's ripgrep-backed `live_grep` to filter results.
----No-ops if the prompt is dismissed or an invalid choice is entered.
-function M.GrepSource()
-    local globPattern = M.getInputSourceTypes()
-    if globPattern == nil then return end
-
-    require('telescope.builtin').live_grep({
-        additional_args = { '-g', globPattern }
-    })
 end
 
 return M

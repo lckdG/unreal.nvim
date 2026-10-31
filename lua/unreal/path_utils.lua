@@ -40,4 +40,37 @@ function M.FindUprojects(opts)
     return files
 end
 
+function M.GetSourceFilesRoot()
+    local defaultRoot = "Source"
+    local function isWanted(name)
+        return name == "Public" or name == "Private"
+    end
+
+    local function getFolderName(path)
+        return vim.fn.fnamemodify(path, ":t")
+    end
+
+    local function bubbleUp(path)
+        return vim.fn.fnamemodify(path, ":h")
+    end
+
+    local rootPath = vim.fn.expand("%:.:h")
+    while isWanted(getFolderName(rootPath)) == false do
+        rootPath = bubbleUp(rootPath)
+    end
+
+    -- If this is Public or Private dir, take its root directory
+    if isWanted(getFolderName(rootPath)) then
+        local parentPath = bubbleUp(rootPath)
+
+        if rootPath == parentPath then
+            return defaultRoot
+        end
+
+        rootPath = parentPath
+    end
+
+    return rootPath ~= "." and rootPath or defaultRoot
+end
+
 return M
