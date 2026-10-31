@@ -4,7 +4,9 @@ local system    = require('unreal.system')
 
 local logLevel = vim.log.levels
 
-local function getSourceHeader()
+local M = {}
+
+function M.GetSourceHeader()
     local extension = vim.fn.expand("%:t:e")
     local info = require('unreal.config').info
     local desiredExt = extension == info.CppExt and info.HeaderExt or info.CppExt
@@ -18,12 +20,10 @@ local function getSourceHeader()
     return #switchingFiles > 0 and switchingFiles[1] or nil
 end
 
-local M = {}
-
 ---Open the matching source/header file. Searches under the Public/Private
 ---source root first, falls back to clangd's switch-source-header if unresolved.
 function M.SwitchSourceHeader()
-    local switchingFile = getSourceHeader()
+    local switchingFile = M.GetSourceHeader()
     if switchingFile ~= nil then
         vim.cmd("e " .. switchingFile)
     elseif system.HasClangdEnabled() then

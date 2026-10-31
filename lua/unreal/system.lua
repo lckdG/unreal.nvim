@@ -15,4 +15,14 @@ function M.HasClangdEnabled()
     return #clients > 0
 end
 
+function M.OpenBuffer(fileName)
+    local buf = vim.fn.bufnr(fileName)
+    if buf == -1 or not vim.api.nvim_buf_is_loaded(buf) then
+        buf = vim.fn.bufadd(fileName)
+        vim.fn.bufload(buf)
+    end
+
+    return buf
+end
+
 return M
