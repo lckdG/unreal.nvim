@@ -11,7 +11,7 @@ local M = {}
 function M.SwitchSourceHeader()
     local switchingFile = pathUtils.GetSourceHeader()
     if switchingFile ~= nil then
-        vim.cmd("e " .. switchingFile)
+        vim.cmd.edit(vim.fn.fnameescape(switchingFile))
     elseif system.HasClangdEnabled() then
         vim.cmd("LspClangdSwitchSourceHeader")
     else
