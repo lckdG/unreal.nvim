@@ -5,6 +5,9 @@ M.Keys = {
     DeclName = "function.name",
     DeclParamIdentifier = "function.params.identifier",
     MacroDeclaration = "macro.declaration",
+    MacroIdentifier = "macro.argument.identifier",
+    MacroMetaIdentifier = "macro.meta.identifier",
+    MacroSpecifierList = "unreal_specifier_list",
     TypeIdentifier = "type_identifier",
     TypeDeclaration = {
         "unreal_class_declaration",
@@ -178,9 +181,12 @@ end
 ---
 ---@return TSNode? macroNode
 ---@return string macroIdentifier
----@return table existedVariables
+---@return ExistedMacroVaiables existedVariables
 function M.GetMacro()
-    local existedVariables = {}
+    local existedVariables = {
+        arguments = {},
+        metas = {}
+    }
 
     local success, queryInfo = M.PrepareForQuery()
     if not success then
@@ -211,13 +217,69 @@ function M.GetMacro()
             else
                 identifier = text
             end
+        elseif query.captures[id] == M.Keys.MacroIdentifier then
+            local text = vim.treesitter.get_node_text(capturedNode, bufnr)
+            if text ~= "meta" then
+                table.insert(existedVariables.arguments, text)
+            end
         else
             local text = vim.treesitter.get_node_text(capturedNode, bufnr)
-            table.insert(existedVariables, text)
+            table.insert(existedVariables.metas, text)
         end
     end
 
     return macroNode, identifier, existedVariables
+end
+
+---Get the position for the next macro variable
+---New variable is always appended to the end of the list
+---If there is meta=(...) the function will always return the position before it
+---The append rule applies for meta-specific values
+---@param macroNode TSNode
+---@param isMeta boolean
+---@return MacroAddType addType
+---@return number row
+---@return number col
+function M.GetNextMacroPosition(macroNode, isMeta)
+    local types = require('unreal.types')
+    local _, _, endRow, endCol = macroNode:range()
+
+    local argumentList = macroNode:child(1)
+    if argumentList == nil then
+        return types.MACRO_ADD_TYPE.First, endRow, endCol - 1
+    end
+
+    local specifierList = argumentList:child(1)
+    if specifierList == nil or specifierList:type() ~= M.Keys.MacroSpecifierList then
+        return types.MACRO_ADD_TYPE.First, endRow, endCol - 1
+    end
+
+    local metaNode = nil
+    for node, _ in specifierList:iter_children() do
+        if node:child_count() > 1 then
+            local childNode = node:child(0)
+            if childNode ~= nil then
+                local macroName = vim.treesitter.get_node_text(childNode, 0)
+                if macroName == "meta" then
+                    metaNode = node
+                    break
+                end
+            end
+        end
+    end
+
+    if metaNode ~= nil then
+        local _, metaStartCol, metaEndRow, metaEndCol = metaNode:range()
+        if isMeta == false then
+            return types.MACRO_ADD_TYPE.Prepend, metaEndRow, metaStartCol
+        else
+            return types.MACRO_ADD_TYPE.AppendMeta, metaEndRow, metaEndCol - 1
+        end
+    else
+        -- NOTE: if the flow goes here, there's always at least one sibling
+        -- Because unreal_specifier_list is only present if #list > 0
+        return types.MACRO_ADD_TYPE.Append, endRow, endCol - 1
+    end
 end
 
 return M

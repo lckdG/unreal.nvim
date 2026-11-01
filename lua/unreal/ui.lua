@@ -52,7 +52,7 @@ function M.EntryPicker(completionList, callback)
             results = completionList,
             entry_maker = function (entry)
                 return {
-                    value = entry.name,
+                    value = entry.value,
                     ordinal = entry.name,
                     display = entry.name,
                     desc = entry.desc,

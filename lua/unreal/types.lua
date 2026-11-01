@@ -1,3 +1,5 @@
+local Types = {}
+
 ---@class (exact) UprojectFindOpts
 ---@field nameOnly boolean
 ---@field upward boolean
@@ -23,3 +25,22 @@
 ---@field cmd_abbreviations table?
 ---@field telescope_extended_ignores table?
 ---@field clangd_build_args table?
+
+---@class (exact) ExistedMacroVaiables
+---@field arguments string[]
+---@field metas string[]
+
+---@class (exact) MacroCompletionRequest
+---@field identifier string
+---@field lspClient vim.lsp.Client
+---@field exclusions string[]
+
+---@enum MacroAddType
+Types.MACRO_ADD_TYPE = {
+  First = 1,
+  Append = 2,
+  Prepend = 3,
+  AppendMeta = 4,
+}
+
+return Types

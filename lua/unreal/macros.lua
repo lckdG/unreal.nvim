@@ -3,13 +3,8 @@ local treesitter = require('unreal.treesitter')
 
 local logLevel = vim.log.levels
 
-local function createCompletionEntry(rawEntry, exclusions)
-    local function trim(str)
-        local res, _ = string.gsub(str, "^%s(.-)%s*$", '%1')
-        return res
-    end
-
-    local label = trim(rawEntry.label)
+local function createCompletionEntry(rawEntry, namespace, exclusions)
+    local label = vim.trim(rawEntry.label)
     if vim.tbl_contains(exclusions, label) then
         return nil
     end
@@ -26,20 +21,23 @@ local function createCompletionEntry(rawEntry, exclusions)
     local descLines = vim.split(desc, "\n")
 
     return {
-        name = label,
+        name = namespace .. "::" .. label,
+        value = { text = label, isMeta = namespace == "UM" },
         desc = descLines
     }
 end
 
-local function getMacroCompletions(macroIdentifier, lspClient, exclusions, callback)
+---
+---@param request MacroCompletionRequest
+local function getMacroCompletions(request)
     local tempBufnr = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_name(tempBufnr, "resolver")
 
-    local namespace = string.sub(macroIdentifier, 1, 2)
+    local namespace = string.sub(request.identifier, 1, 2)
     local insertTerm = namespace .. "::"
 
     vim.api.nvim_buf_set_lines(tempBufnr, 0, 0, false, { insertTerm })
-    vim.lsp.buf_attach_client(tempBufnr, lspClient.id)
+    vim.lsp.buf_attach_client(tempBufnr, request.lspClient.id)
 
     local params = {
         textDocument = vim.lsp.util.make_text_document_params(tempBufnr),
@@ -52,26 +50,61 @@ local function getMacroCompletions(macroIdentifier, lspClient, exclusions, callb
         }
     }
 
-    vim.lsp.buf_request(tempBufnr, "textDocument/completion", params, function (err, result)
-        if err ~= nil then
-            print(err)
-            callback(nil)
-        else
-            table.insert(exclusions, namespace)
+    local async = require('plenary.async')
+    local requestLsp = async.wrap(function(bufnr, method, param, callback)
+        vim.lsp.buf_request(bufnr, method, param, callback)
+    end, 4)
 
-            local entries = {}
-            for _, item in ipairs(result.items) do
-                local entry = createCompletionEntry(item, exclusions)
-                if entry ~= nil then
-                    table.insert(entries, entry)
-                end
-            end
-
-            callback(entries)
-        end
-    end)
-
+    local err, result = requestLsp(tempBufnr, "textDocument/completion", params)
     vim.api.nvim_buf_delete(tempBufnr, { force = true })
+
+    if err ~= nil then
+        log.Notify("Completion request error: " .. (err.message or vim.inspect(err)), logLevel.ERROR)
+        return {}
+    end
+
+    local exclusions = vim.list_extend({ namespace }, request.exclusions)
+    local entries = {}
+
+    for _, item in ipairs(result and (result.items or result) or {}) do
+        local entry = createCompletionEntry(item, namespace, exclusions)
+        if entry ~= nil then
+            table.insert(entries, entry)
+        end
+    end
+
+    return entries
+end
+
+---
+---@param macroNode TSNode
+---@param value table
+local function addMacro(macroNode, value)
+    local text = value.text
+    local isMeta = value.isMeta
+
+    local addType, addRow, addCol = treesitter.GetNextMacroPosition(macroNode, isMeta)
+
+    local types = require('unreal.types')
+    local content = text
+
+    if isMeta then
+        if addType == types.MACRO_ADD_TYPE.AppendMeta then
+            content = ", " .. content
+        else
+            content = "meta = (" .. text .. ")"
+            if addType == types.MACRO_ADD_TYPE.Append then
+                content = ", " .. content
+            end
+        end
+    elseif addType == types.MACRO_ADD_TYPE.Append then
+        content = ", " .. content
+    elseif addType == types.MACRO_ADD_TYPE.Prepend then
+        content = content .. ", "
+    end
+
+    vim.api.nvim_buf_set_text(0, addRow, addCol, addRow, addCol, { content })
+    vim.api.nvim_win_set_cursor(0, { addRow + 1, addCol + #content })
 end
 
 local M = {}
@@ -89,7 +122,7 @@ function M.CompleteMacro()
     end
 
     local errorMsg = "No valid macro under cursor detected"
-    local macroNode, macroIdentifier, existedVariables = treesitter.GetMacro()
+    local macroNode, identifier, existedVariables = treesitter.GetMacro()
 
     if macroNode == nil then
         log.Notify(errorMsg, logLevel.ERROR)
@@ -98,21 +131,25 @@ function M.CompleteMacro()
 
     ---@type vim.lsp.Client
     local lspClient = vim.lsp.get_clients{ name = "clangd", bufnr = 0 }[1]
-    getMacroCompletions(macroIdentifier, lspClient, existedVariables, function (completionList)
-        if completionList == nil then
+
+    local async = require('plenary.async')
+    async.run(function()
+        local namespaceCompletions = getMacroCompletions{ identifier = identifier, lspClient = lspClient, exclusions = existedVariables.arguments }
+
+        -- We need the UM:: here
+        -- The rest are just for human readability
+        local metaCompletions = getMacroCompletions{ identifier = "UMETA", lspClient = lspClient, exclusions = existedVariables.metas }
+
+        if #namespaceCompletions + #metaCompletions == 0 then
             return
         end
 
+        local completionList = vim.list_extend(namespaceCompletions, metaCompletions)
         require('unreal.ui').EntryPicker(completionList, function (entry)
-            local _, _, endRow, endCol = macroNode:range()
-            local insertRow = endRow
-            local insertCol = endCol - 1
-
-            local insertion = #existedVariables > 1 and ", " .. entry or entry
-            vim.api.nvim_buf_set_text(0, insertRow, insertCol, insertRow, insertCol, { insertion })
-            vim.api.nvim_win_set_cursor(0, { insertRow + 1, insertCol + #insertion })
+            if entry == nil then return end
+            addMacro(macroNode, entry)
         end)
-    end)
+    end, function() end)
 end
 
 return M
