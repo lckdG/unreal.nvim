@@ -71,20 +71,24 @@ function M.RebuildClangd()
             }):flatten():totable()
 
         vim.system(commandParts, function (exitInfo)
-            if exitInfo.code ~= 0 then
-                log.Notify("Rebuild Clangd failed", logLevel.ERROR)
-                return
-            end
+            -- Schedule this callback so we can support vim.fn.getcwd()
+            vim.schedule(function ()
+                if exitInfo.code ~= 0 then
+                    log.Notify("Rebuild Clangd failed (" .. exitInfo.code .. "): " .. (exitInfo.stderr or ""), logLevel.ERROR)
+                    return
+                end
 
-            local sourceCC = vim.fs.joinpath(engine.EnginePath, info.CCFile)
-            local destCC = vim.fs.joinpath(vim.fn.getcwd(), info.CCFile)
+                local sourceCC = vim.fs.joinpath(engine.EnginePath, info.CCFile)
+                local destCC = vim.fs.joinpath(vim.fn.getcwd(), info.CCFile)
 
-            local ok, err = vim.uv.fs_copyfile(sourceCC, destCC)
-            if ok then
-                log.Notify("Rebuild database successfully!", logLevel.INFO)
-            else
-                log.Notify("Failed to copy compile_commands file: " .. tostring(err), logLevel.ERROR)
-            end
+                local ok, err = vim.uv.fs_copyfile(sourceCC, destCC)
+                if ok then
+                    log.Notify("Rebuild database successfully!", logLevel.INFO)
+                else
+                    log.Notify("Failed to copy compile_commands file: " .. tostring(err), logLevel.ERROR)
+                    log.Notify(exitInfo.stdout, logLevel.ERROR)
+                end
+            end)
         end)
     end
 
