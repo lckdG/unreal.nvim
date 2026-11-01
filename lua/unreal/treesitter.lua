@@ -246,6 +246,24 @@ function M.GetDeclarationTemplate(className)
 end
 
 ---
+---@return TSNode?
+local function getMacroRoot()
+    local macroRoots = {
+        "uclass_macro",
+        "ustruct_macro",
+        "ufunction_macro",
+        "uproperty_macro",
+    }
+
+    local node = vim.treesitter.get_node()
+    while node and not vim.tbl_contains(macroRoots, node:type()) do
+        node = node:parent()
+    end
+
+    return node
+end
+
+---
 ---@return TSNode? macroNode
 ---@return string macroIdentifier
 ---@return ExistedMacroVaiables existedVariables
@@ -271,7 +289,7 @@ function M.GetMacro()
     local macroNode = nil
     local identifier = ""
 
-    local node = vim.treesitter.get_node()
+    local node = getMacroRoot()
     if node == nil then return nil, "", existedVariables end
 
     for id, capturedNode, _ in query:iter_captures(node, bufnr) do
