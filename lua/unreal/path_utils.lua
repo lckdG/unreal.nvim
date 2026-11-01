@@ -42,7 +42,6 @@ function M.FindUprojects(opts)
 end
 
 function M.GetSourceFilesRoot()
-    local defaultRoot = "Source"
     local function isWanted(name)
         return name == "Public" or name == "Private"
     end
@@ -55,23 +54,24 @@ function M.GetSourceFilesRoot()
         return vim.fn.fnamemodify(path, ":h")
     end
 
-    local rootPath = vim.fn.expand("%:.:h")
-    while isWanted(getFolderName(rootPath)) == false do
-        local parentPath = bubbleUp(rootPath)
-
-        if rootPath == parentPath then
-            return defaultRoot
+    local currentPath = vim.fs.normalize(vim.fn.expand("%:p:h"))
+    while true do
+        local name = getFolderName(currentPath)
+        if isWanted(name) then
+            return bubbleUp(currentPath)
         end
 
-        rootPath = parentPath
-    end
+        local parentPath = bubbleUp(currentPath)
+        if name == "Source" or getFolderName(parentPath) == "Source" then
+            return currentPath
+        end
 
-    -- If this is Public or Private dir, take its root directory
-    if isWanted(getFolderName(rootPath)) then
-        rootPath = bubbleUp(rootPath)
-    end
+        if parentPath == currentPath then
+            return nil
+        end
 
-    return rootPath ~= "." and rootPath or defaultRoot
+        currentPath = parentPath
+    end
 end
 
 function M.GetSourceHeader()
@@ -81,6 +81,8 @@ function M.GetSourceHeader()
 
     local fileName = vim.fn.expand("%:t:r")
     local directory = M.GetSourceFilesRoot()
+    if directory == nil then return nil end
+
     local switchingFiles = vim.fs.find(function (name, _)
         return name == fileName .. "." .. desiredExt
     end, { limit = 1, type = "file", path = directory })
