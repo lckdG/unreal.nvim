@@ -25,4 +25,24 @@ function M.OpenBuffer(fileName)
     return buf
 end
 
+local function randString(length)
+    local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    local result = {}
+
+    for i = 1, length do
+        local randIndex = math.random(1, #charset)
+        table.insert(result, string.sub(charset, randIndex, randIndex))
+    end
+
+    return table.concat(result)
+end
+
+---@return number tempBufnr
+function M.CreateTempBuffer()
+    local tempBufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(tempBufnr, randString(16))
+
+    return tempBufnr
+end
+
 return M

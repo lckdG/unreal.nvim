@@ -30,8 +30,7 @@ end
 ---
 ---@param request MacroCompletionRequest
 local function getMacroCompletions(request)
-    local tempBufnr = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_name(tempBufnr, "resolver")
+    local tempBufnr = require('unreal.system').CreateTempBuffer()
 
     local namespace = string.sub(request.identifier, 1, 2)
     local insertTerm = namespace .. "::"
