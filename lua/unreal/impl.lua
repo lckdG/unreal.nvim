@@ -1,6 +1,5 @@
 local config = require('unreal.config')
 local system = require('unreal.system')
-local search = require('unreal.search')
 local pathUtils = require('unreal.path_utils')
 local treesitter = require('unreal.treesitter')
 local log = require('unreal.log')
@@ -32,20 +31,23 @@ function M.ImplementFunction()
     end
 
     local declarationTemplate = treesitter.GetDeclarationTemplate(className)
-    if next(declarationTemplate) == nil then
-        log.Notify("Unable to create declaration template!", logLevel.ERROR)
+    if declarationTemplate.Skip then
+        log.Notify("Function is pure virtual, deleted or inline implemented", logLevel.ERROR)
+        return
+    elseif declarationTemplate[treesitter.Keys.DeclName] == nil then
+        log.Notify("Function does not have a name", logLevel.ERROR)
         return
     end
 
-    local parsed = M.ParseImplementation(declarationTemplate)
+    local parsed, signalIndex = M.ParseImplementation(declarationTemplate)
     local buf = system.OpenBuffer(cppFile)
 
-    local implLine = search.FindImplementation(buf, parsed[2])
+    local implLine = require('unreal.search').FindImplementation(buf, parsed[signalIndex])
     if implLine == -1 then
         local insertLine = vim.api.nvim_buf_line_count(buf)
         vim.api.nvim_buf_set_lines(buf, insertLine, insertLine, false, parsed)
 
-        implLine = insertLine
+        implLine = insertLine + signalIndex
     else
         log.Notify("Function is already implemented at line " .. implLine, logLevel.INFO)
     end
@@ -96,6 +98,7 @@ end
 ---
 ---@param declaration table
 ---@return table
+---@return number
 function M.ParseImplementation(declaration)
     local declTypeKey = treesitter.Keys.DeclType
     local declKeys = treesitter.Keys.DeclKeys
@@ -106,16 +109,21 @@ function M.ParseImplementation(declaration)
     for _, keyName in ipairs(declKeys) do
         if declaration[keyName] ~= nil then
             local appending = declaration[keyName]
-            local space = (#declarationText > 0 and keyName ~= "function.params") and " " or ""
+            local space = (#declarationText > 0 and not vim.tbl_contains(treesitter.NonSpaceKeys, keyName)) and " " or ""
 
             declarationText = declarationText .. space .. appending
         end
     end
 
     table.insert(content, "")
-    table.insert(content, declarationText)
+    if declaration[treesitter.Keys.DeclTemplate] then
+        table.insert(content, "template" .. declaration[treesitter.Keys.DeclTemplate])
+    end
 
-    if declaration[declTypeKey] == nil then
+    table.insert(content, declarationText)
+    local sigIndex = #content
+
+    if declaration[declTypeKey] == nil and not declaration[treesitter.Keys.DeclName]:find("::~", 1, true) then
         local constructorParams = table.concat(declaration.paramIdentifiers, ", ")
         table.insert(content, "\t: Super(" .. constructorParams .. ")")
     end
@@ -124,7 +132,7 @@ function M.ParseImplementation(declaration)
     table.insert(content, "\t// TODO:")
     table.insert(content, "}")
 
-    return content
+    return content, sigIndex
 end
 
 return M

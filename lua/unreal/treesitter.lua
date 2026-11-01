@@ -1,73 +1,32 @@
 local M = {}
 
 M.Keys = {
+    DeclTemplate = "function.template",
     DeclType = "function.type",
     DeclName = "function.name",
-    DeclParamIdentifier = "function.params.identifier",
+    DeclParams = "function.params",
     MacroDeclaration = "macro.declaration",
     MacroIdentifier = "macro.argument.identifier",
     MacroMetaIdentifier = "macro.meta.identifier",
     MacroSpecifierList = "unreal_specifier_list",
     TypeIdentifier = "type_identifier",
-    TypeDeclaration = {
-        "unreal_class_declaration",
-        "unreal_interface_declaration",
-        "unreal_struct_declaration",
-    },
+    TypeQualifier = "type_qualifier",
     DeclKeys = {
         "function.type",
         "function.name",
         "function.params",
         "function.const",
-    }
+        "function.noexcept",
+    },
+    TemplateDecl = "template_declaration",
+    ParamList = "parameter_list",
+    Skip = "function.skip",
+    OptionalParam = "optional_parameter_declaration",
 }
 
---#region
-
----
----@param bufnr number
----@param lang string
----@return TSNode? root
-local function getTreeRoot(bufnr, lang)
-    local parser = vim.treesitter.get_parser(bufnr, lang)
-    if parser == nil then
-        return nil
-    end
-
-    local tree = parser:parse()[1]
-    local root = tree:root()
-
-    return root
-end
-
-local function findDeclaration(childNode)
-    local typeDeclaration = M.Keys.TypeDeclaration
-
-    ---
-    ---@param node? TSNode
-    ---@return boolean
-    local function IsDeclarationNode(node)
-        return node ~= nil and vim.tbl_contains(typeDeclaration, node:type())
-    end
-
-    ---@type TSNode?
-    local declarationNode = childNode
-    while not IsDeclarationNode(declarationNode) do
-        if declarationNode == nil then
-            break
-        end
-
-        declarationNode = declarationNode:parent()
-    end
-
-    if IsDeclarationNode(declarationNode) then
-        return declarationNode
-    end
-
-    return nil
-end
-
---#endregion
+M.NonSpaceKeys = {
+    "function.params"
+}
 
 ---@param opts ConfigOpts
 function M.init(opts)
@@ -102,19 +61,9 @@ function M.PrepareForQuery()
     local lang = vim.treesitter.language.get_lang(vim.bo[bufnr].filetype)
     if not lang then return false, {} end
 
-    local treeRoot = getTreeRoot(bufnr, lang)
-    if treeRoot == nil then
-        return false, {}
-    end
-
-    local cursorPos = vim.api.nvim_win_get_cursor(0)
-    local cursorRow = cursorPos[1] - 1
-
     local queryInfo = {
         bufnr = bufnr,
-        cursorRow = cursorRow,
         lang = lang,
-        root = treeRoot
     }
 
     return true, queryInfo
@@ -123,19 +72,131 @@ end
 ---
 ---@param node TSNode
 function M.GetTypeName(node)
-    local declarationNode = findDeclaration(node)
+    local classRoots = {
+        "unreal_class_declaration",
+        "unreal_interface_declaration",
+        "unreal_struct_declaration",
+        "class_specifier",
+        "struct_specifier"
+    }
 
-    if declarationNode == nil then
-        return ""
+    local names = {}
+    while node do
+        if vim.tbl_contains(classRoots, node:type()) then
+            local name = node:field("name")[1]
+            if name then
+                table.insert(names, 1, vim.treesitter.get_node_text(name, 0))
+            end
+        end
+
+        node = node:parent()
     end
 
-    for childNode, _ in declarationNode:iter_children() do
-        if childNode:type() == M.Keys.TypeIdentifier then
-            return vim.treesitter.get_node_text(childNode, 0)
+    return table.concat(names, "::")
+end
+
+local function getDeclarationRoot()
+    local declRoots = {
+        "field_declaration",
+        "unreal_function_declaration",
+        "declaration",
+        "template_declaration",
+        "function_definition"
+    }
+
+    local node = vim.treesitter.get_node()
+    while node and not vim.tbl_contains(declRoots, node:type()) do
+        node = node:parent()
+    end
+
+    if node == nil then return nil end
+    if node:parent() and node:parent():type() == M.Keys.TemplateDecl then
+        node = node:parent()
+    end
+
+    return node
+end
+
+---
+---@param decl TSNode
+---@param bufnr number
+local function getReturnType(decl, bufnr)
+    local declTypes = {
+        "field_declaration",
+        "unreal_function_declaration",
+        "declaration",
+    }
+
+    local fnDecl = decl:parent()
+    while fnDecl and not vim.tbl_contains(declTypes, fnDecl:type()) do
+        fnDecl = fnDecl:parent()
+    end
+
+    if fnDecl == nil then return nil end
+
+    local start = fnDecl:field("type")[1]
+    if start == nil then return nil end
+
+    for child in fnDecl:iter_children() do
+        if child:equal(start) then break end
+        if child:type() == M.Keys.TypeQualifier then
+            start = child
+            break
         end
     end
 
-    return ""
+    if start == nil then return nil end
+
+    local startRow, startCol = start:start()
+    local endRow, endCol = decl:start()
+    return vim.trim(table.concat(vim.api.nvim_buf_get_text(bufnr, startRow, startCol, endRow, endCol, {}), " "))
+end
+
+local function isInParamList(node)
+    local parent = node:parent()
+    while parent do
+        if parent:type() == M.Keys.ParamList then return true end
+        parent = parent:parent()
+    end
+
+    return false
+end
+
+local function getParamName(param, bufnr)
+    local node = param:field("declarator")[1]
+    while node and node:type() ~= "identifier" do
+        node = node:field("declarator")[1] or node:named_child(0)
+    end
+
+    return node and vim.treesitter.get_node_text(node, bufnr)
+end
+
+---
+---@param paramsNode TSNode
+---@param bufnr number
+---@return string paramString
+---@return string[] paramNames
+local function buildParamsText(paramsNode, bufnr)
+    local skipNodes = { "(", ")", ",", "comment" }
+
+    local params = {}
+    local names = {}
+    for param in paramsNode:iter_children() do
+        local kind = param:type()
+        if not vim.tbl_contains(skipNodes, kind) then
+            local text = vim.treesitter.get_node_text(param, bufnr)
+            if kind == M.Keys.OptionalParam then
+                local last = param:field("declarator")[1] or param:field("type")[1]
+                local startRow, startCol = param:start()
+                local endRow, endCol = last:end_()
+                text = table.concat(vim.api.nvim_buf_get_text(bufnr, startRow, startCol, endRow, endCol, {}), " ")
+            end
+            table.insert(params, (text:gsub("%s+", " ")))
+            table.insert(names, getParamName(param, bufnr))
+        end
+    end
+
+    return "(" .. table.concat(params, ", ") .. ")", names
 end
 
 ---
@@ -150,31 +211,37 @@ function M.GetDeclarationTemplate(className)
     end
 
     local bufnr = queryInfo.bufnr
-    local cursorRow = queryInfo.cursorRow
     local lang = queryInfo.lang
-    local root = queryInfo.root
+
+    local declarationRoot = getDeclarationRoot()
+    if declarationRoot == nil then return result end
 
     local query = vim.treesitter.query.get(lang, "unreal_function_declaration")
     if query == nil then
         return result
     end
 
-    local paramIdentifiers = {}
-
-    for id, capturedNode, _ in query:iter_captures(root, bufnr, cursorRow, cursorRow + 1) do
+    for id, capturedNode, _ in query:iter_captures(declarationRoot, bufnr) do
         local queryId = query.captures[id]
-        local text = vim.treesitter.get_node_text(capturedNode, bufnr)
+        if queryId == M.Keys.Skip then
+            return { Skip = true, paramIdentifiers = {} }
+        end
 
-        if queryId == M.Keys.DeclParamIdentifier then
-            table.insert(paramIdentifiers, text)
-        elseif queryId == M.Keys.DeclName then
-            result[queryId] = className .. "::" .. text
-        else
-            result[queryId] = text
+        if not isInParamList(capturedNode) then
+            local text = vim.treesitter.get_node_text(capturedNode, bufnr)
+            if queryId == M.Keys.DeclName then
+                result[M.Keys.DeclType] = getReturnType(capturedNode, bufnr)
+                result[queryId] = className .. "::" .. text
+            elseif queryId == M.Keys.DeclParams then
+                local paramString, paramNames = buildParamsText(capturedNode, bufnr)
+                result[queryId] = paramString
+                result.paramIdentifiers = paramNames
+            else
+                result[queryId] = text
+            end
         end
     end
 
-    result.paramIdentifiers = paramIdentifiers
     return result
 end
 
@@ -194,9 +261,7 @@ function M.GetMacro()
     end
 
     local bufnr = queryInfo.bufnr
-    local cursorRow = queryInfo.cursorRow
     local lang = queryInfo.lang
-    local root = queryInfo.root
 
     local query = vim.treesitter.query.get(lang, "unreal_macro")
     if query == nil then
@@ -206,7 +271,10 @@ function M.GetMacro()
     local macroNode = nil
     local identifier = ""
 
-    for id, capturedNode, _ in query:iter_captures(root, bufnr, cursorRow, cursorRow + 1) do
+    local node = vim.treesitter.get_node()
+    if node == nil then return nil, "", existedVariables end
+
+    for id, capturedNode, _ in query:iter_captures(node, bufnr) do
         if query.captures[id] == M.Keys.MacroDeclaration then
             macroNode = capturedNode
 
