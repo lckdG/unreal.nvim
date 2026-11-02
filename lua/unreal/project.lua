@@ -70,11 +70,19 @@ function M.RebuildClangd()
                 { "-project=" .. uprojectPath, "-game", "-engine", projectEditor, system.GetPlatform(), "Development" }
             }):flatten():totable()
 
-        vim.system(commandParts, function (exitInfo)
-            -- Schedule this callback so we can support vim.fn.getcwd()
-            vim.schedule(function ()
-                if exitInfo.code ~= 0 then
-                    log.Notify("Rebuild Clangd failed (" .. exitInfo.code .. "): " .. (exitInfo.stderr or ""), logLevel.ERROR)
+        vim.cmd("botright new")
+        local termWin = vim.api.nvim_get_current_win()
+
+        vim.fn.jobstart(commandParts, {
+            term = true,
+            on_exit = function(_, code)
+                if vim.api.nvim_win_is_valid(termWin) then
+                    vim.api.nvim_set_current_win(termWin)
+                    vim.cmd("startinsert")
+                end
+
+                if code ~= 0 then
+                    log.Notify("Rebuild Clangd failed (" .. code .. ")", logLevel.ERROR)
                     return
                 end
 
@@ -86,10 +94,9 @@ function M.RebuildClangd()
                     log.Notify("Rebuild database successfully!", logLevel.INFO)
                 else
                     log.Notify("Failed to copy compile_commands file: " .. tostring(err), logLevel.ERROR)
-                    log.Notify(exitInfo.stdout, logLevel.ERROR)
                 end
-            end)
-        end)
+            end
+        })
     end
 
     local uprojectFiles = pathUtils.FindUprojects{ nameOnly = false, upward = false }
