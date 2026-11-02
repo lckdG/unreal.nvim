@@ -1,4 +1,4 @@
-.PHONY: docs test lint clean
+.PHONY: docs test lint format clean
 
 DEPS_DIR := .deps
 NVIM := nvim --headless --noplugin -u scripts/minimal_init.lua
@@ -24,8 +24,14 @@ docs: $(DEPS_DIR)/panvimdoc
 test: $(DEPS_DIR)/plenary.nvim $(DEPS_DIR)/tree-sitter-unreal-cpp/parser/cpp.so
 	$(NVIM) -c "PlenaryBustedDirectory tests/ { minimal_init = 'scripts/minimal_init.lua', sequential = true }"
 
+# Needs stylua on PATH; style is in .stylua.toml
+LUA_DIRS := lua tests scripts
+
 lint:
-	@echo "TODO: wire linter (e.g. stylua/luacheck)"
+	stylua --check $(LUA_DIRS)
+
+format:
+	stylua $(LUA_DIRS)
 
 clean:
 	rm -rf $(DEPS_DIR)
