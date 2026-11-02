@@ -46,11 +46,38 @@ local function check_engine_path()
 
     engine.initDefaults()
 
-    if engine.IsEnginePathValid() then
-        health.ok("Engine path found: " .. engine.ReadEnginePath())
+    local enginePath = engine.ReadEnginePath()
+    local ubtPathValid = enginePath ~= nil and engine.IsUbtExist(enginePath) or false
+
+    local platform = require('unreal.system').GetPlatform()
+    local executablePath = enginePath ~= nil and engine.GetEngineExecutable(platform, enginePath) or nil
+    local executablePathValid = require("unreal.path_utils").Exists(executablePath)
+
+    if ubtPathValid and executablePathValid then
+        health.ok("All required paths found")
     else
-        health.warn("Missing a valid engine path", "Run :Unreal SetEnginePath")
+        health.error("Required path(s) missing")
     end
+
+    if enginePath ~= nil then
+        health.ok("Engine path found: " .. enginePath)
+    else
+        health.warn("Engine path not set", "Run :Unreal SetEnginePath")
+    end
+
+    if executablePathValid then
+        health.ok("Executable path found:\n" .. executablePath)
+    else
+        health.warn("Executable path not found")
+    end
+
+    if ubtPathValid then
+        health.ok("UBT path found:\n" .. engine.ParseUbtPath(enginePath))
+    else
+        health.warn("UBT path not found")
+    end
+
+
 end
 
 ---Run `:checkhealth unreal` diagnostics: telescope.nvim, `rg`/`clangd`/`dotnet` on PATH

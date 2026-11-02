@@ -16,17 +16,6 @@ local function getProjectRoot()
     return vim.fn.fnamemodify(uprojects[1], ":p:h")
 end
 
-local function parseUbtPath(engineDir)
-    return vim.fs.joinpath(
-        engineDir,
-        "Engine",
-        "Binaries",
-        "DotNET",
-        "UnrealBuildTool",
-        "UnrealBuildTool.dll"
-    )
-end
-
 local function readLockfile(filePath)
     if filePath == nil or filePath == "" then return nil end
 
@@ -79,8 +68,8 @@ function M.init()
 
     M.initDefaults()
 
-    if M.IsEnginePathValid() then
-        local enginePath = M.ReadEnginePath()
+    local enginePath = M.ReadEnginePath()
+    if enginePath ~= nil and M.IsUbtExist(enginePath) then
         M.SetEnginePath { path = enginePath, silent = true, savePath = false }
     end
 end
@@ -96,10 +85,10 @@ end
 ---Set (and optionally persist) the Unreal Engine path used to locate UnrealBuildTool.
 ---@param opts ParseEnginePathOpts
 function M.SetEnginePath(opts)
-    if M.isToolPathValid(opts.path) then
+    if M.IsUbtExist(opts.path) then
         M.EnginePath = opts.path
         M.EnginePathSet = true
-        M.BuildTool = parseUbtPath(opts.path)
+        M.BuildTool = M.ParseUbtPath(opts.path)
         M.WorkingDir = getProjectRoot()
 
         if opts.savePath then
@@ -112,11 +101,21 @@ function M.SetEnginePath(opts)
     end
 end
 
----@private
----@param path string
+function M.ParseUbtPath(engineDir)
+    return vim.fs.joinpath(
+        engineDir,
+        "Engine",
+        "Binaries",
+        "DotNET",
+        "UnrealBuildTool",
+        "UnrealBuildTool.dll"
+    )
+end
+
+---@param enginePath string
 ---@return boolean
-function M.isToolPathValid(path)
-    local buildTool = parseUbtPath(path)
+function M.IsUbtExist(enginePath)
+    local buildTool = M.ParseUbtPath(enginePath)
     return pathUtils.Exists(buildTool)
 end
 
@@ -141,15 +140,6 @@ function M.ReadEnginePath()
     return lockData[getProjectRoot()]
 end
 
-function M.IsEnginePathValid()
-    local enginePath = M.ReadEnginePath()
-    if enginePath ~= nil and M.isToolPathValid(enginePath) then
-        return true
-    end
-
-    return false
-end
-
 function M.InputEnginePath()
     require('unreal.ui').Input("Enter Unreal Engine path: ", "dir", function (input)
         if input == nil or input == "" then return end
@@ -161,8 +151,8 @@ function M.EnsureEnginePath()
     if M.WorkingDir ~= getProjectRoot() then
         M.initDefaults()
 
-        if M.IsEnginePathValid() then
-            local enginePath = M.ReadEnginePath()
+        local enginePath = M.ReadEnginePath()
+        if enginePath ~= nil and M.IsUbtExist(enginePath) then
             M.SetEnginePath { path = enginePath, silent = true, savePath = false }
         end
     end
@@ -181,9 +171,9 @@ local engineExecutable = {
     Mac = vim.fs.joinpath("UnrealEditor.app", "Contents", "MacOS", "UnrealEditor")
 }
 
-local function getEngineExecutable(platform)
+function M.GetEngineExecutable(platform, enginePath)
     local binariesPath = vim.fs.joinpath(
-        M.EnginePath,
+        enginePath,
         "Engine",
         "Binaries"
     )
@@ -201,8 +191,8 @@ function M.GetExecuteCmd()
     if platform == "Win64" then
         return true, { "cmd", "/c", "start", "" }
     else
-        local executablePath = getEngineExecutable(platform)
-        return pathUtils.Exists(executablePath), { getEngineExecutable(platform) }
+        local executablePath = M.GetEngineExecutable(platform, M.EnginePath)
+        return pathUtils.Exists(executablePath), { executablePath }
     end
 end
 
