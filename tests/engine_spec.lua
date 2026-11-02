@@ -107,30 +107,17 @@ describe("engine", function()
         end)
     end)
 
-    describe("IsEnginePathValid", function()
-        local cwd
-
-        before_each(function()
-            cwd = h.project({})
-            fresh_lockfile()
+    describe("IsUbtExist", function()
+        it("engine dir without UnrealBuildTool.dll -> false", function()
+            assert.is_false(engine.IsUbtExist(h.tmpdir()))
         end)
 
-        local function save(path)
-            vim.fn.writefile({ vim.json.encode({ [cwd] = path }) }, engine.LockFilePath)
-        end
-
-        it("no saved path -> false", function()
-            assert.is_false(engine.IsEnginePathValid())
+        it("engine dir with UnrealBuildTool.dll -> true", function()
+            assert.is_true(engine.IsUbtExist(fake_engine()))
         end)
 
-        it("saved path without UnrealBuildTool.dll -> false", function()
-            save(h.tmpdir())
-            assert.is_false(engine.IsEnginePathValid())
-        end)
-
-        it("saved path with UnrealBuildTool.dll -> true", function()
-            save(fake_engine())
-            assert.is_true(engine.IsEnginePathValid())
+        it("ParseUbtPath points at the dll under the engine dir", function()
+            assert.are.equal(vim.fs.joinpath("/ue", UBT), engine.ParseUbtPath("/ue"))
         end)
     end)
 

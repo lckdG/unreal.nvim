@@ -37,33 +37,73 @@ describe("health", function()
             h.stub(engine, "LockFilePath", vim.fs.joinpath(h.tmpdir(), "lock.dat"))
         end)
 
-        it("no engine path -> warn with SetEnginePath hint", function()
-            require("unreal.health").check()
-            local r = find("warn", "Missing a valid engine path")
-            assert.is_not_nil(r)
-            assert.are.equal("Run :Unreal SetEnginePath", r.hint)
-        end)
+        local UBT = "Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
+        local EDITOR = "Engine/Binaries/Linux/UnrealEditor"
 
         local function save_engine_path(path)
             local engine = require("unreal.engine")
             vim.fn.writefile({ vim.json.encode({ [vim.fn.getcwd()] = path }) }, engine.LockFilePath)
         end
 
-        it("engine path with UnrealBuildTool.dll -> ok with path", function()
+        ---@param files string[] files to create under a fresh engine dir
+        local function engine_with(files)
+            h.stub(require("unreal.system"), "GetPlatform", function() return "Linux" end)
             local root = h.tmpdir()
-            h.write(root, "Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll")
+            for _, f in ipairs(files) do h.write(root, f) end
             save_engine_path(root)
+            return root
+        end
+
+        it("setup() called -> ok", function()
+            h.stub(require("unreal"), "inited", true)
             require("unreal.health").check()
-            assert.is_not_nil(find("ok", "Engine path found: " .. root))
+            assert.is_not_nil(find("ok", "Plugin is inited"))
         end)
 
-        it("saved engine path without UnrealBuildTool.dll -> not ok, SetEnginePath hint", function()
-            save_engine_path(h.tmpdir())
+        it("no engine path -> error summary, warn with SetEnginePath hint", function()
             require("unreal.health").check()
-            assert.is_nil(find("ok", "Engine path found"))
-            local r = find("warn", "Missing a valid engine path")
+            assert.is_not_nil(find("error", "Required path(s) missing"))
+            local r = find("warn", "Engine path not set")
             assert.is_not_nil(r)
             assert.are.equal("Run :Unreal SetEnginePath", r.hint)
+            assert.is_not_nil(find("warn", "Executable path not found"))
+            assert.is_not_nil(find("warn", "UBT path not found"))
+            assert.is_nil(find("ok", "Executable path found"))
+        end)
+
+        it("UBT and editor present -> all ok", function()
+            local root = engine_with({ UBT, EDITOR })
+            require("unreal.health").check()
+            assert.is_not_nil(find("ok", "All required paths found"))
+            assert.is_not_nil(find("ok", "Engine path found: " .. root))
+            assert.is_not_nil(find("ok", vim.fs.joinpath(root, EDITOR)))
+            assert.is_not_nil(find("ok", vim.fs.joinpath(root, UBT)))
+            assert.is_nil(find("error", "Required path(s) missing"))
+        end)
+
+        it("saved path with neither UBT nor editor -> error summary, both warned", function()
+            local root = engine_with({})
+            require("unreal.health").check()
+            assert.is_not_nil(find("error", "Required path(s) missing"))
+            assert.is_not_nil(find("ok", "Engine path found: " .. root))
+            assert.is_not_nil(find("warn", "Executable path not found"))
+            assert.is_not_nil(find("warn", "UBT path not found"))
+        end)
+
+        it("UBT only -> error summary, editor warned", function()
+            engine_with({ UBT })
+            require("unreal.health").check()
+            assert.is_not_nil(find("error", "Required path(s) missing"))
+            assert.is_not_nil(find("ok", "UBT path found"))
+            assert.is_not_nil(find("warn", "Executable path not found"))
+        end)
+
+        it("editor only -> error summary, UBT warned", function()
+            engine_with({ EDITOR })
+            require("unreal.health").check()
+            assert.is_not_nil(find("error", "Required path(s) missing"))
+            assert.is_not_nil(find("ok", "Executable path found"))
+            assert.is_not_nil(find("warn", "UBT path not found"))
         end)
 
         for _, exe in ipairs({ "rg", "clangd", "dotnet" }) do
