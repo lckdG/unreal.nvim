@@ -30,13 +30,16 @@ local function check_executable(name, hint)
     end
 end
 
-local function check_telescope()
+---@param module string Lua module to require
+---@param name string plugin name shown in the report
+---@param hint string why the plugin is needed
+local function check_plugin(module, name, hint)
     local health = vim.health
-    local ok = pcall(require, "telescope")
+    local ok = pcall(require, module)
     if ok then
-        health.ok("telescope.nvim found")
+        health.ok(name .. " found")
     else
-        health.error("telescope.nvim not found", "required for search commands")
+        health.error(name .. " not found", hint)
     end
 end
 
@@ -80,8 +83,8 @@ local function check_engine_path()
 
 end
 
----Run `:checkhealth unreal` diagnostics: telescope.nvim, `rg`/`clangd`/`dotnet` on PATH
----(with version if found), and whether an engine path is resolved for the current project.
+---Run `:checkhealth unreal` diagnostics: dependencies (with version if found)
+---and whether an engine path is resolved for the current project.
 function M.check()
     local health = vim.health
 
@@ -91,7 +94,8 @@ function M.check()
     check_executable("clangd", "for LSP functionalities")
 
     health.start("Plugin dependencies")
-    check_telescope()
+    check_plugin("telescope", "telescope.nvim", "required for search commands")
+    check_plugin("plenary", "plenary.nvim", "required for CompleteMacro")
 
     health.start("Plugin core")
     check_setup()
