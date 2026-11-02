@@ -21,7 +21,7 @@ function M.FindUprojects(opts)
     end
 
     local files = vim.fs.find(function(name, _)
-        return name:match('.*%.uproject')
+        return vim.fs.ext(name) == "uproject"
     end, {
         upward = opts.upward or false,
         path = opts.upward and vim.fn.getcwd() or nil,
