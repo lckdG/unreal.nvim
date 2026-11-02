@@ -11,11 +11,14 @@ else
     PARSER_CFLAGS := -shared -Os -fPIC
 endif
 
-# doc/*.md -> doc/unreal.txt, same panvimdoc image as .github/workflows/panvimdoc.yaml (needs Docker)
+# Minimum Neovim version shown in the help file title, e.g. `make docs NVIM_VERSION=0.13`
+NVIM_VERSION ?= 0.12
+
+# doc/*.md -> doc/unreal.txt via panvimdoc's Docker image (needs Docker)
 docs: $(DEPS_DIR)/panvimdoc
 	docker build -q -t unreal-nvim-panvimdoc $(DEPS_DIR)/panvimdoc
 	docker run --rm -u $$(id -u):$$(id -g) -v "$(CURDIR)":/data -w /data unreal-nvim-panvimdoc \
-		--project-name unreal --input-file doc/vimdoc.md --vim-version "NVIM v0.11.0" \
+		--project-name unreal --input-file doc/vimdoc.md --vim-version "NVIM v$(NVIM_VERSION)" \
 		--description "Neovim plugin for Unreal Engine C++ projects" --toc true --treesitter true
 
 test: $(DEPS_DIR)/plenary.nvim $(DEPS_DIR)/tree-sitter-unreal-cpp/parser/cpp.so
