@@ -107,9 +107,14 @@ describe("telescope.AppendIgnorePatterns", function()
     local function fake_telescope(existing)
         local calls = {}
         package.loaded["telescope"] = {}
+        local values = { file_ignore_patterns = existing }
         package.loaded["telescope.config"] = {
-            values = { file_ignore_patterns = existing },
-            set_defaults = function(...) table.insert(calls, { ... }) end,
+            values = values,
+            -- like telescope, applied defaults show up in `values`
+            set_defaults = function(...)
+                table.insert(calls, { ... })
+                values.file_ignore_patterns = (...).file_ignore_patterns
+            end,
         }
         return calls
     end
@@ -128,6 +133,13 @@ describe("telescope.AppendIgnorePatterns", function()
         local calls = fake_telescope({ "user%.txt" })
         telescope.AppendIgnorePatterns(nil)
         assert.are.equal(0, #calls)
+    end)
+
+    it("called twice -> patterns appended once", function()
+        local calls = fake_telescope({ "user%.txt" })
+        telescope.AppendIgnorePatterns({ "%.uasset" })
+        telescope.AppendIgnorePatterns({ "%.uasset" })
+        assert.are.same({ "user%.txt", "%.uasset" }, calls[#calls][1].file_ignore_patterns)
     end)
 end)
 
@@ -158,5 +170,23 @@ describe("treesitter.Hijack", function()
             install_info = { url = "https://example.com/grammar", revision = "abc" },
             tier = 2,
         }, package.loaded["nvim-treesitter.parsers"].cpp)
+    end)
+
+    it("called twice -> one TSUpdate autocmd", function()
+        local opts = { url = "https://example.com/grammar", revision = "abc" }
+        treesitter.Hijack(opts)
+        treesitter.Hijack(opts)
+        assert.are.equal(1, tsupdate_autocmds())
+    end)
+
+    it("setup() twice -> one TSUpdate autocmd", function()
+        -- engine/project init touch the lock file and prompt; not under test here
+        h.stub(require("unreal.engine"), "init", function() end)
+        h.stub(require("unreal.project"), "init", function() end)
+        local unreal = require("unreal")
+        unreal.setup()
+        unreal.setup()
+        pcall(vim.api.nvim_del_user_command, "Unreal")
+        assert.are.equal(1, tsupdate_autocmds())
     end)
 end)
