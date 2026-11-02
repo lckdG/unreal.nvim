@@ -7,6 +7,17 @@ local log = require('unreal.log')
 local info = config.info
 local logLevel = vim.log.levels
 
+local implementationOverride = { suffix = "_Implementation", type = nil, add = false }
+local validationOverride = { suffix = "_Validate", type = "bool", add = true }
+
+local specifierOverrides = {
+    BlueprintNativeEvent = implementationOverride,
+    Server = implementationOverride,
+    Client = implementationOverride,
+    NetMulticast = implementationOverride,
+    WithValidation = validationOverride,
+}
+
 local M = {}
 
 ---Generate a `.cpp` implementation stub for the function declaration under the cursor.
@@ -96,10 +107,12 @@ function M.PrepareForFunctionImpl()
 end
 
 ---
----@param declaration table
+---@param template DeclarationTemplate
+---@param suffix string?
+---@param typeOverride string?
 ---@return table
 ---@return number
-function M.ParseImplementation(declaration)
+local function constructFunctionBlock(template, suffix, typeOverride)
     local declTypeKey = treesitter.Keys.DeclType
     local declKeys = treesitter.DeclKeys
 
@@ -107,30 +120,70 @@ function M.ParseImplementation(declaration)
     local declarationText = ""
 
     for _, keyName in ipairs(declKeys) do
-        if declaration[keyName] ~= nil then
-            local appending = declaration[keyName]
+        if template[keyName] ~= nil then
+            local appending = template[keyName]
             local space = (#declarationText > 0 and not vim.tbl_contains(treesitter.NonSpaceKeys, keyName)) and " " or ""
+
+            if keyName == treesitter.Keys.DeclName and suffix then
+                appending = appending .. suffix
+            elseif keyName == treesitter.Keys.DeclType and typeOverride then
+                appending = typeOverride
+            end
 
             declarationText = declarationText .. space .. appending
         end
     end
 
     table.insert(content, "")
-    if declaration[treesitter.Keys.DeclTemplate] then
-        table.insert(content, "template" .. declaration[treesitter.Keys.DeclTemplate])
+    if template[treesitter.Keys.DeclTemplate] then
+        table.insert(content, "template" .. template[treesitter.Keys.DeclTemplate])
     end
 
     table.insert(content, declarationText)
     local sigIndex = #content
 
-    if declaration[declTypeKey] == nil and not declaration[treesitter.Keys.DeclName]:find("::~", 1, true) then
-        local constructorParams = table.concat(declaration.paramIdentifiers, ", ")
+    if template[declTypeKey] == nil and not template[treesitter.Keys.DeclName]:find("::~", 1, true) then
+        local constructorParams = table.concat(template.paramIdentifiers, ", ")
         table.insert(content, "\t: Super(" .. constructorParams .. ")")
     end
 
     table.insert(content, "{")
     table.insert(content, "\t// TODO:")
     table.insert(content, "}")
+
+    return content, sigIndex
+end
+
+---
+---@param declaration DeclarationTemplate
+---@return table
+---@return number
+function M.ParseImplementation(declaration)
+    local mainImpl = { suffix = nil, type = nil }
+    local additionalImpls = {}
+
+    for _, specifier in ipairs(declaration.ufunctionSpecifiers) do
+        local override = specifierOverrides[specifier]
+        if override ~= nil then
+            if override.add == false then
+                mainImpl = override
+            else
+                table.insert(additionalImpls, override)
+            end
+        end
+    end
+
+    local content, sigIndex = constructFunctionBlock(declaration, mainImpl.suffix, mainImpl.type)
+
+    for _, override in ipairs(additionalImpls) do
+        local suffix = override.suffix
+        local type = override.type
+
+        local blockContent, blockIndex = constructFunctionBlock(declaration, suffix,type)
+
+        vim.list_extend(content, blockContent)
+        sigIndex = sigIndex + blockIndex
+    end
 
     return content, sigIndex
 end

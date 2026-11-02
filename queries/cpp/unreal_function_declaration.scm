@@ -11,3 +11,13 @@
   parameters: (parameter_list) @function.params
   (type_qualifier)? @function.const
   )
+
+(unreal_function_declaration
+  (ufunction_macro
+    (unreal_argument_list
+      (unreal_specifier_list
+        (unreal_specifier) @function.specifier
+        )
+      )
+    )
+  )
