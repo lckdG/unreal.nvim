@@ -1,5 +1,6 @@
 local M = {}
 
+---@type table<string, string>
 M.Keys = {
     DeclTemplate = "function.template",
     DeclType = "function.type",
@@ -11,17 +12,19 @@ M.Keys = {
     MacroSpecifierList = "unreal_specifier_list",
     TypeIdentifier = "type_identifier",
     TypeQualifier = "type_qualifier",
-    DeclKeys = {
-        "function.type",
-        "function.name",
-        "function.params",
-        "function.const",
-        "function.noexcept",
-    },
     TemplateDecl = "template_declaration",
     ParamList = "parameter_list",
     Skip = "function.skip",
     OptionalParam = "optional_parameter_declaration",
+    UfunctionSpecifier = "function.specifier",
+}
+
+M.DeclKeys = {
+    "function.type",
+    "function.name",
+    "function.params",
+    "function.const",
+    "function.noexcept",
 }
 
 M.NonSpaceKeys = {
@@ -120,6 +123,7 @@ end
 ---
 ---@param decl TSNode
 ---@param bufnr number
+---@return string? returnType
 local function getReturnType(decl, bufnr)
     local declTypes = {
         "field_declaration",
@@ -201,9 +205,14 @@ end
 
 ---
 ---@param className string
----@return table
+---@return DeclarationTemplate
 function M.GetDeclarationTemplate(className)
-    local result = {}
+    ---@type DeclarationTemplate
+    local result = {
+        Skip = false,
+        paramIdentifiers = {},
+        ufunctionSpecifiers = {},
+    }
 
     local success, queryInfo = M.PrepareForQuery()
     if not success then
@@ -224,10 +233,14 @@ function M.GetDeclarationTemplate(className)
     for id, capturedNode, _ in query:iter_captures(declarationRoot, bufnr) do
         local queryId = query.captures[id]
         if queryId == M.Keys.Skip then
-            return { Skip = true, paramIdentifiers = {} }
+            result.Skip = true
+            return result
         end
 
-        if not isInParamList(capturedNode) then
+        if queryId == M.Keys.UfunctionSpecifier then
+            local specifierName = vim.treesitter.get_node_text(capturedNode, bufnr)
+            table.insert(result.ufunctionSpecifiers, specifierName)
+        elseif not isInParamList(capturedNode) then
             local text = vim.treesitter.get_node_text(capturedNode, bufnr)
             if queryId == M.Keys.DeclName then
                 result[M.Keys.DeclType] = getReturnType(capturedNode, bufnr)

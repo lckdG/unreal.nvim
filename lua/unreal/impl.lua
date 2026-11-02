@@ -101,7 +101,7 @@ end
 ---@return number
 function M.ParseImplementation(declaration)
     local declTypeKey = treesitter.Keys.DeclType
-    local declKeys = treesitter.Keys.DeclKeys
+    local declKeys = treesitter.DeclKeys
 
     local content = {}
     local declarationText = ""

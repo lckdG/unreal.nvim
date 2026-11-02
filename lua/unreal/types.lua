@@ -35,6 +35,12 @@ local Types = {}
 ---@field lspClient vim.lsp.Client
 ---@field exclusions string[]
 
+---@class DeclarationTemplate
+---@field [string] string?
+---@field Skip boolean
+---@field paramIdentifiers string[]
+---@field ufunctionSpecifiers string[]
+
 ---@enum MacroAddType
 Types.MACRO_ADD_TYPE = {
   First = 1,
