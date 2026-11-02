@@ -85,7 +85,7 @@ function M.GetTypeName(node)
 
     local names = {}
     while node do
-        if vim.tbl_contains(classRoots, node:type()) then
+        if vim.tbl_contains(classRoots, node:type()) and node:field("body")[1]then
             local name = node:field("name")[1]
             if name then
                 table.insert(names, 1, vim.treesitter.get_node_text(name, 0))
