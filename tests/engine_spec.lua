@@ -90,6 +90,48 @@ describe("engine", function()
             assert.are.equal(0, #notes)
             vim.fn.writefile({}, engine.LockFilePath)
         end)
+
+        it("saved path whose UnrealBuildTool.dll was removed -> defaults, no notify", function()
+            local root = fake_engine()
+            local cwd = h.project({})
+            engine.init()
+            vim.fn.writefile({ vim.json.encode({ [cwd] = root }) }, engine.LockFilePath)
+            vim.fn.delete(vim.fs.joinpath(root, UBT))
+            notes = h.notifications()
+            engine.init()
+            assert.is_false(engine.EnginePathSet)
+            assert.is_nil(engine.EnginePath)
+            assert.is_nil(engine.BuildTool)
+            assert.are.equal(0, #notes)
+            vim.fn.writefile({}, engine.LockFilePath)
+        end)
+    end)
+
+    describe("IsEnginePathValid", function()
+        local cwd
+
+        before_each(function()
+            cwd = h.project({})
+            fresh_lockfile()
+        end)
+
+        local function save(path)
+            vim.fn.writefile({ vim.json.encode({ [cwd] = path }) }, engine.LockFilePath)
+        end
+
+        it("no saved path -> false", function()
+            assert.is_false(engine.IsEnginePathValid())
+        end)
+
+        it("saved path without UnrealBuildTool.dll -> false", function()
+            save(h.tmpdir())
+            assert.is_false(engine.IsEnginePathValid())
+        end)
+
+        it("saved path with UnrealBuildTool.dll -> true", function()
+            save(fake_engine())
+            assert.is_true(engine.IsEnginePathValid())
+        end)
     end)
 
     describe("lock file", function()

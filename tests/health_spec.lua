@@ -39,16 +39,31 @@ describe("health", function()
 
         it("no engine path -> warn with SetEnginePath hint", function()
             require("unreal.health").check()
-            local r = find("warn", "No engine path set")
+            local r = find("warn", "Missing a valid engine path")
             assert.is_not_nil(r)
             assert.are.equal("Run :Unreal SetEnginePath", r.hint)
         end)
 
-        it("engine path set -> ok with path", function()
+        local function save_engine_path(path)
             local engine = require("unreal.engine")
-            vim.fn.writefile({ vim.json.encode({ [vim.fn.getcwd()] = "/ue" }) }, engine.LockFilePath)
+            vim.fn.writefile({ vim.json.encode({ [vim.fn.getcwd()] = path }) }, engine.LockFilePath)
+        end
+
+        it("engine path with UnrealBuildTool.dll -> ok with path", function()
+            local root = h.tmpdir()
+            h.write(root, "Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll")
+            save_engine_path(root)
             require("unreal.health").check()
-            assert.is_not_nil(find("ok", "Engine path found: /ue"))
+            assert.is_not_nil(find("ok", "Engine path found: " .. root))
+        end)
+
+        it("saved engine path without UnrealBuildTool.dll -> not ok, SetEnginePath hint", function()
+            save_engine_path(h.tmpdir())
+            require("unreal.health").check()
+            assert.is_nil(find("ok", "Engine path found"))
+            local r = find("warn", "Missing a valid engine path")
+            assert.is_not_nil(r)
+            assert.are.equal("Run :Unreal SetEnginePath", r.hint)
         end)
 
         for _, exe in ipairs({ "rg", "clangd", "dotnet" }) do
