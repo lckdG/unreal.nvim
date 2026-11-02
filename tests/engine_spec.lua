@@ -38,7 +38,7 @@ describe("engine", function()
             assert.is_nil(res)
         end)
 
-        it("LockFilePath is defined at module load", function()
+        it("LockFilePath is defined after require, before setup()", function()
             h.unload()
             local path = require("unreal.engine").LockFilePath
             h.unload()
