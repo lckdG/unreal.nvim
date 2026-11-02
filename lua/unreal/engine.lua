@@ -199,9 +199,10 @@ end
 function M.GetExecuteCmd()
     local platform = require('unreal.system').GetPlatform()
     if platform == "Win64" then
-        return { "cmd", "/c", "start", "" }
+        return true, { "cmd", "/c", "start", "" }
     else
-        return { getEngineExecutable(platform) }
+        local executablePath = getEngineExecutable(platform)
+        return pathUtils.Exists(executablePath), { getEngineExecutable(platform) }
     end
 end
 

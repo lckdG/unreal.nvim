@@ -21,9 +21,13 @@ function M.OpenUproject()
     end
 
     local function OpenUproject_Internal(projectPath)
-        local executeCmd = engine.GetExecuteCmd()
-        table.insert(executeCmd, projectPath)
-        vim.fn.jobstart(executeCmd, { detach = true })
+        local ok, executeCmd = engine.GetExecuteCmd()
+        if not ok then
+            log.Notify("Engine executable not found!", logLevel.ERROR)
+        else
+            table.insert(executeCmd, projectPath)
+            vim.fn.jobstart(executeCmd, { detach = true })
+        end
     end
 
     local uprojectFiles = pathUtils.FindUprojects{ nameOnly = false, upward = false }
