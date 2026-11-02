@@ -85,13 +85,16 @@ end
 function M.check()
     local health = vim.health
 
-    health.start("unreal.nvim")
-
-    check_setup()
-    check_telescope()
+    health.start("System dependencies")
     check_executable("rg", "telescope.nvim dependency")
-    check_executable("clangd", "for LSP functionalities")
     check_executable("dotnet", "for Unreal tools, e.g. UBT, UHT,...")
+    check_executable("clangd", "for LSP functionalities")
+
+    health.start("Plugin dependencies")
+    check_telescope()
+
+    health.start("Plugin core")
+    check_setup()
     check_engine_path()
 end
 
