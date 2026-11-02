@@ -79,8 +79,8 @@ function M.init()
 
     M.initDefaults()
 
-    local enginePath = M.ReadEnginePath()
-    if enginePath ~= nil then
+    if M.IsEnginePathValid() then
+        local enginePath = M.ReadEnginePath()
         M.SetEnginePath { path = enginePath, silent = true, savePath = false }
     end
 end
@@ -96,35 +96,28 @@ end
 ---Set (and optionally persist) the Unreal Engine path used to locate UnrealBuildTool.
 ---@param opts ParseEnginePathOpts
 function M.SetEnginePath(opts)
-    if M.parseToolPaths(opts) then
+    if M.isToolPathValid(opts.path) then
         M.EnginePath = opts.path
         M.EnginePathSet = true
+        M.BuildTool = parseUbtPath(opts.path)
         M.WorkingDir = getProjectRoot()
 
         if opts.savePath then
             M.saveEnginePath(opts.path)
         end
+    else
+        if opts.silent == false then
+            log.Notify("Failed to parse tool paths!", vim.log.levels.ERROR)
+        end
     end
 end
 
 ---@private
----@param opts ParseEnginePathOpts
+---@param path string
 ---@return boolean
-function M.parseToolPaths(opts)
-    local path = opts.path
-    local silent = opts.silent
-
+function M.isToolPathValid(path)
     local buildTool = parseUbtPath(path)
-
-    if pathUtils.Exists(buildTool) == false then
-        if silent == false then
-            log.Notify("Failed to parse tool paths!", vim.log.levels.ERROR)
-        end
-        return false
-    else
-        M.BuildTool = buildTool
-        return true
-    end
+    return pathUtils.Exists(buildTool)
 end
 
 ---@private
@@ -148,6 +141,14 @@ function M.ReadEnginePath()
     return lockData[getProjectRoot()]
 end
 
+function M.IsEnginePathValid()
+    local enginePath = M.ReadEnginePath()
+    if enginePath ~= nil and M.isToolPathValid(enginePath) then
+        return true
+    end
+
+    return false
+end
 
 function M.InputEnginePath()
     require('unreal.ui').Input("Enter Unreal Engine path: ", "dir", function (input)
@@ -158,8 +159,10 @@ end
 
 function M.EnsureEnginePath()
     if M.WorkingDir ~= getProjectRoot() then
-        local enginePath = M.ReadEnginePath()
-        if enginePath then
+        M.initDefaults()
+
+        if M.IsEnginePathValid() then
+            local enginePath = M.ReadEnginePath()
             M.SetEnginePath { path = enginePath, silent = true, savePath = false }
         end
     end

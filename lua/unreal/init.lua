@@ -1,5 +1,7 @@
 local M = {}
 
+M.inited = false
+
 ---Entry point for the plugin. Applies config, then registers the `:Unreal` command.
 ---@param opts ConfigOpts?
 function M.setup(opts)
@@ -17,6 +19,8 @@ function M.setup(opts)
     require('unreal.telescope').init(configOpts)
 
     require('unreal.commands').init(configOpts)
+
+    M.inited = true
 end
 
 return M

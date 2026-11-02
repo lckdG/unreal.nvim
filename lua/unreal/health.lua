@@ -7,6 +7,15 @@ local function get_version(name)
     return vim.trim(output:match("[^\r\n]+") or output)
 end
 
+local function check_setup()
+    local health = vim.health
+    if require("unreal").inited then
+        health.ok("Plugin is inited")
+    else
+        health.warn("setup() is not called before running healthcheck")
+    end
+end
+
 local function check_executable(name, hint)
     local health = vim.health
     if vim.fn.executable(name) == 1 then
@@ -33,12 +42,14 @@ end
 
 local function check_engine_path()
     local health = vim.health
-    local enginePath = require("unreal.engine").ReadEnginePath()
+    local engine = require("unreal.engine")
 
-    if enginePath then
-        health.ok("Engine path found: " .. enginePath)
+    engine.initDefaults()
+
+    if engine.IsEnginePathValid() then
+        health.ok("Engine path found: " .. engine.ReadEnginePath())
     else
-        health.warn("No engine path set for current project", "Run :Unreal SetEnginePath")
+        health.warn("Missing a valid engine path", "Run :Unreal SetEnginePath")
     end
 end
 
@@ -49,6 +60,7 @@ function M.check()
 
     health.start("unreal.nvim")
 
+    check_setup()
     check_telescope()
     check_executable("rg", "telescope.nvim dependency")
     check_executable("clangd", "for LSP functionalities")
