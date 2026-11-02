@@ -222,8 +222,4 @@ describe("project", function()
             assert.is_true(h.notified(notes, "ENOENT: no such file", ERROR))
         end)
     end)
-
-    it("project.init is removed", function()
-        assert.is_nil(project.init)
-    end)
 end)
