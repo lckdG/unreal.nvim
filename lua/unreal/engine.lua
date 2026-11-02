@@ -28,6 +28,8 @@ local function parseUbtPath(engineDir)
 end
 
 local function readLockfile(filePath)
+    if filePath == nil or filePath == "" then return nil end
+
     local file = io.open(filePath, "r")
     if file == nil then return nil end
 
@@ -60,12 +62,10 @@ end
 
 local M = {}
 
+M.ConfigDir = vim.fs.joinpath(dataRoot, config.info.PluginName)
+M.LockFilePath = vim.fs.joinpath(M.ConfigDir, config.info.LockFile)
+
 function M.init()
-    local info = config.info
-
-    M.ConfigDir = vim.fs.joinpath(dataRoot, info.PluginName)
-    M.LockFilePath = vim.fs.joinpath(M.ConfigDir, info.LockFile)
-
     if pathUtils.Exists(M.ConfigDir) == false then
         vim.fn.mkdir(M.ConfigDir, "p")
     end
@@ -90,6 +90,7 @@ function M.initDefaults()
     M.EnginePathSet = false
     M.EnginePath = nil
     M.BuildTool = nil
+    M.WorkingDir = nil
 end
 
 ---Set (and optionally persist) the Unreal Engine path used to locate UnrealBuildTool.
@@ -98,6 +99,7 @@ function M.SetEnginePath(opts)
     if M.parseToolPaths(opts) then
         M.EnginePath = opts.path
         M.EnginePathSet = true
+        M.WorkingDir = getProjectRoot()
 
         if opts.savePath then
             M.saveEnginePath(opts.path)
@@ -155,6 +157,13 @@ function M.InputEnginePath()
 end
 
 function M.EnsureEnginePath()
+    if M.WorkingDir ~= getProjectRoot() then
+        local enginePath = M.ReadEnginePath()
+        if enginePath then
+            M.SetEnginePath { path = enginePath, silent = true, savePath = false }
+        end
+    end
+
     if M.EnginePathSet == false then
         M.InputEnginePath()
     end
@@ -166,7 +175,7 @@ end
 local engineExecutable = {
     Win64 = "UnrealEditor.exe",
     Linux = "UnrealEditor",
-    Mac = "UnrealEditor.app"
+    Mac = vim.fs.joinpath("UnrealEditor.app", "Contents", "MacOS", "UnrealEditor")
 }
 
 local function getEngineExecutable(platform)
