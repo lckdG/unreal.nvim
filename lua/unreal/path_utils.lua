@@ -1,11 +1,14 @@
 local M = {}
 
-function M.NameToDirectory(name)
+function M.ToIgnoreDirPattern(name)
     local slash = package.config:sub(1, 1)
-    return name .. slash
+    return "%f[^" .. slash .. "%z]" .. name .. slash
 end
 
 function M.Exists(path)
+    if path == nil then
+        return false
+    end
     return vim.uv.fs_stat(path) ~= nil
 end
 
@@ -21,10 +24,11 @@ function M.FindUprojects(opts)
     end
 
     local files = vim.fs.find(function(name, _)
-        return name:match('.*%.uproject')
+        return vim.fs.ext(name) == "uproject"
     end, {
         upward = opts.upward or false,
         path = opts.upward and vim.fn.getcwd() or nil,
+        limit = math.huge,
         type = "file",
     })
 
@@ -41,7 +45,6 @@ function M.FindUprojects(opts)
 end
 
 function M.GetSourceFilesRoot()
-    local defaultRoot = "Source"
     local function isWanted(name)
         return name == "Public" or name == "Private"
     end
@@ -54,34 +57,39 @@ function M.GetSourceFilesRoot()
         return vim.fn.fnamemodify(path, ":h")
     end
 
-    local rootPath = vim.fn.expand("%:.:h")
-    while isWanted(getFolderName(rootPath)) == false do
-        local parentPath = bubbleUp(rootPath)
-
-        if rootPath == parentPath then
-            return defaultRoot
+    local currentPath = vim.fs.normalize(vim.fn.expand("%:p:h"))
+    while true do
+        local name = getFolderName(currentPath)
+        if isWanted(name) then
+            return bubbleUp(currentPath)
         end
 
-        rootPath = parentPath
-    end
+        local parentPath = bubbleUp(currentPath)
+        if name == "Source" or getFolderName(parentPath) == "Source" then
+            return currentPath
+        end
 
-    -- If this is Public or Private dir, take its root directory
-    if isWanted(getFolderName(rootPath)) then
-        rootPath = bubbleUp(rootPath)
-    end
+        if parentPath == currentPath then
+            return nil
+        end
 
-    return rootPath ~= "." and rootPath or defaultRoot
+        currentPath = parentPath
+    end
 end
 
 function M.GetSourceHeader()
     local extension = vim.fn.expand("%:t:e")
-    local info = require('unreal.config').info
+    local info = require("unreal.config").info
     local desiredExt = extension == info.CppExt and info.HeaderExt or info.CppExt
 
     local fileName = vim.fn.expand("%:t:r")
     local directory = M.GetSourceFilesRoot()
-    local switchingFiles = vim.fs.find(function (name, _)
-        return name:match(fileName .. "%." .. desiredExt)
+    if directory == nil then
+        return nil
+    end
+
+    local switchingFiles = vim.fs.find(function(name, _)
+        return name == fileName .. "." .. desiredExt
     end, { limit = 1, type = "file", path = directory })
 
     return #switchingFiles > 0 and switchingFiles[1] or nil

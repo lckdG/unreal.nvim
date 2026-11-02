@@ -1,6 +1,6 @@
-local log = require('unreal.log')
-local pathUtils = require('unreal.path_utils')
-local system    = require('unreal.system')
+local log = require("unreal.log")
+local pathUtils = require("unreal.path_utils")
+local system = require("unreal.system")
 
 local logLevel = vim.log.levels
 
@@ -11,7 +11,7 @@ local M = {}
 function M.SwitchSourceHeader()
     local switchingFile = pathUtils.GetSourceHeader()
     if switchingFile ~= nil then
-        vim.cmd("e " .. switchingFile)
+        vim.cmd.edit(vim.fn.fnameescape(switchingFile))
     elseif system.HasClangdEnabled() then
         vim.cmd("LspClangdSwitchSourceHeader")
     else
@@ -37,7 +37,7 @@ function M.FindImplementation(buf, marker)
 end
 
 local function getInputSourceTypes()
-    local index = require('unreal.ui').SelectOptions('Select source types:', { 'All', 'Headers', 'Cpp' })
+    local index = require("unreal.ui").SelectOptions("Select source types:", { "All", "Headers", "Cpp" })
 
     if index <= 0 or index > 3 then
         log.Notify("Invalid search choice " .. index, vim.log.levels.WARN)
@@ -63,11 +63,13 @@ end
 ---No-ops if the prompt is dismissed or an invalid choice is entered.
 function M.FindSource()
     local globPattern = getInputSourceTypes()
-    if globPattern == nil then return end
+    if globPattern == nil then
+        return
+    end
 
-    local types = { "rg", "--files", "-g" , globPattern }
-    require('telescope.builtin').find_files({
-        find_command = types
+    local types = { "rg", "--files", "-g", globPattern }
+    require("telescope.builtin").find_files({
+        find_command = types,
     })
 end
 
@@ -79,10 +81,12 @@ end
 ---No-ops if the prompt is dismissed or an invalid choice is entered.
 function M.GrepSource()
     local globPattern = getInputSourceTypes()
-    if globPattern == nil then return end
+    if globPattern == nil then
+        return
+    end
 
-    require('telescope.builtin').live_grep({
-        additional_args = { '-g', globPattern }
+    require("telescope.builtin").live_grep({
+        additional_args = { "-g", globPattern },
     })
 end
 

@@ -2,6 +2,8 @@
 
 A Neovim plugin for working on Unreal Engine C++ projects: source/header switching, clangd compilation-database generation, `UFUNCTION`/`UCLASS` macro attribute completion, function implementation stubbing, and Unreal-aware treesitter/telescope integration.
 
+> **Work in progress:** commands, config options, and behavior may change without notice.
+
 ## Features
 
 - Switch between header and source
@@ -15,9 +17,11 @@ A Neovim plugin for working on Unreal Engine C++ projects: source/header switchi
 
 ## Requirements
 
-- Neovim >= 0.10
-- [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter)
+- Neovim >= 0.12
+- [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter), `main` branch (the `master` branch is not supported)
 - [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)
+- [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
+- [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) with clangd set up (`SwitchSourceHeader` falls back to `:LspClangdSwitchSourceHeader`)
 - `rg`, `clangd`, and `dotnet` on `$PATH`
 - An installed Unreal Engine build to point the plugin at
 
@@ -29,12 +33,18 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 {
     "lckdG/unreal.nvim",
     dependencies = {
-        "nvim-treesitter/nvim-treesitter",
+        { "nvim-treesitter/nvim-treesitter", branch = "main" },
         "nvim-telescope/telescope.nvim",
+        "nvim-lua/plenary.nvim",
+        "neovim/nvim-lspconfig",
     },
     opts = {},
 }
 ```
+
+After installing, run `:TSUpdate cpp` once so nvim-treesitter builds the Unreal C++ grammar.
+
+> **Note:** the plugin replaces nvim-treesitter's `cpp` parser with [tree-sitter-unreal-cpp](https://github.com/taku25/tree-sitter-unreal-cpp). This applies to every C++ file, not only Unreal projects, and there is no opt-out: `CreateImpl` and `CompleteMacro` depend on it.
 
 Or call `setup()` explicitly:
 
@@ -50,15 +60,18 @@ require('unreal').setup({
 
 ```lua
 require('unreal').setup({
-    -- Grammar used to register a custom `cpp` parser with nvim-treesitter,
-    -- adding Unreal-specific nodes (unreal_class_declaration, uclass_macro, ...).
-    -- Set to nil to skip registering a custom grammar.
+    -- Grammar registered as nvim-treesitter's `cpp` parser, adding Unreal-specific
+    -- nodes (unreal_class_declaration, uclass_macro, ...). Used for every C++ file.
+    -- Override url/revision to pin another build of the grammar.
     custom_treesitter = {
         url = 'https://github.com/taku25/tree-sitter-unreal-cpp',
         revision = '2d2d5c19a9a83e432e43c041252106995614b29a',
     },
 
-    -- Command-line abbreviations, expanded to "Unreal <value>".
+    -- Name of the user command, e.g. "UE" gives :UE OpenProject.
+    command_lead = "Unreal",
+
+    -- Command-line abbreviations, expanded to "<command_lead> <value>".
     -- Empty by default -- add your own, e.g.:
     cmd_abbreviations = {
         uo  = "OpenProject",
@@ -70,9 +83,12 @@ require('unreal').setup({
         ugs = "GrepSource",
     },
 
-    -- Extra file_ignore_patterns merged into telescope's config,
-    -- on top of Unreal-generated directories/files already excluded by default.
-    telescope_extended_ignores = {},
+    -- Lua patterns appended to telescope's global `file_ignore_patterns`, so they
+    -- apply to every telescope picker, not only FindSource/GrepSource.
+    -- Setting this REPLACES the defaults (Unreal binaries, assets and generated
+    -- directories such as Binaries/, Intermediate/). To keep them, copy the list
+    -- from `require('unreal.config').defaults.telescope_extended_ignores` and edit it.
+    -- telescope_extended_ignores = { ... },
 
     -- Extra arguments appended to the UnrealBuildTool GenerateClangDatabase invocation.
     clangd_build_args = {
@@ -83,7 +99,7 @@ require('unreal').setup({
 
 ## Commands
 
-All functionality is exposed through a single command with subcommand completion:
+All functionality is exposed through a single command (`:Unreal` by default, see `command_lead`) with subcommand completion:
 
 | Command | Description |
 |---|---|
@@ -98,7 +114,9 @@ All functionality is exposed through a single command with subcommand completion
 
 If multiple `.uproject` files are found in the working directory tree, commands that need one (`OpenProject`, `RebuildClangd`) will prompt you to choose.
 
-The engine path is resolved per-project (keyed by the nearest `.uproject` directory found upward from the current working directory) and cached in `stdpath('data')/unreal.nvim/lock.dat`.
+The engine path is resolved per-project (keyed by the nearest `.uproject` directory found upward from the current working directory) and cached in `stdpath('data')/unreal.nvim/lock.dat`. A path counts as valid only if it contains `Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll`; otherwise you are prompted again.
+
+Run `:checkhealth unreal` to check dependencies and the engine path for the current project. See `:help unreal.nvim` or the [doc](doc/) directory for the full reference.
 
 ## Acknowledgements
 

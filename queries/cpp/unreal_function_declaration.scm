@@ -1,22 +1,23 @@
 ; Function declaration
-(_
-  [
-   (type_identifier)
-   (primitive_type)
-   ]? @function.type
+(function_declarator (noexcept) @function.noexcept)
 
-  (function_declarator
-    [
-     (identifier)
-     (field_identifier)
-     ] @function.name
-    (parameter_list
-      (parameter_declaration
-        (_
-          ((identifier) @function.params.identifier)
-          )
-        )?
-      ) @function.params
-    (type_qualifier)? @function.const
+(field_declaration default_value: (_)) @function.skip
+(function_definition) @function.skip
+
+(template_declaration parameters: (template_parameter_list) @function.template)
+
+(function_declarator
+  declarator: (_) @function.name
+  parameters: (parameter_list) @function.params
+  (type_qualifier)? @function.const
+  )
+
+(unreal_function_declaration
+  (ufunction_macro
+    (unreal_argument_list
+      (unreal_specifier_list
+        (unreal_specifier) @function.specifier
+        )
+      )
     )
   )

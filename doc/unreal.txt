@@ -1,172 +1,261 @@
-*unreal.txt*  Neovim plugin for Unreal Engine C++ projects
+*unreal.txt*                      Neovim plugin for Unreal Engine C++ projects
+                               For NVIM v0.12    Last change: 2026 November 02
 
 ==============================================================================
-INTRODUCTION                                                    *unreal-intro*
+Table of Contents                                   *unreal-table-of-contents*
 
-unreal.nvim helps working on Unreal Engine C++ projects: source/header
-switching, clangd compilation-database generation, UFUNCTION/UCLASS macro
+1. Introduction                                          |unreal-introduction|
+  - Features                                    |unreal-introduction-features|
+  - Acknowledgements                    |unreal-introduction-acknowledgements|
+2. Installation                                          |unreal-installation|
+  - Requirements                            |unreal-installation-requirements|
+  - lazy.nvim                                  |unreal-installation-lazy.nvim|
+  - Tree-sitter grammar              |unreal-installation-tree-sitter-grammar|
+3. Config                                                      |unreal-config|
+  - custom_treesitter                        |unreal-config-custom_treesitter|
+  - command_lead                                  |unreal-config-command_lead|
+  - cmd_abbreviations                        |unreal-config-cmd_abbreviations|
+  - telescope_extended_ignores      |unreal-config-telescope_extended_ignores|
+  - clangd_build_args                        |unreal-config-clangd_build_args|
+4. Commands                                                  |unreal-commands|
+  - SetEnginePath                              |unreal-commands-setenginepath|
+  - OpenProject                                  |unreal-commands-openproject|
+  - RebuildClangd                              |unreal-commands-rebuildclangd|
+  - SwitchSourceHeader                    |unreal-commands-switchsourceheader|
+  - CreateImpl                                    |unreal-commands-createimpl|
+  - CompleteMacro                              |unreal-commands-completemacro|
+  - FindSource                                    |unreal-commands-findsource|
+  - GrepSource                                    |unreal-commands-grepsource|
+5. Engine path                                            |unreal-engine-path|
+6. Health                                                      |unreal-health|
+
+==============================================================================
+1. Introduction                                          *unreal-introduction*
+
+                                                                 *unreal.nvim*
+
+**unreal.nvim** helps working on Unreal Engine C++ projects: source/header
+switching, clangd compilation-database generation, `UFUNCTION`/`UCLASS` macro
 attribute completion, function implementation stubbing, and Unreal-aware
 treesitter/telescope integration.
 
-WARNING: this plugin is a work in progress. Commands, config options, and
-behavior may change without notice.
 
-The custom Unreal C++ treesitter grammar is tree-sitter-unreal-cpp by
-taku25: https://github.com/taku25/tree-sitter-unreal-cpp
+  **Warning:** this plugin is a work in progress. Commands, config options, and
+  behavior may change without notice.
+
+FEATURES                                        *unreal-introduction-features*
+
+- Switch between header and source
+- Generate function implementation stubs from a header declaration
+- Rebuild the clangd compilation database
+- Complete `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` macro attributes
+- Find/grep source files via telescope
+- Open the `.uproject` in the Unreal editor
+- Per-project engine path, cached across sessions
+- Unreal-aware treesitter grammar and telescope ignore patterns
+
+
+ACKNOWLEDGEMENTS                        *unreal-introduction-acknowledgements*
+
+The custom Unreal C++ treesitter grammar is tree-sitter-unreal-cpp
+<https://github.com/taku25/tree-sitter-unreal-cpp> by taku25
+<https://github.com/taku25>.
+
 
 ==============================================================================
-================================================================================
-M.defaults()                                                    *M.defaults()*
+2. Installation                                          *unreal-installation*
 
 
+REQUIREMENTS                                *unreal-installation-requirements*
 
+- Neovim >= 0.12
+- nvim-treesitter <https://github.com/nvim-treesitter/nvim-treesitter>
+- telescope.nvim <https://github.com/nvim-telescope/telescope.nvim>
+- plenary.nvim <https://github.com/nvim-lua/plenary.nvim>
+- nvim-lspconfig <https://github.com/neovim/nvim-lspconfig>
+- `rg`, `clangd` and `dotnet` on `$PATH`
+- An installed Unreal Engine build
 
-================================================================================
-M.SetEnginePath({opts})                                    *M.SetEnginePath()*
-    Set (and optionally persist) the Unreal Engine path used to locate
-    UnrealBuildTool.
+Use the nvim-treesitter `main` branch; `master` is not supported.
+nvim-lspconfig needs clangd set up: it provides `:LspClangdSwitchSourceHeader`,
+the fallback of |unreal-commands-switchsourceheader|.
 
 
-    Parameters: ~
-        {opts} (ParseEnginePathOpts)
+LAZY.NVIM                                      *unreal-installation-lazy.nvim*
 
+>lua
+    {
+        "lckdG/unreal.nvim",
+        dependencies = {
+            { "nvim-treesitter/nvim-treesitter", branch = "main" },
+            "nvim-telescope/telescope.nvim",
+            "nvim-lua/plenary.nvim",
+            "neovim/nvim-lspconfig",
+        },
+        opts = {},
+    }
+<
 
-M.parseToolPaths()                                        *M.parseToolPaths()*
+Or call `setup()` yourself:
 
+>lua
+    require('unreal').setup({})
+<
 
-    Return: ~
-        boolean
 
+TREE-SITTER GRAMMAR                  *unreal-installation-tree-sitter-grammar*
 
+After installing, run `:TSUpdate cpp` once so nvim-treesitter builds the Unreal
+C++ grammar.
 
-================================================================================
-M.check()                                                          *M.check()*
-    Run `:checkhealth unreal` diagnostics: telescope.nvim,
-    `rg`/`clangd`/`dotnet` on PATH (with version if found), and whether an
-    engine path is resolved for the current project.
+The plugin replaces nvim-treesitter’s `cpp` parser with
+tree-sitter-unreal-cpp <https://github.com/taku25/tree-sitter-unreal-cpp>. This
+applies to every C++ file, not only Unreal projects, and there is no opt-out:
+|unreal-commands-createimpl| and |unreal-commands-completemacro| depend on it.
 
 
+==============================================================================
+3. Config                                                      *unreal-config*
 
+All options are optional. Defaults:
 
-================================================================================
-M.ImplementFunction()                                  *M.ImplementFunction()*
-    Generate a `.cpp` implementation stub for the function declaration under
-    the cursor. Requires an open header file; jumps to the existing
-    implementation instead of duplicating it if one is already present in the
-    target `.cpp` file.
+>lua
+    require('unreal').setup({
+        custom_treesitter = {
+            url = 'https://github.com/taku25/tree-sitter-unreal-cpp',
+            revision = '2d2d5c19a9a83e432e43c041252106995614b29a',
+        },
+        command_lead = "Unreal",
+        cmd_abbreviations = {},
+        telescope_extended_ignores = { --[[ Unreal defaults, see below ]] },
+        clangd_build_args = { "-NoExecCodeGenActions" },
+    })
+<
 
 
+CUSTOM_TREESITTER                            *unreal-config-custom_treesitter*
 
-M.ParseImplementation({declaration})                 *M.ParseImplementation()*
+Grammar registered as nvim-treesitter’s `cpp` parser. Override `url` and
+`revision` to pin another build of the grammar.
 
 
-    Parameters: ~
-        {declaration} (table)
+COMMAND_LEAD                                      *unreal-config-command_lead*
 
-    Return: ~
-        table
+Name of the user command. With `command_lead = "UE"` the commands become `:UE
+OpenProject`, `:UE RebuildClangd`, …
 
 
+CMD_ABBREVIATIONS                            *unreal-config-cmd_abbreviations*
 
-================================================================================
-M.setup({opts})                                                    *M.setup()*
-    Entry point for the plugin. Applies config, then registers the `:Unreal`
-    command.
+Command-line abbreviations, expanded to `<command_lead> <value>`:
 
+>lua
+    cmd_abbreviations = { uo = "OpenProject", uc = "RebuildClangd" }
+<
 
-    Parameters: ~
-        {opts} (ConfigOpts)  ?
 
+TELESCOPE_EXTENDED_IGNORES          *unreal-config-telescope_extended_ignores*
 
+Lua patterns appended to telescope’s global `file_ignore_patterns`, so they
+apply to every telescope picker, not only |unreal-commands-findsource| /
+|unreal-commands-grepsource|.
 
-================================================================================
-M.init({info})                                                      *M.init()*
+Setting this **replaces** the defaults (Unreal binaries, assets and generated
+directories such as `Binaries/` and `Intermediate/`). To keep them, copy the
+list from `require('unreal.config').defaults.telescope_extended_ignores` and
+edit it.
 
 
-    Parameters: ~
-        {info} (table)
+CLANGD_BUILD_ARGS                            *unreal-config-clangd_build_args*
 
+Extra arguments for the UnrealBuildTool `-mode=GenerateClangDatabase` call made
+by |unreal-commands-rebuildclangd|. Each entry is one argument.
 
-M.Notify({msg}, {level})                                          *M.Notify()*
 
+==============================================================================
+4. Commands                                                  *unreal-commands*
 
-    Parameters: ~
-        {msg}   (string)
-        {level} (vim)     .log.levels
+                                                                     *:Unreal*
 
+All commands are subcommands of `:Unreal` (see |unreal-config-command_lead|),
+with `<Tab>` completion. If several `.uproject` files are found, commands that
+need one prompt you to choose.
 
 
-================================================================================
-M.CompleteMacro()                                          *M.CompleteMacro()*
-    Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` attribute under the
-    cursor via telescope. Requires an attached clangd client; silently no-ops
-    without one or if no macro is under the cursor. Completions are pulled from
-    the IntelliSense-only specifier namespaces declared in
-    `UObject/ObjectMacros.h`; this header can be missing/stripped in some
-    engine builds, in which case results are empty. Treat the specifier list
-    there as a reference, not exhaustive -- see unreal-garden
-    (https://unreal-garden.com) for the complete set of specifiers per macro.
+SETENGINEPATH                                  *unreal-commands-setenginepath*
 
+Prompt for the engine path of the current project and save it. See
+|unreal-engine-path|.
 
 
+OPENPROJECT                                      *unreal-commands-openproject*
 
-================================================================================
-M.OpenUproject()                                            *M.OpenUproject()*
-    Open the `.uproject` file in the current directory with the OS default
-    handler. Prompts to choose one if multiple are found; no-ops if none are
-    found.
+Open the `.uproject` in the working directory in the Unreal editor (on Windows,
+with the default handler).
 
 
+REBUILDCLANGD                                  *unreal-commands-rebuildclangd*
 
-M.RebuildClangd()                                          *M.RebuildClangd()*
-    Regenerate `compile_commands.json` via UnrealBuildTool and copy it into the
-    working directory. Uses `clangd_build_args` from setup() config for extra
-    UBT arguments. Prompts for an engine path if none is set yet; aborts if
-    still unresolved.
+Regenerate `compile_commands.json` with UnrealBuildTool and copy it into the
+working directory. Output is shown in a terminal split; press any key to close
+it when the build is done.
 
 
+SWITCHSOURCEHEADER                        *unreal-commands-switchsourceheader*
 
+Switch between a header and its source file. Searches the module’s
+`Public`/`Private` folders first, then falls back to clangd.
 
-================================================================================
-M.SwitchSourceHeader()                                *M.SwitchSourceHeader()*
-    Open the matching source/header file. Searches under the Public/Private
-    source root first, falls back to clangd's switch-source-header if
-    unresolved.
 
+CREATEIMPL                                        *unreal-commands-createimpl*
 
+With the cursor on a function declaration in a header, append an implementation
+stub to the matching `.cpp`, or jump to it if it exists.
 
-M.FindImplementation({buf}, {marker})                 *M.FindImplementation()*
-    Compare a buffer content with the marker TODO: use treesitter token for
-    comparison
+- `BlueprintNativeEvent` and RPC functions: `_Implementation` stub
+- `WithValidation`: also a `_Validate` stub
+- `BlueprintImplementableEvent`: no stub
+- Pure virtual, deleted and inline functions: no stub
 
 
-    Parameters: ~
-        {buf}    (number)
-        {marker} (string)
+COMPLETEMACRO                                  *unreal-commands-completemacro*
 
-    Return: ~
-        number
+Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` specifier under the
+cursor. Requires clangd.
 
 
-M.FindSource()                                                *M.FindSource()*
-    Find header/cpp/both files via telescope. Prompts for scope:
-     1. All - `*.{h,cpp}`
-     2. Headers - `*.h`
-     3. Cpp - `*.cpp` The chosen glob is sent to telescope's ripgrep-backed
-        `find_files` to filter results. No-ops if the prompt is dismissed or an
-        invalid choice is entered.
+FINDSOURCE                                        *unreal-commands-findsource*
 
+Find header, source, or both kinds of files with telescope.
 
 
-M.GrepSource()                                                *M.GrepSource()*
-    Live grep header/cpp/both files via telescope. Prompts for scope:
-     1. All - `*.{h,cpp}`
-     2. Headers - `*.h`
-     3. Cpp - `*.cpp` The chosen glob is sent to telescope's ripgrep-backed
-        `live_grep` to filter results. No-ops if the prompt is dismissed or an
-        invalid choice is entered.
+GREPSOURCE                                        *unreal-commands-grepsource*
 
+Live grep header, source, or both kinds of files with telescope.
 
 
+==============================================================================
+5. Engine path                                            *unreal-engine-path*
 
- vim:tw=78:ts=8:ft=help:norl:
+The engine path is stored per project, keyed by the nearest `.uproject`
+directory found upward from the working directory, in
+`stdpath('data')/unreal.nvim/lock.dat`.
+
+A path is valid only if it contains
+`Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll`. Commands that
+need the engine prompt for a path when none is saved, the saved one is no
+longer valid, or the working directory moved to another project.
+
+
+==============================================================================
+6. Health                                                      *unreal-health*
+
+Run `:checkhealth unreal` to check:
+
+- `setup()` was called
+- telescope.nvim, plenary.nvim, `rg`, `clangd` and `dotnet` are available
+- the saved engine path, the editor executable and UnrealBuildTool exist
+
+Generated by panvimdoc <https://github.com/kdheepak/panvimdoc>
+
+vim:tw=78:ts=8:noet:ft=help:norl:
