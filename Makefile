@@ -16,7 +16,7 @@ NVIM_VERSION ?= 0.12
 
 # doc/*.md -> doc/unreal.txt via panvimdoc's Docker image (needs Docker)
 docs: $(DEPS_DIR)/panvimdoc
-	docker build -q -t unreal-nvim-panvimdoc $(DEPS_DIR)/panvimdoc
+	docker buildx build --load -q -t unreal-nvim-panvimdoc $(DEPS_DIR)/panvimdoc
 	docker run --rm -u $$(id -u):$$(id -g) -v "$(CURDIR)":/data -w /data unreal-nvim-panvimdoc \
 		--project-name unreal --input-file doc/vimdoc.md --vim-version "NVIM v$(NVIM_VERSION)" \
 		--description "Neovim plugin for Unreal Engine C++ projects" --toc true --treesitter true
