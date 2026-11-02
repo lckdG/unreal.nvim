@@ -137,4 +137,25 @@ describe("path_utils", function()
             assert.is_false(pathUtils.Exists(h.tmpdir() .. "/nope"))
         end)
     end)
+
+    describe("ToIgnoreDirPattern", function()
+        local slash = package.config:sub(1, 1)
+        local cases = {
+            { "Binaries/Linux/x", true },
+            { "Plugins/Foo/Binaries/x", true },
+            { "/abs/Project/Binaries/x", true },
+            { "Source/MyBuild/x.cpp", false },
+            { "Source/My_Build/x.cpp", false },
+            { "Source/Build.cs", false },
+            { "Source/Binaries.cpp", false },
+        }
+        for _, case in ipairs(cases) do
+            it("Binaries/Build: " .. case[1] .. " -> " .. (case[2] and "ignored" or "kept"), function()
+                local path = case[1]:gsub("/", slash)
+                local ignored = path:find(pathUtils.ToIgnoreDirPattern("Binaries")) ~= nil
+                    or path:find(pathUtils.ToIgnoreDirPattern("Build")) ~= nil
+                assert.are.equal(case[2], ignored)
+            end)
+        end
+    end)
 end)
