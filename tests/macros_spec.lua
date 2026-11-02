@@ -221,7 +221,7 @@ describe("macros.CompleteMacro", function()
         assert.are.same({ "UM::DisplayName" }, names(pickers[1].list))
     end)
 
-    -- regression: commas used to be derived from #existedVariables after the namespace was inserted into it
+    -- comma placement uses #existedVariables, so adding the namespace exclusion must not change that list
     it("exclusions do not mutate existedVariables from GetMacro", function()
         local existing
         local getMacro = treesitter.GetMacro
