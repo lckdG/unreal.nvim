@@ -31,7 +31,7 @@ describe("project", function()
         h.stub(engine, "EnsureEnginePath", function() return true end)
         h.stub(engine, "EnginePath", "/ue")
         h.stub(engine, "BuildTool", "/ue/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll")
-        h.stub(engine, "GetExecuteCmd", function() return { "editor" } end)
+        h.stub(engine, "GetExecuteCmd", function() return true, { "editor" } end)
     end)
     after_each(h.reset)
 
