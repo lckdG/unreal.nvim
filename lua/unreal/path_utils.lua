@@ -1,8 +1,8 @@
 local M = {}
 
-function M.NameToDirectory(name)
+function M.ToIgnoreDirPattern(name)
     local slash = package.config:sub(1, 1)
-    return name .. slash
+    return "%f[^" .. slash .. "%z]" .. name .. slash
 end
 
 function M.Exists(path)

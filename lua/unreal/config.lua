@@ -28,11 +28,11 @@ M.defaults = {
         "%.uexp", "%.dmp", "%.pb", "%.bin", -- Something I dont really know :)
 
         -- Generated Directories
-        pathUtils.NameToDirectory("Binaries"),
-        pathUtils.NameToDirectory("Build"),
-        pathUtils.NameToDirectory("DerivedDataCache"),
-        pathUtils.NameToDirectory("Intermediate"),
-        pathUtils.NameToDirectory("Cooked")
+        pathUtils.ToIgnoreDirPattern("Binaries"),
+        pathUtils.ToIgnoreDirPattern("Build"),
+        pathUtils.ToIgnoreDirPattern("DerivedDataCache"),
+        pathUtils.ToIgnoreDirPattern("Intermediate"),
+        pathUtils.ToIgnoreDirPattern("Cooked")
     },
     clangd_build_args = {
         "-NoExecCodeGenActions",
