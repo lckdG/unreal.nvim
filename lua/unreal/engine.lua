@@ -77,10 +77,10 @@ function M.init()
         end
     end
 
+    M.initDefaults()
+
     local enginePath = M.ReadEnginePath()
-    if enginePath == nil then
-        M.initDefaults()
-    else
+    if enginePath ~= nil then
         M.SetEnginePath { path = enginePath, silent = true, savePath = false }
     end
 end
@@ -95,9 +95,6 @@ end
 ---Set (and optionally persist) the Unreal Engine path used to locate UnrealBuildTool.
 ---@param opts ParseEnginePathOpts
 function M.SetEnginePath(opts)
-    M.EnginePath = nil
-    M.EnginePathSet = false
-
     if M.parseToolPaths(opts) then
         M.EnginePath = opts.path
         M.EnginePathSet = true
@@ -112,8 +109,6 @@ end
 ---@param opts ParseEnginePathOpts
 ---@return boolean
 function M.parseToolPaths(opts)
-    M.BuildTool = nil
-
     local path = opts.path
     local silent = opts.silent
 
@@ -154,6 +149,7 @@ end
 
 function M.InputEnginePath()
     require('unreal.ui').Input("Enter Unreal Engine path: ", "dir", function (input)
+        if input == nil or input == "" then return end
         M.SetEnginePath{ path = input, silent = false, savePath = true }
     end)
 end
