@@ -7,24 +7,17 @@ local realGetExecuteCmd = engine.GetExecuteCmd
 
 local ERROR = vim.log.levels.ERROR
 
-local function stub_system(code, stderr)
+local function stub_jobstart(code)
     local state = { calls = {}, exited = false }
-    h.stub(vim, "system", function(cmd, opts, on_exit)
-        if type(opts) == "function" then on_exit, opts = opts, nil end
-        table.insert(state.calls, { cmd = cmd, opts = opts })
-        local result = { code = code, signal = 0, stdout = "", stderr = stderr or "" }
-        if on_exit then
-            local timer = vim.uv.new_timer()
-            timer:start(0, 0, function()
-                timer:close()
-                local ok, err = pcall(on_exit, result)
-                state.callback_error = not ok and tostring(err) or nil
-                state.exited = true
-            end)
-        else
+    h.stub(vim.fn, "jobstart", function(cmd, opts)
+        table.insert(state.calls, { cmd = cmd, opts = opts, win = vim.api.nvim_get_current_win() })
+        -- real jobstart fires on_exit later on the main loop
+        vim.schedule(function()
+            local ok, err = pcall(opts.on_exit, 1, code, "exit")
+            state.callback_error = not ok and tostring(err) or nil
             state.exited = true
-        end
-        return { wait = function() return result end, pid = 1 }
+        end)
+        return 1
     end)
     return state
 end
@@ -110,11 +103,10 @@ describe("project", function()
             copies = h.spy(vim.uv, "fs_copyfile", true)
         end)
 
-        local function run(code, stderr)
-            local state = stub_system(code, stderr)
+        local function run(code)
+            local state = stub_jobstart(code)
             project.RebuildClangd()
             vim.wait(1000, function() return state.exited end)
-            vim.wait(50)
             return state
         end
 
@@ -147,7 +139,7 @@ describe("project", function()
             assert.are.equal(0, #state.calls)
         end)
 
-        it("runs dotnet via vim.system with an argument list", function()
+        it("runs dotnet via jobstart in a terminal with an argument list", function()
             local root = h.project({ ["Game.uproject"] = {} })
             h.stub(system, "GetPlatform", function() return "Linux" end)
             config.opts.clangd_build_args = { "-NoExecCodeGenActions" }
@@ -164,6 +156,30 @@ describe("project", function()
                 "Linux",
                 "Development",
             }, state.calls[1].cmd)
+            assert.is_true(state.calls[1].opts.term)
+        end)
+
+        it("opens a split for the terminal and focuses it after exit", function()
+            h.project({ ["Game.uproject"] = {} })
+            local origWin = vim.api.nvim_get_current_win()
+            local state = stub_jobstart(0)
+            project.RebuildClangd()
+            local jobWin = state.calls[1].win
+            assert.are_not.equal(origWin, jobWin)
+            vim.api.nvim_set_current_win(origWin) -- user moves away during build
+            vim.wait(1000, function() return state.exited end)
+            assert.is_nil(state.callback_error)
+            assert.are.equal(jobWin, vim.api.nvim_get_current_win())
+        end)
+
+        it("terminal window closed before exit -> no error", function()
+            h.project({ ["Game.uproject"] = {} })
+            local state = stub_jobstart(0)
+            project.RebuildClangd()
+            vim.api.nvim_win_close(state.calls[1].win, true)
+            vim.wait(1000, function() return state.exited end)
+            assert.is_nil(state.callback_error)
+            assert.is_true(h.notified(notes, "Rebuild database successfully!", vim.log.levels.INFO))
         end)
 
         it("engine path with spaces stays one argument", function()
@@ -182,12 +198,12 @@ describe("project", function()
             assert.is_true(vim.tbl_contains(cmd, "-b"))
         end)
 
-        it("exit code != 0 -> no copy, error with stderr", function()
+        it("exit code != 0 -> no copy, error with exit code", function()
             h.project({ ["Game.uproject"] = {} })
-            local state = run(6, "UBT exploded")
+            local state = run(6)
             assert.is_nil(state.callback_error)
             assert.are.equal(0, #copies)
-            assert.is_true(h.notified(notes, "UBT exploded", ERROR))
+            assert.is_true(h.notified(notes, "Rebuild Clangd failed (6)", ERROR))
         end)
 
         it("exit code 0 -> copies compile_commands.json to cwd, success notify", function()
