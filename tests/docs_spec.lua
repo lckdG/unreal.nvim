@@ -42,9 +42,12 @@ describe("help file", function()
         local dir = h.tmpdir()
         vim.fn.mkdir(dir .. "/doc", "p")
         vim.fn.writefile(vim.fn.readfile(vim.fs.joinpath(h.repo_root, "doc/unreal.txt")), dir .. "/doc/unreal.txt")
-        assert.has_no.errors(function()
-            vim.cmd.helptags(vim.fn.fnameescape(dir .. "/doc"))
-        end)
+        -- nightly :helptags is Lua and calls global assert(); luassert's returns extra values (E118)
+        local luassert = _G.assert
+        _G.assert = _PlenaryBustedOldAssert or luassert
+        local ok, err = pcall(vim.cmd.helptags, vim.fn.fnameescape(dir .. "/doc"))
+        _G.assert = luassert
+        assert.is_true(ok, err)
     end)
 
     it("README and help agree on the WIP notice", function()
