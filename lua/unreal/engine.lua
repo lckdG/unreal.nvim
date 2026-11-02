@@ -1,8 +1,8 @@
-local config = require('unreal.config')
-local pathUtils = require('unreal.path_utils')
-local log = require('unreal.log')
+local config = require("unreal.config")
+local pathUtils = require("unreal.path_utils")
+local log = require("unreal.log")
 
-local dataRoot = vim.fn.stdpath('data')
+local dataRoot = vim.fn.stdpath("data")
 
 --#region Utility functions
 
@@ -12,21 +12,29 @@ local function getProjectRoot()
         nameOnly = false,
     })
 
-    if #uprojects == 0 then return vim.fn.getcwd() end
+    if #uprojects == 0 then
+        return vim.fn.getcwd()
+    end
     return vim.fn.fnamemodify(uprojects[1], ":p:h")
 end
 
 local function readLockfile(filePath)
-    if filePath == nil or filePath == "" then return nil end
+    if filePath == nil or filePath == "" then
+        return nil
+    end
 
     local file = io.open(filePath, "r")
-    if file == nil then return nil end
+    if file == nil then
+        return nil
+    end
 
-    local content = file:read('a')
+    local content = file:read("a")
     file:close()
 
     local ok, data = pcall(vim.json.decode, content)
-    if not ok or type(data) ~= "table" then return nil end
+    if not ok or type(data) ~= "table" then
+        return nil
+    end
 
     return data
 end
@@ -70,7 +78,7 @@ function M.init()
 
     local enginePath = M.ReadEnginePath()
     if enginePath ~= nil and M.IsUbtExist(enginePath) then
-        M.SetEnginePath { path = enginePath, silent = true, savePath = false }
+        M.SetEnginePath({ path = enginePath, silent = true, savePath = false })
     end
 end
 
@@ -102,14 +110,7 @@ function M.SetEnginePath(opts)
 end
 
 function M.ParseUbtPath(engineDir)
-    return vim.fs.joinpath(
-        engineDir,
-        "Engine",
-        "Binaries",
-        "DotNET",
-        "UnrealBuildTool",
-        "UnrealBuildTool.dll"
-    )
+    return vim.fs.joinpath(engineDir, "Engine", "Binaries", "DotNET", "UnrealBuildTool", "UnrealBuildTool.dll")
 end
 
 ---@param enginePath string
@@ -132,18 +133,21 @@ function M.saveEnginePath(path)
     end
 end
 
-
 function M.ReadEnginePath()
     local lockData = readLockfile(M.LockFilePath)
-    if lockData == nil then return nil end
+    if lockData == nil then
+        return nil
+    end
 
     return lockData[getProjectRoot()]
 end
 
 function M.InputEnginePath()
-    require('unreal.ui').Input("Enter Unreal Engine path: ", "dir", function (input)
-        if input == nil or input == "" then return end
-        M.SetEnginePath{ path = input, silent = false, savePath = true }
+    require("unreal.ui").Input("Enter Unreal Engine path: ", "dir", function(input)
+        if input == nil or input == "" then
+            return
+        end
+        M.SetEnginePath({ path = input, silent = false, savePath = true })
     end)
 end
 
@@ -153,7 +157,7 @@ function M.EnsureEnginePath()
 
         local enginePath = M.ReadEnginePath()
         if enginePath ~= nil and M.IsUbtExist(enginePath) then
-            M.SetEnginePath { path = enginePath, silent = true, savePath = false }
+            M.SetEnginePath({ path = enginePath, silent = true, savePath = false })
         end
     end
 
@@ -168,26 +172,18 @@ end
 local engineExecutable = {
     Win64 = "UnrealEditor.exe",
     Linux = "UnrealEditor",
-    Mac = vim.fs.joinpath("UnrealEditor.app", "Contents", "MacOS", "UnrealEditor")
+    Mac = vim.fs.joinpath("UnrealEditor.app", "Contents", "MacOS", "UnrealEditor"),
 }
 
 function M.GetEngineExecutable(platform, enginePath)
-    local binariesPath = vim.fs.joinpath(
-        enginePath,
-        "Engine",
-        "Binaries"
-    )
+    local binariesPath = vim.fs.joinpath(enginePath, "Engine", "Binaries")
 
     local executableName = engineExecutable[platform]
-    return vim.fs.joinpath(
-        binariesPath,
-        platform,
-        executableName
-    )
+    return vim.fs.joinpath(binariesPath, platform, executableName)
 end
 
 function M.GetExecuteCmd()
-    local platform = require('unreal.system').GetPlatform()
+    local platform = require("unreal.system").GetPlatform()
     if platform == "Win64" then
         return true, { "cmd", "/c", "start", "" }
     else

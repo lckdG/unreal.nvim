@@ -1,36 +1,38 @@
 ---@param config ConfigOpts
 local function createCommands(config)
     local subcommands = {
-        SetEnginePath = require('unreal.engine').InputEnginePath,
-        OpenProject = require('unreal.project').OpenUproject,
-        RebuildClangd = require('unreal.project').RebuildClangd,
-        SwitchSourceHeader = require('unreal.search').SwitchSourceHeader,
-        CreateImpl = require('unreal.impl').ImplementFunction,
-        CompleteMacro = require('unreal.macros').CompleteMacro,
-        FindSource = require('unreal.search').FindSource,
-        GrepSource = require('unreal.search').GrepSource,
+        SetEnginePath = require("unreal.engine").InputEnginePath,
+        OpenProject = require("unreal.project").OpenUproject,
+        RebuildClangd = require("unreal.project").RebuildClangd,
+        SwitchSourceHeader = require("unreal.search").SwitchSourceHeader,
+        CreateImpl = require("unreal.impl").ImplementFunction,
+        CompleteMacro = require("unreal.macros").CompleteMacro,
+        FindSource = require("unreal.search").FindSource,
+        GrepSource = require("unreal.search").GrepSource,
     }
 
-    vim.api.nvim_create_user_command(config.command_lead, function (opts)
+    vim.api.nvim_create_user_command(config.command_lead, function(opts)
         local arg = opts.args
         local func = subcommands[arg]
         if func ~= nil then
             func()
         else
-            require('unreal.log').Notify("Error: unavailable command " .. arg, vim.log.levels.ERROR)
+            require("unreal.log").Notify("Error: unavailable command " .. arg, vim.log.levels.ERROR)
         end
     end, {
         nargs = 1,
-        complete = function (arg_lead, cmdline, cursor_pos)
+        complete = function(arg_lead, cmdline, cursor_pos)
             return vim.tbl_keys(subcommands)
-        end
+        end,
     })
 end
 
 ---@param config ConfigOpts
 local function createAbbrevs(config)
     local cmd_abbrevs = config.cmd_abbreviations
-    if cmd_abbrevs == nil then return end
+    if cmd_abbrevs == nil then
+        return
+    end
 
     local cabbr = vim.cmd.cabbrev
     local command_lead = config.command_lead

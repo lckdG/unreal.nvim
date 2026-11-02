@@ -14,7 +14,9 @@ function M.spy(tbl, key, ret)
     local calls = {}
     M.stub(tbl, key, function(...)
         table.insert(calls, { ... })
-        if type(ret) == "function" then return ret(...) end
+        if type(ret) == "function" then
+            return ret(...)
+        end
         return ret
     end)
     return calls
@@ -49,7 +51,9 @@ end
 
 function M.unload()
     for name in pairs(package.loaded) do
-        if name:match("^unreal") then package.loaded[name] = nil end
+        if name:match("^unreal") then
+            package.loaded[name] = nil
+        end
     end
 end
 

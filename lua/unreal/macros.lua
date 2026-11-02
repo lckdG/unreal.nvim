@@ -1,5 +1,5 @@
-local log = require('unreal.log')
-local treesitter = require('unreal.treesitter')
+local log = require("unreal.log")
+local treesitter = require("unreal.treesitter")
 
 local logLevel = vim.log.levels
 
@@ -23,14 +23,14 @@ local function createCompletionEntry(rawEntry, namespace, exclusions)
     return {
         name = namespace .. "::" .. label,
         value = { text = label, isMeta = namespace == "UM" },
-        desc = descLines
+        desc = descLines,
     }
 end
 
 ---
 ---@param request MacroCompletionRequest
 local function getMacroCompletions(request)
-    local tempBufnr = require('unreal.system').CreateTempBuffer()
+    local tempBufnr = require("unreal.system").CreateTempBuffer()
 
     local namespace = string.sub(request.identifier, 1, 2)
     local insertTerm = namespace .. "::"
@@ -42,14 +42,14 @@ local function getMacroCompletions(request)
         textDocument = vim.lsp.util.make_text_document_params(tempBufnr),
         position = {
             line = 0,
-            character = #insertTerm
+            character = #insertTerm,
         },
         context = {
             triggerKind = 1, -- Invoked trigger
-        }
+        },
     }
 
-    local async = require('plenary.async')
+    local async = require("plenary.async")
     local requestLsp = async.wrap(function(bufnr, method, param, callback)
         vim.lsp.buf_request(bufnr, method, param, callback)
     end, 4)
@@ -84,7 +84,7 @@ local function addMacro(macroNode, value)
 
     local addType, addRow, addCol = treesitter.GetNextMacroPosition(macroNode, isMeta)
 
-    local types = require('unreal.types')
+    local types = require("unreal.types")
     local content = text
 
     if isMeta then
@@ -115,7 +115,7 @@ local M = {}
 ---which case results are empty. Treat the specifier list there as a reference, not exhaustive --
 ---see unreal-garden (https://unreal-garden.com) for the complete set of specifiers per macro.
 function M.CompleteMacro()
-    if require('unreal.system').HasClangdEnabled() == false then
+    if require("unreal.system").HasClangdEnabled() == false then
         log.Notify("Clangd is not enabled for current buffer!", logLevel.ERROR)
         return
     end
@@ -129,23 +129,30 @@ function M.CompleteMacro()
     end
 
     ---@type vim.lsp.Client
-    local lspClient = vim.lsp.get_clients{ name = "clangd", bufnr = 0 }[1]
+    local lspClient = vim.lsp.get_clients({ name = "clangd", bufnr = 0 })[1]
 
-    local async = require('plenary.async')
+    local async = require("plenary.async")
     async.run(function()
-        local namespaceCompletions = getMacroCompletions{ identifier = identifier, lspClient = lspClient, exclusions = existedVariables.arguments }
+        local namespaceCompletions = getMacroCompletions({
+            identifier = identifier,
+            lspClient = lspClient,
+            exclusions = existedVariables.arguments,
+        })
 
         -- We need the UM:: here
         -- The rest are just for human readability
-        local metaCompletions = getMacroCompletions{ identifier = "UMETA", lspClient = lspClient, exclusions = existedVariables.metas }
+        local metaCompletions =
+            getMacroCompletions({ identifier = "UMETA", lspClient = lspClient, exclusions = existedVariables.metas })
 
         if #namespaceCompletions + #metaCompletions == 0 then
             return
         end
 
         local completionList = vim.list_extend(namespaceCompletions, metaCompletions)
-        require('unreal.ui').EntryPicker(completionList, function (entry)
-            if entry == nil then return end
+        require("unreal.ui").EntryPicker(completionList, function(entry)
+            if entry == nil then
+                return
+            end
             addMacro(macroNode, entry)
         end)
     end, function() end)

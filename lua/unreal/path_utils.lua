@@ -6,7 +6,9 @@ function M.ToIgnoreDirPattern(name)
 end
 
 function M.Exists(path)
-    if path == nil then return false end
+    if path == nil then
+        return false
+    end
     return vim.uv.fs_stat(path) ~= nil
 end
 
@@ -77,14 +79,16 @@ end
 
 function M.GetSourceHeader()
     local extension = vim.fn.expand("%:t:e")
-    local info = require('unreal.config').info
+    local info = require("unreal.config").info
     local desiredExt = extension == info.CppExt and info.HeaderExt or info.CppExt
 
     local fileName = vim.fn.expand("%:t:r")
     local directory = M.GetSourceFilesRoot()
-    if directory == nil then return nil end
+    if directory == nil then
+        return nil
+    end
 
-    local switchingFiles = vim.fs.find(function (name, _)
+    local switchingFiles = vim.fs.find(function(name, _)
         return name == fileName .. "." .. desiredExt
     end, { limit = 1, type = "file", path = directory })
 

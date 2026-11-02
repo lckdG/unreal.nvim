@@ -126,7 +126,9 @@ describe("telescope.AppendIgnorePatterns", function()
     end)
 
     it("telescope not installed -> no error", function()
-        assert.has_no.errors(function() telescope.AppendIgnorePatterns({ "%.uasset" }) end)
+        assert.has_no.errors(function()
+            telescope.AppendIgnorePatterns({ "%.uasset" })
+        end)
     end)
 
     it("nil ignores -> defaults untouched", function()

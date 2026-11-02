@@ -2,7 +2,9 @@ local M = {}
 
 local function get_version(name)
     local output = vim.fn.system(name .. " --version")
-    if vim.v.shell_error ~= 0 then return nil end
+    if vim.v.shell_error ~= 0 then
+        return nil
+    end
 
     return vim.trim(output:match("[^\r\n]+") or output)
 end
@@ -52,7 +54,7 @@ local function check_engine_path()
     local enginePath = engine.ReadEnginePath()
     local ubtPathValid = enginePath ~= nil and engine.IsUbtExist(enginePath) or false
 
-    local platform = require('unreal.system').GetPlatform()
+    local platform = require("unreal.system").GetPlatform()
     local executablePath = enginePath ~= nil and engine.GetEngineExecutable(platform, enginePath) or nil
     local executablePathValid = require("unreal.path_utils").Exists(executablePath)
 
@@ -79,8 +81,6 @@ local function check_engine_path()
     else
         health.warn("UBT path not found")
     end
-
-
 end
 
 ---Run `:checkhealth unreal` diagnostics: dependencies (with version if found)
@@ -103,4 +103,3 @@ function M.check()
 end
 
 return M
-

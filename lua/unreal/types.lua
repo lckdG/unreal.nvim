@@ -43,10 +43,10 @@ local Types = {}
 
 ---@enum MacroAddType
 Types.MACRO_ADD_TYPE = {
-  First = 1,
-  Append = 2,
-  Prepend = 3,
-  AppendMeta = 4,
+    First = 1,
+    Append = 2,
+    Prepend = 3,
+    AppendMeta = 4,
 }
 
 return Types

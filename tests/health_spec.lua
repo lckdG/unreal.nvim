@@ -16,7 +16,9 @@ describe("health", function()
 
     local function find(kind, pattern)
         for _, r in ipairs(report) do
-            if r.kind == kind and r.msg:find(pattern, 1, true) then return r end
+            if r.kind == kind and r.msg:find(pattern, 1, true) then
+                return r
+            end
         end
     end
 
@@ -47,9 +49,13 @@ describe("health", function()
 
         ---@param files string[] files to create under a fresh engine dir
         local function engine_with(files)
-            h.stub(require("unreal.system"), "GetPlatform", function() return "Linux" end)
+            h.stub(require("unreal.system"), "GetPlatform", function()
+                return "Linux"
+            end)
             local root = h.tmpdir()
-            for _, f in ipairs(files) do h.write(root, f) end
+            for _, f in ipairs(files) do
+                h.write(root, f)
+            end
             save_engine_path(root)
             return root
         end
@@ -108,8 +114,12 @@ describe("health", function()
 
         for _, exe in ipairs({ "rg", "clangd", "dotnet" }) do
             it("missing " .. exe .. " -> error with hint", function()
-                h.stub(vim.fn, "executable", function(name) return name == exe and 0 or 1 end)
-                h.stub(vim.fn, "system", function() return "x 1.0\n" end)
+                h.stub(vim.fn, "executable", function(name)
+                    return name == exe and 0 or 1
+                end)
+                h.stub(vim.fn, "system", function()
+                    return "x 1.0\n"
+                end)
                 require("unreal.health").check()
                 local r = find("error", exe .. " not found")
                 assert.is_not_nil(r)
@@ -118,7 +128,9 @@ describe("health", function()
         end
 
         it("executable present, --version fails -> ok without version", function()
-            h.stub(vim.fn, "executable", function() return 1 end)
+            h.stub(vim.fn, "executable", function()
+                return 1
+            end)
             h.stub(vim.fn, "system", function()
                 vim.cmd("silent! call system('exit 1')")
                 return ""
@@ -130,7 +142,9 @@ describe("health", function()
 
         it("telescope missing -> error", function()
             h.stub(package.loaded, "telescope", nil)
-            h.stub(package.preload, "telescope", function() error("not found") end)
+            h.stub(package.preload, "telescope", function()
+                error("not found")
+            end)
             require("unreal.health").check()
             assert.is_not_nil(find("error", "telescope.nvim not found"))
         end)
@@ -143,7 +157,9 @@ describe("health", function()
 
         it("plenary missing -> error with hint", function()
             h.stub(package.loaded, "plenary", nil)
-            h.stub(package.preload, "plenary", function() error("not found") end)
+            h.stub(package.preload, "plenary", function()
+                error("not found")
+            end)
             require("unreal.health").check()
             local r = find("error", "plenary.nvim not found")
             assert.is_not_nil(r)

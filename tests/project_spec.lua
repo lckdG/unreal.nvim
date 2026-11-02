@@ -28,10 +28,14 @@ describe("project", function()
     before_each(function()
         config.config()
         notes = h.notifications()
-        h.stub(engine, "EnsureEnginePath", function() return true end)
+        h.stub(engine, "EnsureEnginePath", function()
+            return true
+        end)
         h.stub(engine, "EnginePath", "/ue")
         h.stub(engine, "BuildTool", "/ue/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll")
-        h.stub(engine, "GetExecuteCmd", function() return true, { "editor" } end)
+        h.stub(engine, "GetExecuteCmd", function()
+            return true, { "editor" }
+        end)
     end)
     after_each(h.reset)
 
@@ -69,14 +73,18 @@ describe("project", function()
         it("2 uprojects, cancel -> nothing opened", function()
             h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
             local jobs = h.spy(vim.fn, "jobstart", 1)
-            h.stub(vim.fn, "inputlist", function() return 0 end)
+            h.stub(vim.fn, "inputlist", function()
+                return 0
+            end)
             project.OpenUproject()
             assert.are.equal(0, #jobs)
         end)
 
         it("EnsureEnginePath false -> returns before searching", function()
             h.project({ ["Game.uproject"] = {} })
-            h.stub(engine, "EnsureEnginePath", function() return false end)
+            h.stub(engine, "EnsureEnginePath", function()
+                return false
+            end)
             local finds = h.spy(require("unreal.path_utils"), "FindUprojects", {})
             local jobs = h.spy(vim.fn, "jobstart", 1)
             project.OpenUproject()
@@ -88,7 +96,9 @@ describe("project", function()
             h.project({ ["Game.uproject"] = {} })
             h.stub(engine, "GetExecuteCmd", realGetExecuteCmd)
             h.stub(engine, "EnginePath", h.tmpdir())
-            h.stub(system, "GetPlatform", function() return "Linux" end)
+            h.stub(system, "GetPlatform", function()
+                return "Linux"
+            end)
             local jobs = h.spy(vim.fn, "jobstart", 1)
             project.OpenUproject()
             assert.are.equal(0, #jobs)
@@ -106,13 +116,17 @@ describe("project", function()
         local function run(code)
             local state = stub_jobstart(code)
             project.RebuildClangd()
-            vim.wait(1000, function() return state.exited end)
+            vim.wait(1000, function()
+                return state.exited
+            end)
             return state
         end
 
         it("EnsureEnginePath false -> aborts", function()
             h.project({ ["Game.uproject"] = {} })
-            h.stub(engine, "EnsureEnginePath", function() return false end)
+            h.stub(engine, "EnsureEnginePath", function()
+                return false
+            end)
             local state = run(0)
             assert.are.equal(0, #state.calls)
         end)
@@ -134,14 +148,18 @@ describe("project", function()
 
         it("2 uprojects, cancel -> UBT not called", function()
             h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            h.stub(vim.fn, "inputlist", function() return 0 end)
+            h.stub(vim.fn, "inputlist", function()
+                return 0
+            end)
             local state = run(0)
             assert.are.equal(0, #state.calls)
         end)
 
         it("runs dotnet via jobstart in a terminal with an argument list", function()
             local root = h.project({ ["Game.uproject"] = {} })
-            h.stub(system, "GetPlatform", function() return "Linux" end)
+            h.stub(system, "GetPlatform", function()
+                return "Linux"
+            end)
             config.opts.clangd_build_args = { "-NoExecCodeGenActions" }
             local state = run(0)
             assert.are.same({
@@ -167,7 +185,9 @@ describe("project", function()
             local jobWin = state.calls[1].win
             assert.are_not.equal(origWin, jobWin)
             vim.api.nvim_set_current_win(origWin) -- user moves away during build
-            vim.wait(1000, function() return state.exited end)
+            vim.wait(1000, function()
+                return state.exited
+            end)
             assert.is_nil(state.callback_error)
             assert.are.equal(jobWin, vim.api.nvim_get_current_win())
         end)
@@ -177,14 +197,20 @@ describe("project", function()
             local state = stub_jobstart(0)
             project.RebuildClangd()
             vim.api.nvim_win_close(state.calls[1].win, true)
-            vim.wait(1000, function() return state.exited end)
+            vim.wait(1000, function()
+                return state.exited
+            end)
             assert.is_nil(state.callback_error)
             assert.is_true(h.notified(notes, "Rebuild database successfully!", vim.log.levels.INFO))
         end)
 
         it("engine path with spaces stays one argument", function()
             h.project({ ["Game.uproject"] = {} })
-            h.stub(engine, "BuildTool", "C:/Program Files/Epic Games/UE_5.4/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll")
+            h.stub(
+                engine,
+                "BuildTool",
+                "C:/Program Files/Epic Games/UE_5.4/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
+            )
             local state = run(0)
             assert.is_true(vim.tbl_contains(state.calls[1].cmd, engine.BuildTool))
         end)
@@ -216,7 +242,9 @@ describe("project", function()
 
         it("copy fails -> error with reason", function()
             h.project({ ["Game.uproject"] = {} })
-            h.stub(vim.uv, "fs_copyfile", function() return nil, "ENOENT: no such file" end)
+            h.stub(vim.uv, "fs_copyfile", function()
+                return nil, "ENOENT: no such file"
+            end)
             local state = run(0)
             assert.is_nil(state.callback_error)
             assert.is_true(h.notified(notes, "ENOENT: no such file", ERROR))

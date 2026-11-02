@@ -132,7 +132,9 @@ describe("engine", function()
             it(case[1] .. " -> ReadEnginePath nil", function()
                 h.project({})
                 local lock = fresh_lockfile()
-                if case[2] then vim.fn.writefile(case[2], lock) end
+                if case[2] then
+                    vim.fn.writefile(case[2], lock)
+                end
                 assert.is_nil(engine.ReadEnginePath())
             end)
         end
@@ -226,7 +228,9 @@ describe("engine", function()
 
         it("sync input with a valid path -> true", function()
             local root = fake_engine()
-            local prompts = h.spy(vim.ui, "input", function(_, cb) cb(root) end)
+            local prompts = h.spy(vim.ui, "input", function(_, cb)
+                cb(root)
+            end)
             assert.is_true(engine.EnsureEnginePath())
             assert.are.equal(1, #prompts)
         end)
@@ -234,7 +238,9 @@ describe("engine", function()
         it("async input -> false now, true on rerun", function()
             local root = fake_engine()
             local pending
-            h.stub(vim.ui, "input", function(_, cb) pending = cb end)
+            h.stub(vim.ui, "input", function(_, cb)
+                pending = cb
+            end)
             assert.is_false(engine.EnsureEnginePath())
             pending(root)
             assert.is_true(engine.EnsureEnginePath())
@@ -259,7 +265,9 @@ describe("engine", function()
 
         for _, case in ipairs({ { "cancel (nil)", nil }, { "empty string", "" } }) do
             it(case[1] .. " -> no notify, state unchanged", function()
-                h.stub(vim.ui, "input", function(_, cb) cb(case[2]) end)
+                h.stub(vim.ui, "input", function(_, cb)
+                    cb(case[2])
+                end)
                 engine.InputEnginePath()
                 assert.are.equal(0, #notes)
                 assert_unchanged()
@@ -269,7 +277,9 @@ describe("engine", function()
 
         it("invalid path -> error notify, state unchanged, not saved", function()
             local bad = h.tmpdir()
-            h.stub(vim.ui, "input", function(_, cb) cb(bad) end)
+            h.stub(vim.ui, "input", function(_, cb)
+                cb(bad)
+            end)
             engine.InputEnginePath()
             assert.is_true(h.notified(notes, "Failed to parse tool paths!", vim.log.levels.ERROR))
             assert_unchanged()
@@ -278,7 +288,9 @@ describe("engine", function()
 
         it("valid path -> set and saved", function()
             local other = fake_engine()
-            h.stub(vim.ui, "input", function(_, cb) cb(other) end)
+            h.stub(vim.ui, "input", function(_, cb)
+                cb(other)
+            end)
             engine.InputEnginePath()
             assert.are.equal(other, engine.EnginePath)
             assert.are.equal(other, engine.ReadEnginePath())
@@ -307,7 +319,9 @@ describe("engine", function()
             local projA = h.project({ ["A.uproject"] = {} })
             local projB = h.project({ ["B.uproject"] = {} })
             local saved = { [projA] = a }
-            if case[2] then saved[projB] = h.tmpdir() end
+            if case[2] then
+                saved[projB] = h.tmpdir()
+            end
             vim.fn.writefile({ vim.json.encode(saved) }, lock)
             vim.cmd.cd(vim.fn.fnameescape(projA))
             engine.SetEnginePath({ path = a, silent = true, savePath = false })

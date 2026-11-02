@@ -28,7 +28,7 @@ M.DeclKeys = {
 }
 
 M.NonSpaceKeys = {
-    "function.params"
+    "function.params",
 }
 
 ---@param opts ConfigOpts
@@ -39,21 +39,23 @@ end
 
 ---@param custom_treesitter_opts CustomTreesitterOpts?
 function M.Hijack(custom_treesitter_opts)
-    if custom_treesitter_opts == nil then return end
+    if custom_treesitter_opts == nil then
+        return
+    end
 
     local augroup = vim.api.nvim_create_augroup("unreal.nvim", { clear = true })
     vim.api.nvim_create_autocmd("User", {
         group = augroup,
         pattern = "TSUpdate",
-        callback = function ()
-            require('nvim-treesitter.parsers').cpp = {
+        callback = function()
+            require("nvim-treesitter.parsers").cpp = {
                 install_info = {
                     url = custom_treesitter_opts.url,
                     revision = custom_treesitter_opts.revision,
                 },
-                tier = 2
+                tier = 2,
             }
-        end
+        end,
     })
 end
 
@@ -64,7 +66,9 @@ function M.PrepareForQuery()
     local bufnr = vim.api.nvim_get_current_buf()
 
     local lang = vim.treesitter.language.get_lang(vim.bo[bufnr].filetype)
-    if not lang then return false, {} end
+    if not lang then
+        return false, {}
+    end
 
     local queryInfo = {
         bufnr = bufnr,
@@ -82,12 +86,12 @@ function M.GetTypeName(node)
         "unreal_interface_declaration",
         "unreal_struct_declaration",
         "class_specifier",
-        "struct_specifier"
+        "struct_specifier",
     }
 
     local names = {}
     while node do
-        if vim.tbl_contains(classRoots, node:type()) and node:field("body")[1]then
+        if vim.tbl_contains(classRoots, node:type()) and node:field("body")[1] then
             local name = node:field("name")[1]
             if name then
                 table.insert(names, 1, vim.treesitter.get_node_text(name, 0))
@@ -106,7 +110,7 @@ local function getDeclarationRoot()
         "unreal_function_declaration",
         "declaration",
         "template_declaration",
-        "function_definition"
+        "function_definition",
     }
 
     local node = vim.treesitter.get_node()
@@ -114,7 +118,9 @@ local function getDeclarationRoot()
         node = node:parent()
     end
 
-    if node == nil then return nil end
+    if node == nil then
+        return nil
+    end
     if node:parent() and node:parent():type() == M.Keys.TemplateDecl then
         node = node:parent()
     end
@@ -138,20 +144,28 @@ local function getReturnType(decl, bufnr)
         fnDecl = fnDecl:parent()
     end
 
-    if fnDecl == nil then return nil end
+    if fnDecl == nil then
+        return nil
+    end
 
     local start = fnDecl:field("type")[1]
-    if start == nil then return nil end
+    if start == nil then
+        return nil
+    end
 
     for child in fnDecl:iter_children() do
-        if child:equal(start) then break end
+        if child:equal(start) then
+            break
+        end
         if child:type() == M.Keys.TypeQualifier then
             start = child
             break
         end
     end
 
-    if start == nil then return nil end
+    if start == nil then
+        return nil
+    end
 
     local startRow, startCol = start:start()
     local endRow, endCol = decl:start()
@@ -161,7 +175,9 @@ end
 local function isInParamList(node)
     local parent = node:parent()
     while parent do
-        if parent:type() == M.Keys.ParamList then return true end
+        if parent:type() == M.Keys.ParamList then
+            return true
+        end
         parent = parent:parent()
     end
 
@@ -225,7 +241,9 @@ function M.GetDeclarationTemplate(className)
     local lang = queryInfo.lang
 
     local declarationRoot = getDeclarationRoot()
-    if declarationRoot == nil then return result end
+    if declarationRoot == nil then
+        return result
+    end
 
     local query = vim.treesitter.query.get(lang, "unreal_function_declaration")
     if query == nil then
@@ -285,7 +303,7 @@ end
 function M.GetMacro()
     local existedVariables = {
         arguments = {},
-        metas = {}
+        metas = {},
     }
 
     local success, queryInfo = M.PrepareForQuery()
@@ -305,7 +323,9 @@ function M.GetMacro()
     local identifier = ""
 
     local node = getMacroRoot()
-    if node == nil then return nil, "", existedVariables end
+    if node == nil then
+        return nil, "", existedVariables
+    end
 
     for id, capturedNode, _ in query:iter_captures(node, bufnr) do
         if query.captures[id] == M.Keys.MacroDeclaration then
@@ -342,7 +362,7 @@ end
 ---@return number row
 ---@return number col
 function M.GetNextMacroPosition(macroNode, isMeta)
-    local types = require('unreal.types')
+    local types = require("unreal.types")
     local _, _, endRow, endCol = macroNode:range()
 
     local argumentList = macroNode:child(1)

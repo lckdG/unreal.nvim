@@ -6,9 +6,15 @@ local HEADER = "Source/Mod/Public/Foo.h"
 
 local function header(macroLine, decl)
     return {
-        "#pragma once", "",
-        "UCLASS(Blueprintable)", "class AFoo : public AActor", "{", "\tGENERATED_BODY()", "public:",
-        "\t" .. macroLine, "\t" .. (decl or "int32 X;"),
+        "#pragma once",
+        "",
+        "UCLASS(Blueprintable)",
+        "class AFoo : public AActor",
+        "{",
+        "\tGENERATED_BODY()",
+        "public:",
+        "\t" .. macroLine,
+        "\t" .. (decl or "int32 X;"),
         "};",
     }
 end
@@ -24,10 +30,22 @@ describe("treesitter.GetMacro", function()
     after_each(h.reset)
 
     local cases = {
-        { 'UFUNCTION(BlueprintCallable, Category="X")', "void Foo();", "UFUNCTION", { "BlueprintCallable", "Category" }, {} },
+        {
+            'UFUNCTION(BlueprintCallable, Category="X")',
+            "void Foo();",
+            "UFUNCTION",
+            { "BlueprintCallable", "Category" },
+            {},
+        },
         { "UPROPERTY()", nil, "UPROPERTY", {}, {} },
         { "USTRUCT(BlueprintType)", "struct FBar {};", "USTRUCT", { "BlueprintType" }, {} },
-        { 'UPROPERTY(EditAnywhere, meta=(ClampMin="0", DisplayName="X"))', nil, "UPROPERTY", { "EditAnywhere" }, { "ClampMin", "DisplayName" } },
+        {
+            'UPROPERTY(EditAnywhere, meta=(ClampMin="0", DisplayName="X"))',
+            nil,
+            "UPROPERTY",
+            { "EditAnywhere" },
+            { "ClampMin", "DisplayName" },
+        },
         { 'UPROPERTY(meta=(ClampMin="0"))', nil, "UPROPERTY", {}, { "ClampMin" } },
     }
     for _, case in ipairs(cases) do
@@ -70,11 +88,18 @@ describe("macros.CompleteMacro", function()
     before_each(function()
         notes = h.notifications()
         requests, pickers = {}, {}
-        h.stub(vim.lsp, "get_clients", function() return { { id = 1, name = "clangd" } } end)
-        h.stub(vim.lsp, "buf_attach_client", function() return true end)
+        h.stub(vim.lsp, "get_clients", function()
+            return { { id = 1, name = "clangd" } }
+        end)
+        h.stub(vim.lsp, "buf_attach_client", function()
+            return true
+        end)
         h.stub(vim.lsp, "buf_request", function(bufnr, method, params, handler)
             table.insert(requests, {
-                bufnr = bufnr, method = method, params = params, handler = handler,
+                bufnr = bufnr,
+                method = method,
+                params = params,
+                handler = handler,
                 lines = vim.api.nvim_buf_get_lines(bufnr, 0, 1, false),
             })
         end)
@@ -100,15 +125,27 @@ describe("macros.CompleteMacro", function()
 
     local function items(labels)
         local list = {}
-        for _, l in ipairs(labels) do table.insert(list, { label = l }) end
+        for _, l in ipairs(labels) do
+            table.insert(list, { label = l })
+        end
         return list
     end
 
-    local function names(list) return vim.tbl_map(function(e) return e.name end, list) end
-    local function texts(list) return vim.tbl_map(function(e) return e.value.text end, list) end
+    local function names(list)
+        return vim.tbl_map(function(e)
+            return e.name
+        end, list)
+    end
+    local function texts(list)
+        return vim.tbl_map(function(e)
+            return e.value.text
+        end, list)
+    end
 
     it("no clangd -> error notify", function()
-        h.stub(vim.lsp, "get_clients", function() return {} end)
+        h.stub(vim.lsp, "get_clients", function()
+            return {}
+        end)
         open("UPROPERTY()")
         macros.CompleteMacro()
         assert.is_true(h.notified(notes, "Clangd is not enabled for current buffer!", vim.log.levels.ERROR))
@@ -167,7 +204,10 @@ describe("macros.CompleteMacro", function()
     it("CompletionList and CompletionItem[] responses -> merged, namespace first", function()
         open("UPROPERTY()")
         macros.CompleteMacro()
-        respondBoth({ isIncomplete = false, items = items({ "EditAnywhere", "VisibleAnywhere" }) }, items({ "ClampMin" }))
+        respondBoth(
+            { isIncomplete = false, items = items({ "EditAnywhere", "VisibleAnywhere" }) },
+            items({ "ClampMin" })
+        )
         assert.are.same({ "UP::EditAnywhere", "UP::VisibleAnywhere", "UM::ClampMin" }, names(pickers[1].list))
         assert.are.same({ "EditAnywhere", "VisibleAnywhere", "ClampMin" }, texts(pickers[1].list))
     end)
@@ -252,11 +292,13 @@ describe("macros.CompleteMacro", function()
     it("documentation: string, MarkupContent, none", function()
         open("UPROPERTY()")
         macros.CompleteMacro()
-        respondBoth({ items = {
-            { label = "A", documentation = "line1\nline2" },
-            { label = "B", documentation = { kind = "markdown", value = "md" } },
-            { label = "C" },
-        } }, nil)
+        respondBoth({
+            items = {
+                { label = "A", documentation = "line1\nline2" },
+                { label = "B", documentation = { kind = "markdown", value = "md" } },
+                { label = "C" },
+            },
+        }, nil)
         local list = pickers[1].list
         assert.are.same({ "line1", "line2" }, list[1].desc)
         assert.are.same({ "md" }, list[2].desc)
@@ -271,15 +313,27 @@ describe("macros.CompleteMacro", function()
         assert.are.equal("\tUPROPERTY()", vim.api.nvim_get_current_line())
     end)
 
-    local spec = function(text) return { text = text, isMeta = false } end
-    local meta = function(text) return { text = text, isMeta = true } end
+    local spec = function(text)
+        return { text = text, isMeta = false }
+    end
+    local meta = function(text)
+        return { text = text, isMeta = true }
+    end
     local inserts = {
         { "UPROPERTY()", spec("EditAnywhere"), "\tUPROPERTY(EditAnywhere)" },
         { "UPROPERTY()", meta("ClampMin"), "\tUPROPERTY(meta = (ClampMin))" },
         { "UPROPERTY(VisibleAnywhere)", spec("EditAnywhere"), "\tUPROPERTY(VisibleAnywhere, EditAnywhere)" },
         { "UPROPERTY(VisibleAnywhere)", meta("ClampMin"), "\tUPROPERTY(VisibleAnywhere, meta = (ClampMin))" },
-        { 'UPROPERTY(VisibleAnywhere, meta=(ClampMin="0"))', spec("EditAnywhere"), '\tUPROPERTY(VisibleAnywhere, EditAnywhere, meta=(ClampMin="0"))' },
-        { 'UPROPERTY(VisibleAnywhere, meta=(ClampMin="0"))', meta("ClampMax"), '\tUPROPERTY(VisibleAnywhere, meta=(ClampMin="0", ClampMax))' },
+        {
+            'UPROPERTY(VisibleAnywhere, meta=(ClampMin="0"))',
+            spec("EditAnywhere"),
+            '\tUPROPERTY(VisibleAnywhere, EditAnywhere, meta=(ClampMin="0"))',
+        },
+        {
+            'UPROPERTY(VisibleAnywhere, meta=(ClampMin="0"))',
+            meta("ClampMax"),
+            '\tUPROPERTY(VisibleAnywhere, meta=(ClampMin="0", ClampMax))',
+        },
         { 'UPROPERTY(meta=(ClampMin="0"))', spec("EditAnywhere"), '\tUPROPERTY(EditAnywhere, meta=(ClampMin="0"))' },
     }
     for _, case in ipairs(inserts) do

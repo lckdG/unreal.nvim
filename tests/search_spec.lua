@@ -13,7 +13,9 @@ describe("search", function()
     after_each(h.reset)
 
     local function capture_cmd()
-        h.stub(vim, "cmd", function(c) table.insert(cmds, c) end)
+        h.stub(vim, "cmd", function(c)
+            table.insert(cmds, c)
+        end)
     end
 
     describe("SwitchSourceHeader", function()
@@ -26,16 +28,24 @@ describe("search", function()
         end)
 
         it("not found, clangd attached -> LspClangdSwitchSourceHeader", function()
-            h.stub(pathUtils, "GetSourceHeader", function() return nil end)
-            h.stub(system, "HasClangdEnabled", function() return true end)
+            h.stub(pathUtils, "GetSourceHeader", function()
+                return nil
+            end)
+            h.stub(system, "HasClangdEnabled", function()
+                return true
+            end)
             capture_cmd()
             search.SwitchSourceHeader()
             assert.are.same({ "LspClangdSwitchSourceHeader" }, cmds)
         end)
 
         it("not found, no clangd -> error notify", function()
-            h.stub(pathUtils, "GetSourceHeader", function() return nil end)
-            h.stub(system, "HasClangdEnabled", function() return false end)
+            h.stub(pathUtils, "GetSourceHeader", function()
+                return nil
+            end)
+            h.stub(system, "HasClangdEnabled", function()
+                return false
+            end)
             capture_cmd()
             search.SwitchSourceHeader()
             assert.are.same({}, cmds)
@@ -62,8 +72,12 @@ describe("search", function()
         before_each(function()
             finds, greps = {}, {}
             package.loaded["telescope.builtin"] = {
-                find_files = function(o) table.insert(finds, o) end,
-                live_grep = function(o) table.insert(greps, o) end,
+                find_files = function(o)
+                    table.insert(finds, o)
+                end,
+                live_grep = function(o)
+                    table.insert(greps, o)
+                end,
             }
         end)
         after_each(function()
@@ -73,7 +87,9 @@ describe("search", function()
         local cases = { { 1, "*.{h,cpp}" }, { 2, "*.h" }, { 3, "*.cpp" } }
         for _, case in ipairs(cases) do
             it("choice " .. case[1] .. " -> -g " .. case[2], function()
-                h.stub(vim.fn, "inputlist", function() return case[1] end)
+                h.stub(vim.fn, "inputlist", function()
+                    return case[1]
+                end)
                 search.FindSource()
                 search.GrepSource()
                 assert.are.same({ "rg", "--files", "-g", case[2] }, finds[1].find_command)
@@ -83,7 +99,9 @@ describe("search", function()
 
         for _, choice in ipairs({ 0, 4 }) do
             it("choice " .. choice .. " -> warn, telescope not called", function()
-                h.stub(vim.fn, "inputlist", function() return choice end)
+                h.stub(vim.fn, "inputlist", function()
+                    return choice
+                end)
                 search.FindSource()
                 search.GrepSource()
                 assert.are.equal(0, #finds + #greps)

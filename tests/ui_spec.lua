@@ -13,9 +13,13 @@ describe("ui", function()
         }
         for _, case in ipairs(cases) do
             it("inputlist returns " .. case[1], function()
-                h.stub(vim.fn, "inputlist", function() return case[1] end)
+                h.stub(vim.fn, "inputlist", function()
+                    return case[1]
+                end)
                 local got = {}
-                ui.SelectOptionsCb("Pick", { "a", "b" }, function(opt) table.insert(got, opt) end)
+                ui.SelectOptionsCb("Pick", { "a", "b" }, function(opt)
+                    table.insert(got, opt)
+                end)
                 assert.are.same(case[2] and { case[2] } or {}, got)
             end)
         end

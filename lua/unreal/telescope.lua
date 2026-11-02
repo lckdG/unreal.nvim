@@ -8,14 +8,16 @@ end
 
 ---@param extended_ignores table?
 function M.AppendIgnorePatterns(extended_ignores)
-    local success, _ = pcall(require, 'telescope')
+    local success, _ = pcall(require, "telescope")
     if success == false then
         return
     end
 
-    if extended_ignores == nil then return end
+    if extended_ignores == nil then
+        return
+    end
 
-    local telescopeConfig = require('telescope.config')
+    local telescopeConfig = require("telescope.config")
     local configValues = telescopeConfig.values
     local telescope_ignore_patterns = configValues.file_ignore_patterns or {}
 
@@ -30,14 +32,11 @@ function M.AppendIgnorePatterns(extended_ignores)
     end
 
     if extended then
-        telescopeConfig.set_defaults(
-            {
-                file_ignore_patterns = ignore_patterns
-            },
-            {
-                file_ignore_patterns = telescope_ignore_patterns
-            }
-        )
+        telescopeConfig.set_defaults({
+            file_ignore_patterns = ignore_patterns,
+        }, {
+            file_ignore_patterns = telescope_ignore_patterns,
+        })
     end
 end
 

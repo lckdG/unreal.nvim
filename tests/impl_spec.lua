@@ -7,25 +7,40 @@ local CPP_PREFIX = { '#include "Foo.h"' }
 
 local function uclass(decls)
     local lines = { "#pragma once", "", "UCLASS()", "class AFoo : public AActor", "{", "\tGENERATED_BODY()", "public:" }
-    for _, d in ipairs(decls) do table.insert(lines, "\t" .. d) end
+    for _, d in ipairs(decls) do
+        table.insert(lines, "\t" .. d)
+    end
     table.insert(lines, "};")
     return lines
 end
 
 local function ustruct(decls)
     local lines = { "#pragma once", "", "USTRUCT()", "struct FBar", "{", "\tGENERATED_BODY()" }
-    for _, d in ipairs(decls) do table.insert(lines, "\t" .. d) end
+    for _, d in ipairs(decls) do
+        table.insert(lines, "\t" .. d)
+    end
     table.insert(lines, "};")
     return lines
 end
 
 local function uinterface(decls)
     local lines = {
-        "#pragma once", "",
-        "UINTERFACE()", "class UFoo : public UInterface", "{", "\tGENERATED_BODY()", "};", "",
-        "class IFoo", "{", "\tGENERATED_BODY()", "public:",
+        "#pragma once",
+        "",
+        "UINTERFACE()",
+        "class UFoo : public UInterface",
+        "{",
+        "\tGENERATED_BODY()",
+        "};",
+        "",
+        "class IFoo",
+        "{",
+        "\tGENERATED_BODY()",
+        "public:",
     }
-    for _, d in ipairs(decls) do table.insert(lines, "\t" .. d) end
+    for _, d in ipairs(decls) do
+        table.insert(lines, "\t" .. d)
+    end
     table.insert(lines, "};")
     return lines
 end
@@ -35,7 +50,9 @@ local function create_impl(header, cursorOn, cppLines, colOn)
     h.project({ [HEADER] = header, [CPP] = cppLines or CPP_PREFIX })
     local row
     for i, line in ipairs(header) do
-        if line:find(cursorOn, 1, true) then row = i end
+        if line:find(cursorOn, 1, true) then
+            row = i
+        end
     end
     assert(row, "cursor line not found: " .. cursorOn)
     h.edit(HEADER, row)
@@ -46,14 +63,18 @@ local function create_impl(header, cursorOn, cppLines, colOn)
     end
     impl.ImplementFunction()
     local cppBuf = vim.fn.bufnr(CPP)
-    if cppBuf == -1 then return {} end
+    if cppBuf == -1 then
+        return {}
+    end
     local lines = vim.api.nvim_buf_get_lines(cppBuf, 0, -1, false)
     return vim.list_slice(lines, #(cppLines or CPP_PREFIX) + 1)
 end
 
 local function stub(sig, super)
     local t = { "", sig }
-    if super then table.insert(t, "\t: " .. super) end
+    if super then
+        table.insert(t, "\t: " .. super)
+    end
     vim.list_extend(t, { "{", "\t// TODO:", "}" })
     return t
 end
@@ -68,30 +89,72 @@ describe("impl.ImplementFunction", function()
 
     local cases = {
         { "void", uclass({ "void Foo();" }), "void Foo();", stub("void AFoo::Foo()") },
-        { "params + const", uclass({ "int32 Add(int32 A, int32 B) const;" }), "Add(",
-            stub("int32 AFoo::Add(int32 A, int32 B) const") },
-        { "constructor with FObjectInitializer", uclass({ "AFoo(const FObjectInitializer& OI);" }), "AFoo(",
-            stub("AFoo::AFoo(const FObjectInitializer& OI)", "Super(OI)") },
+        {
+            "params + const",
+            uclass({ "int32 Add(int32 A, int32 B) const;" }),
+            "Add(",
+            stub("int32 AFoo::Add(int32 A, int32 B) const"),
+        },
+        {
+            "constructor with FObjectInitializer",
+            uclass({ "AFoo(const FObjectInitializer& OI);" }),
+            "AFoo(",
+            stub("AFoo::AFoo(const FObjectInitializer& OI)", "Super(OI)"),
+        },
         { "default constructor", uclass({ "AFoo();" }), "AFoo();", stub("AFoo::AFoo()", "Super()") },
         { "destructor", uclass({ "~AFoo();" }), "~AFoo", stub("AFoo::~AFoo()") },
         { "pointer return", uclass({ "AActor* GetFoo();" }), "GetFoo", stub("AActor* AFoo::GetFoo()") },
-        { "const reference return", uclass({ "const FString& GetName() const;" }), "GetName",
-            stub("const FString& AFoo::GetName() const") },
+        {
+            "const reference return",
+            uclass({ "const FString& GetName() const;" }),
+            "GetName",
+            stub("const FString& AFoo::GetName() const"),
+        },
         { "template return", uclass({ "TArray<int32> GetList();" }), "GetList", stub("TArray<int32> AFoo::GetList()") },
         { "qualified return", uclass({ "FVector::FReal Len();" }), "Len(", stub("FVector::FReal AFoo::Len()") },
-        { "default argument", uclass({ "void Fire(int32 Count = 5);" }), "Fire(", stub("void AFoo::Fire(int32 Count)") },
-        { "several default arguments", uclass({ 'void Fire(int32 A = 1, FString B = TEXT("x"));' }), "Fire(",
-            stub("void AFoo::Fire(int32 A, FString B)") },
-        { "leading const", uclass({ "const FString GetLabel();" }), "GetLabel", stub("const FString AFoo::GetLabel()") },
-        { "virtual override", uclass({ "virtual void Tick(float DeltaTime) override;" }), "Tick(",
-            stub("void AFoo::Tick(float DeltaTime)") },
+        {
+            "default argument",
+            uclass({ "void Fire(int32 Count = 5);" }),
+            "Fire(",
+            stub("void AFoo::Fire(int32 Count)"),
+        },
+        {
+            "several default arguments",
+            uclass({ 'void Fire(int32 A = 1, FString B = TEXT("x"));' }),
+            "Fire(",
+            stub("void AFoo::Fire(int32 A, FString B)"),
+        },
+        {
+            "leading const",
+            uclass({ "const FString GetLabel();" }),
+            "GetLabel",
+            stub("const FString AFoo::GetLabel()"),
+        },
+        {
+            "virtual override",
+            uclass({ "virtual void Tick(float DeltaTime) override;" }),
+            "Tick(",
+            stub("void AFoo::Tick(float DeltaTime)"),
+        },
         { "static", uclass({ "static void Reset();" }), "Reset(", stub("void AFoo::Reset()") },
-        { "BlueprintNativeEvent", uclass({ "UFUNCTION(BlueprintNativeEvent)", "void OnHit();" }), "OnHit",
-            stub("void AFoo::OnHit_Implementation()") },
-        { "Client RPC", uclass({ "UFUNCTION(Client, Reliable)", "void ClientPing();" }), "ClientPing",
-            stub("void AFoo::ClientPing_Implementation()") },
-        { "NetMulticast RPC", uclass({ "UFUNCTION(NetMulticast, Unreliable)", "void Boom();" }), "Boom",
-            stub("void AFoo::Boom_Implementation()") },
+        {
+            "BlueprintNativeEvent",
+            uclass({ "UFUNCTION(BlueprintNativeEvent)", "void OnHit();" }),
+            "OnHit",
+            stub("void AFoo::OnHit_Implementation()"),
+        },
+        {
+            "Client RPC",
+            uclass({ "UFUNCTION(Client, Reliable)", "void ClientPing();" }),
+            "ClientPing",
+            stub("void AFoo::ClientPing_Implementation()"),
+        },
+        {
+            "NetMulticast RPC",
+            uclass({ "UFUNCTION(NetMulticast, Unreliable)", "void Boom();" }),
+            "Boom",
+            stub("void AFoo::Boom_Implementation()"),
+        },
         { "USTRUCT", ustruct({ "void Foo();" }), "void Foo();", stub("void FBar::Foo()") },
         { "interface", uinterface({ "void Foo();" }), "void Foo();", stub("void IFoo::Foo()") },
     }
@@ -119,8 +182,8 @@ describe("impl.ImplementFunction", function()
     end
 
     it("Server RPC WithValidation -> _Implementation and _Validate", function()
-        local appended = create_impl(
-            uclass({ "UFUNCTION(Server, Reliable, WithValidation)", "void ServerFire();" }), "ServerFire")
+        local appended =
+            create_impl(uclass({ "UFUNCTION(Server, Reliable, WithValidation)", "void ServerFire();" }), "ServerFire")
         assert.is_true(vim.tbl_contains(appended, "void AFoo::ServerFire_Implementation()"), vim.inspect(appended))
         assert.is_true(vim.tbl_contains(appended, "bool AFoo::ServerFire_Validate()"), vim.inspect(appended))
     end)
@@ -128,27 +191,67 @@ describe("impl.ImplementFunction", function()
     -- pointer, reference and template return types
     local returnTypes = {
         { "pointer to pointer", uclass({ "UObject** GetPP();" }), "GetPP", stub("UObject** AFoo::GetPP()") },
-        { "pointer return with params + const", uclass({ "UObject* GetFoo(int32 A, const FString& B) const;" }), "GetFoo",
-            stub("UObject* AFoo::GetFoo(int32 A, const FString& B) const") },
+        {
+            "pointer return with params + const",
+            uclass({ "UObject* GetFoo(int32 A, const FString& B) const;" }),
+            "GetFoo",
+            stub("UObject* AFoo::GetFoo(int32 A, const FString& B) const"),
+        },
         { "reference return", uclass({ "FVector& GetRef();" }), "GetRef", stub("FVector& AFoo::GetRef()") },
-        { "const pointer to const pointer", uclass({ "const AActor* const* GetFoo() const;" }), "GetFoo",
-            stub("const AActor* const* AFoo::GetFoo() const") },
-        { "static const reference", uclass({ "static const TArray<int32>& GetArr();" }), "GetArr",
-            stub("const TArray<int32>& AFoo::GetArr()") },
-        { "virtual const pointer override", uclass({ "virtual const UObject* GetV(int32 A) const override;" }), "GetV",
-            stub("const UObject* AFoo::GetV(int32 A) const") },
-        { "UFUNCTION pointer return", uclass({ "UFUNCTION(BlueprintCallable)", "UObject* GetBp(int32 A);" }), "GetBp",
-            stub("UObject* AFoo::GetBp(int32 A)") },
-        { "UFUNCTION const pointer to const pointer", uclass({ "UFUNCTION()", "const AActor* const* GetBp() const;" }), "GetBp",
-            stub("const AActor* const* AFoo::GetBp() const") },
-        { "function pointer param", uclass({ "void Bind(void (*Cb)(int32 X), int32 Y);" }), "Bind(",
-            stub("void AFoo::Bind(void (*Cb)(int32 X), int32 Y)") },
-        { "TFunction param", uclass({ "void Bind(TFunction<void(int32)> F);" }), "Bind(",
-            stub("void AFoo::Bind(TFunction<void(int32)> F)") },
-        { "constructor with default argument", uclass({ "AFoo(const FObjectInitializer& OI = FObjectInitializer::Get());" }), "AFoo(",
-            stub("AFoo::AFoo(const FObjectInitializer& OI)", "Super(OI)") },
-        { "constructor with pointer param", uclass({ "AFoo(UObject* Outer);" }), "AFoo(",
-            stub("AFoo::AFoo(UObject* Outer)", "Super(Outer)") },
+        {
+            "const pointer to const pointer",
+            uclass({ "const AActor* const* GetFoo() const;" }),
+            "GetFoo",
+            stub("const AActor* const* AFoo::GetFoo() const"),
+        },
+        {
+            "static const reference",
+            uclass({ "static const TArray<int32>& GetArr();" }),
+            "GetArr",
+            stub("const TArray<int32>& AFoo::GetArr()"),
+        },
+        {
+            "virtual const pointer override",
+            uclass({ "virtual const UObject* GetV(int32 A) const override;" }),
+            "GetV",
+            stub("const UObject* AFoo::GetV(int32 A) const"),
+        },
+        {
+            "UFUNCTION pointer return",
+            uclass({ "UFUNCTION(BlueprintCallable)", "UObject* GetBp(int32 A);" }),
+            "GetBp",
+            stub("UObject* AFoo::GetBp(int32 A)"),
+        },
+        {
+            "UFUNCTION const pointer to const pointer",
+            uclass({ "UFUNCTION()", "const AActor* const* GetBp() const;" }),
+            "GetBp",
+            stub("const AActor* const* AFoo::GetBp() const"),
+        },
+        {
+            "function pointer param",
+            uclass({ "void Bind(void (*Cb)(int32 X), int32 Y);" }),
+            "Bind(",
+            stub("void AFoo::Bind(void (*Cb)(int32 X), int32 Y)"),
+        },
+        {
+            "TFunction param",
+            uclass({ "void Bind(TFunction<void(int32)> F);" }),
+            "Bind(",
+            stub("void AFoo::Bind(TFunction<void(int32)> F)"),
+        },
+        {
+            "constructor with default argument",
+            uclass({ "AFoo(const FObjectInitializer& OI = FObjectInitializer::Get());" }),
+            "AFoo(",
+            stub("AFoo::AFoo(const FObjectInitializer& OI)", "Super(OI)"),
+        },
+        {
+            "constructor with pointer param",
+            uclass({ "AFoo(UObject* Outer);" }),
+            "AFoo(",
+            stub("AFoo::AFoo(UObject* Outer)", "Super(Outer)"),
+        },
     }
 
     for _, case in ipairs(returnTypes) do
@@ -159,18 +262,34 @@ describe("impl.ImplementFunction", function()
 
     -- declaration shapes: multi-line, macros, specifiers, templates, operators
     local shapes = {
-        { "declaration across lines", uclass({ "void Foo(int32 A,", "\tint32 B);" }), "void Foo(int32 A,",
-            stub("void AFoo::Foo(int32 A, int32 B)") },
+        {
+            "declaration across lines",
+            uclass({ "void Foo(int32 A,", "\tint32 B);" }),
+            "void Foo(int32 A,",
+            stub("void AFoo::Foo(int32 A, int32 B)"),
+        },
         { "API macro", uclass({ "MYMOD_API void Foo();" }), "MYMOD_API", stub("void AFoo::Foo()") },
         { "FORCEINLINE", uclass({ "FORCEINLINE void Foo();" }), "FORCEINLINE", stub("void AFoo::Foo()") },
         { "noexcept", uclass({ "void Foo() noexcept;" }), "noexcept", stub("void AFoo::Foo() noexcept") },
         { "final", uclass({ "virtual void Foo() override final;" }), "final", stub("void AFoo::Foo()") },
-        { "member template", uclass({ "template<typename T> void Foo(T V);" }), "template<",
-            { "", "template<typename T>", "void AFoo::Foo(T V)", "{", "\t// TODO:", "}" } },
-        { "operator", uclass({ "bool operator==(const AFoo& O) const;" }), "operator==",
-            stub("bool AFoo::operator==(const AFoo& O) const") },
-        { "cursor on UFUNCTION line", uclass({ "UFUNCTION(BlueprintCallable)", "void OnCall();" }), "UFUNCTION(BlueprintCallable)",
-            stub("void AFoo::OnCall()") },
+        {
+            "member template",
+            uclass({ "template<typename T> void Foo(T V);" }),
+            "template<",
+            { "", "template<typename T>", "void AFoo::Foo(T V)", "{", "\t// TODO:", "}" },
+        },
+        {
+            "operator",
+            uclass({ "bool operator==(const AFoo& O) const;" }),
+            "operator==",
+            stub("bool AFoo::operator==(const AFoo& O) const"),
+        },
+        {
+            "cursor on UFUNCTION line",
+            uclass({ "UFUNCTION(BlueprintCallable)", "void OnCall();" }),
+            "UFUNCTION(BlueprintCallable)",
+            stub("void AFoo::OnCall()"),
+        },
     }
 
     for _, case in ipairs(shapes) do
@@ -195,9 +314,18 @@ describe("impl.ImplementFunction", function()
 
     it("nested class -> qualified name", function()
         local header = {
-            "#pragma once", "",
-            "UCLASS()", "class AFoo : public AActor", "{", "\tGENERATED_BODY()", "public:",
-            "\tclass FInner", "\t{", "\tpublic:", "\t\tvoid Foo();", "\t};",
+            "#pragma once",
+            "",
+            "UCLASS()",
+            "class AFoo : public AActor",
+            "{",
+            "\tGENERATED_BODY()",
+            "public:",
+            "\tclass FInner",
+            "\t{",
+            "\tpublic:",
+            "\t\tvoid Foo();",
+            "\t};",
             "};",
         }
         assert.are.same(stub("void AFoo::FInner::Foo()"), create_impl(header, "void Foo();"))
@@ -237,7 +365,9 @@ describe("impl.ImplementFunction", function()
 
         it("cursor outside any class -> error", function()
             create_impl({ "#pragma once", "void Bar();" }, "void Bar();")
-            assert.is_true(h.notified(notes, "Unable to find class name for implementation creation!", vim.log.levels.ERROR))
+            assert.is_true(
+                h.notified(notes, "Unable to find class name for implementation creation!", vim.log.levels.ERROR)
+            )
         end)
 
         it("cursor on a non-function line -> error, nothing inserted", function()

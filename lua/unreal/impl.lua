@@ -1,8 +1,8 @@
-local config = require('unreal.config')
-local system = require('unreal.system')
-local pathUtils = require('unreal.path_utils')
-local treesitter = require('unreal.treesitter')
-local log = require('unreal.log')
+local config = require("unreal.config")
+local system = require("unreal.system")
+local pathUtils = require("unreal.path_utils")
+local treesitter = require("unreal.treesitter")
+local log = require("unreal.log")
 
 local info = config.info
 local logLevel = vim.log.levels
@@ -33,7 +33,9 @@ function M.ImplementFunction()
     local node = res.ts_node
     local cppFile = res.cppFile
 
-    if node == nil or cppFile == nil then return end
+    if node == nil or cppFile == nil then
+        return
+    end
 
     local className = treesitter.GetTypeName(node)
     if className == "" then
@@ -56,7 +58,7 @@ function M.ImplementFunction()
     local parsed, signalIndex = M.ParseImplementation(declarationTemplate)
     local buf = system.OpenBuffer(cppFile)
 
-    local implLine = require('unreal.search').FindImplementation(buf, parsed[signalIndex])
+    local implLine = require("unreal.search").FindImplementation(buf, parsed[signalIndex])
     if implLine == -1 then
         local insertLine = vim.api.nvim_buf_line_count(buf)
         vim.api.nvim_buf_set_lines(buf, insertLine, insertLine, false, parsed)
@@ -85,7 +87,7 @@ function M.PrepareForFunctionImpl()
     if node == nil then
         return {
             success = false,
-            err =  "Cannot find corresponding treesitter node!",
+            err = "Cannot find corresponding treesitter node!",
             ts_node = nil,
             cppFile = nil,
         }
@@ -105,7 +107,7 @@ function M.PrepareForFunctionImpl()
         success = true,
         err = nil,
         ts_node = node,
-        cppFile = cppFile
+        cppFile = cppFile,
     }
 end
 
@@ -125,7 +127,8 @@ local function constructFunctionBlock(template, suffix, typeOverride)
     for _, keyName in ipairs(declKeys) do
         if template[keyName] ~= nil then
             local appending = template[keyName]
-            local space = (#declarationText > 0 and not vim.tbl_contains(treesitter.NonSpaceKeys, keyName)) and " " or ""
+            local space = (#declarationText > 0 and not vim.tbl_contains(treesitter.NonSpaceKeys, keyName)) and " "
+                or ""
 
             if keyName == treesitter.Keys.DeclName and suffix then
                 appending = appending .. suffix
@@ -182,7 +185,7 @@ function M.ParseImplementation(declaration)
         local suffix = override.suffix
         local type = override.type
 
-        local blockContent, blockIndex = constructFunctionBlock(declaration, suffix,type)
+        local blockContent, blockIndex = constructFunctionBlock(declaration, suffix, type)
 
         vim.list_extend(content, blockContent)
         sigIndex = sigIndex + blockIndex
