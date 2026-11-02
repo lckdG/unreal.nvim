@@ -41,7 +41,9 @@ end
 function M.Hijack(custom_treesitter_opts)
     if custom_treesitter_opts == nil then return end
 
+    local augroup = vim.api.nvim_create_augroup("unreal.nvim", { clear = true })
     vim.api.nvim_create_autocmd("User", {
+        group = augroup,
         pattern = "TSUpdate",
         callback = function ()
             require('nvim-treesitter.parsers').cpp = {
