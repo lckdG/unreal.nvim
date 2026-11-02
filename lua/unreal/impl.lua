@@ -45,6 +45,9 @@ function M.ImplementFunction()
     if declarationTemplate.Skip then
         log.Notify("Function is pure virtual, deleted or inline implemented", logLevel.ERROR)
         return
+    elseif vim.tbl_contains(declarationTemplate.ufunctionSpecifiers, "BlueprintImplementableEvent") then
+        log.Notify("Function should be implemented in blueprints", logLevel.WARN)
+        return
     elseif declarationTemplate[treesitter.Keys.DeclName] == nil then
         log.Notify("Function does not have a name", logLevel.ERROR)
         return
