@@ -37,32 +37,29 @@ function M.FindImplementation(buf, marker)
 end
 
 local function getInputSourceTypes(callback)
-    local ui = require("unreal.ui")
-
-    local items = ui.WrapList({ "All", "Headers", "Cpp" }, true)
+    local choices = {
+        {
+            name = "All",
+            value = "*.{h,cpp}"
+        },
+        {
+            name = "Headers",
+            value = "*.h"
+        },
+        {
+            name = "Cpp",
+            value = "*.cpp"
+        }
+    }
 
     local prompt = "Select source types:"
-    require("unreal.ui").Select(items, { prompt = prompt }, function (item)
+    require("unreal.ui").Select(choices, { prompt = prompt }, function (item)
         if item == nil then
             callback(nil)
             return
         end
 
-        local index = item.value
-        if index <= 0 or index > 3 then
-            log.Notify("Invalid search choice " .. index, vim.log.levels.WARN)
-            callback(nil)
-        end
-
-        if index == 1 then
-            callback("*.{h,cpp}")
-        elseif index == 2 then
-            callback("*.h")
-        elseif index == 3 then
-            callback("*.cpp")
-        else
-            callback(nil)
-        end
+        callback(item.value)
     end)
 end
 
