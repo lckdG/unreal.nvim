@@ -354,6 +354,16 @@ describe("engine", function()
                 return feature == platform and 1 or 0
             end)
             h.stub(engine, "EnginePath", "/ue")
+            -- host-independent: systemd-run cases opt in via withSystemdRun()
+            h.stub(vim.fn, "executable", function()
+                return 0
+            end)
+        end
+
+        local function withSystemdRun()
+            h.stub(vim.fn, "executable", function(name)
+                return name == "systemd-run" and 1 or 0
+            end)
         end
 
         it("win32 -> Win64, cmd /c start", function()
@@ -364,32 +374,76 @@ describe("engine", function()
             assert.are.same({ "cmd", "/c", "start", "" }, cmd)
         end)
 
-        it("linux, editor binary missing -> not ok, binary path", function()
+        it("linux, no systemd-run, editor binary missing -> not ok, setsid", function()
             on("linux")
             assert.are.equal("Linux", system.GetPlatform())
             local ok, cmd = engine.GetExecuteCmd()
             assert.is_false(ok)
-            assert.are.same({ "/ue/Engine/Binaries/Linux/UnrealEditor" }, cmd)
+            assert.are.same({ "setsid", "-f", "/ue/Engine/Binaries/Linux/UnrealEditor" }, cmd)
         end)
 
-        it("linux, editor binary present -> ok, binary path", function()
+        it("linux, no systemd-run, editor binary present -> ok, setsid", function()
             on("linux")
             local root = h.tmpdir()
             h.write(root, "Engine/Binaries/Linux/UnrealEditor")
             h.stub(engine, "EnginePath", root)
             local ok, cmd = engine.GetExecuteCmd()
             assert.is_true(ok)
-            assert.are.same({ vim.fs.joinpath(root, "Engine/Binaries/Linux/UnrealEditor") }, cmd)
+            assert.are.same({ "setsid", "-f", vim.fs.joinpath(root, "Engine/Binaries/Linux/UnrealEditor") }, cmd)
         end)
 
-        it("mac -> open -a bundle, or the binary inside it", function()
+        it("linux + systemd-run, editor binary present -> ok, own user unit", function()
+            on("linux")
+            withSystemdRun()
+            local root = h.tmpdir()
+            h.write(root, "Engine/Binaries/Linux/UnrealEditor")
+            h.stub(engine, "EnginePath", root)
+            local ok, cmd = engine.GetExecuteCmd()
+            assert.is_true(ok)
+            assert.are.same({
+                "systemd-run",
+                "--user",
+                "--collect",
+                "--quiet",
+                "--",
+                vim.fs.joinpath(root, "Engine/Binaries/Linux/UnrealEditor"),
+            }, cmd)
+        end)
+
+        it("linux + systemd-run, editor binary missing -> not ok", function()
+            on("linux")
+            withSystemdRun()
+            local ok, cmd = engine.GetExecuteCmd()
+            assert.is_false(ok)
+            assert.are.equal("systemd-run", cmd[1])
+        end)
+
+        it("mac, editor binary missing -> not ok, open -n -a bundle", function()
             on("mac")
             assert.are.equal("Mac", system.GetPlatform())
+            local ok, cmd = engine.GetExecuteCmd()
+            assert.is_false(ok)
+            assert.are.same({ "open", "-n", "-a", "/ue/Engine/Binaries/Mac/UnrealEditor.app", "--args" }, cmd)
+        end)
+
+        it("mac, editor binary present -> ok, bundle path not inner binary", function()
+            on("mac")
+            local root = h.tmpdir()
+            h.write(root, "Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor")
+            h.stub(engine, "EnginePath", root)
+            local ok, cmd = engine.GetExecuteCmd()
+            assert.is_true(ok)
+            assert.are.same(
+                { "open", "-n", "-a", vim.fs.joinpath(root, "Engine/Binaries/Mac/UnrealEditor.app"), "--args" },
+                cmd
+            )
+        end)
+
+        it("mac ignores systemd-run", function()
+            on("mac")
+            withSystemdRun()
             local _, cmd = engine.GetExecuteCmd()
-            local bundle = "/ue/Engine/Binaries/Mac/UnrealEditor.app"
-            local ok = vim.deep_equal(cmd, { "open", "-a", bundle })
-                or vim.deep_equal(cmd, { bundle .. "/Contents/MacOS/UnrealEditor" })
-            assert.is_true(ok, vim.inspect(cmd))
+            assert.are.equal("open", cmd[1])
         end)
     end)
 end)

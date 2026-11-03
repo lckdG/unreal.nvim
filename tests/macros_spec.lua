@@ -313,6 +313,30 @@ describe("macros.CompleteMacro", function()
         assert.are.equal("\tUPROPERTY()", vim.api.nvim_get_current_line())
     end)
 
+    it("two calls before any response -> distinct temp buffers, no error", function()
+        open("UPROPERTY()")
+        local ok, e = pcall(macros.CompleteMacro)
+        assert.is_true(ok, tostring(e))
+        ok, e = pcall(macros.CompleteMacro)
+        assert.is_true(ok, tostring(e))
+        assert.are.equal(2, #requests)
+        assert.are_not.equal(requests[1].bufnr, requests[2].bufnr)
+        assert.are_not.equal(vim.api.nvim_buf_get_name(requests[1].bufnr), vim.api.nvim_buf_get_name(requests[2].bufnr))
+    end)
+
+    it("macro spanning several lines, cursor on first line -> inserted before ')'", function()
+        h.project({ [HEADER] = header("UPROPERTY(VisibleAnywhere,", '\tCategory="X")') })
+        h.edit(HEADER, MACRO_ROW)
+        macros.CompleteMacro()
+        respondBoth({ items = items({ "EditAnywhere" }) }, nil)
+        assert.are.equal(1, #pickers, "macro not detected")
+        pickers[1].cb({ text = "EditAnywhere", isMeta = false })
+        assert.are.same(
+            { "\tUPROPERTY(VisibleAnywhere,", '\t\tCategory="X", EditAnywhere)' },
+            vim.api.nvim_buf_get_lines(0, MACRO_ROW - 1, MACRO_ROW + 1, false)
+        )
+    end)
+
     local spec = function(text)
         return { text = text, isMeta = false }
     end

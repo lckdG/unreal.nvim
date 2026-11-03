@@ -155,6 +155,18 @@ describe("project", function()
             assert.are.equal(0, #state.calls)
         end)
 
+        it("2 uprojects, choose 2 -> UBT gets the second project and its Editor target", function()
+            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
+            local prompts = h.spy(vim.fn, "inputlist", 2)
+            local state = run(0)
+            assert.are.equal(1, #prompts, "prompt not shown")
+            local second = prompts[1][1][3]:gsub("^2: ", "")
+            local target = vim.fn.fnamemodify(second, ":t:r") .. "Editor"
+            local cmd = state.calls[1].cmd
+            assert.is_true(vim.tbl_contains(cmd, "-project=" .. second))
+            assert.is_true(vim.tbl_contains(cmd, target))
+        end)
+
         it("runs dotnet via jobstart in a terminal with an argument list", function()
             local root = h.project({ ["Game.uproject"] = {} })
             h.stub(system, "GetPlatform", function()
