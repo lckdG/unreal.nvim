@@ -25,7 +25,7 @@ M.defaults = {
 }
 
 function M.config(opts)
-    M.opts = vim.tbl_deep_extend("force", M.defaults, opts or {})
+    M.opts = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), opts or {})
 
     -- TODO: remove
     if M.opts.telescope_extended_ignores ~= nil then
