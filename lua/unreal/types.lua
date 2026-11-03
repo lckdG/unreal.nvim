@@ -23,8 +23,8 @@
 ---@field custom_treesitter CustomTreesitterOpts?
 ---@field command_lead string
 ---@field cmd_abbreviations table?
----@field telescope_extended_ignores table?
 ---@field clangd_build_args table?
+---@field extensions table<string, table|boolean>
 
 --- Treesitter types
 

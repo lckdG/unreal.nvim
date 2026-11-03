@@ -77,9 +77,6 @@ function M.FindSource()
 
         local args = { "rg", "--files", "-g", globPattern }
         require("unreal.ui").FileSearch(args, { prompt = "Find source file: " })
-        -- require("telescope.builtin").find_files({
-        --     find_command = types,
-        -- })
     end)
 end
 
@@ -97,9 +94,6 @@ function M.GrepSource()
 
         local args = { "rg", "--vimgrep", "-S", "-g", globPattern }
         require("unreal.ui").GrepSearch(args, { prompt = "Grep source file: " })
-        -- require("telescope.builtin").live_grep({
-        --     additional_args = { "-g", globPattern },
-        -- })
     end)
 end
 
