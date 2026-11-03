@@ -172,7 +172,7 @@ end
 local engineExecutable = {
     Win64 = "UnrealEditor.exe",
     Linux = "UnrealEditor",
-    Mac = vim.fs.joinpath("UnrealEditor.app", "Contents", "MacOS", "UnrealEditor"),
+    Mac = "UnrealEditor.app",
 }
 
 function M.GetEngineExecutable(platform, enginePath)
@@ -184,12 +184,23 @@ end
 
 function M.GetExecuteCmd()
     local platform = require("unreal.system").GetPlatform()
+    local executablePath = M.GetEngineExecutable(platform, M.EnginePath)
+    local executableExist = pathUtils.Exists(executablePath)
+
     if platform == "Win64" then
+        -- We can just use cmd to open the project on Windows
         return true, { "cmd", "/c", "start", "" }
-    else
-        local executablePath = M.GetEngineExecutable(platform, M.EnginePath)
-        return pathUtils.Exists(executablePath), { executablePath }
+    elseif platform == "Linux" then
+        if vim.fn.executable("systemd-run") == 1 then
+            return executableExist, { "systemd-run", "--user", "--collect", "--quiet", "--", executablePath }
+        else
+            return executableExist, { "setsid", "-f", executablePath }
+        end
+    elseif platform == "Mac" then
+        return executableExist, { "open", "-n", "-a", executablePath, "--args" }
     end
+
+    return false, {}
 end
 
 return M
