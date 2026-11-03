@@ -61,11 +61,11 @@ function TelescopeUiProvider.Select(items, opts, cb)
     local conf = require("telescope.config").values
 
     local previewer = items[1]
-            and items[1].desc
+            and type(items[1].desc) == "table"
             and previewers.new_buffer_previewer({
                 title = "Description",
-                define_preview = function(self, entry, status)
-                    vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, entry.desc)
+                define_preview = function(self, entry)
+                    vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, entry.value.desc or {})
                 end,
             })
         or nil
@@ -77,10 +77,9 @@ function TelescopeUiProvider.Select(items, opts, cb)
                 results = items,
                 entry_maker = function(entry)
                     return {
-                        value = entry.value,
+                        value = entry,
                         ordinal = entry.name,
                         display = entry.name,
-                        desc = entry.desc,
                     }
                 end,
             }),
@@ -90,7 +89,7 @@ function TelescopeUiProvider.Select(items, opts, cb)
                 actions.select_default:replace(function()
                     actions.close(prompt_bufnr)
                     local selection = action_state.get_selected_entry()
-                    cb(selection)
+                    cb(selection and selection.value)
                 end)
 
                 return true
