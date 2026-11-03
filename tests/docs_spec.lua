@@ -7,7 +7,7 @@ end
 describe("help file", function()
     local help = read("doc/unreal.txt")
 
-    for _, tag in ipairs({ "*unreal.nvim*", "*unreal-commands*", "*unreal-config*", "*:Unreal*" }) do
+    for _, tag in ipairs({ "*unreal.nvim*", "*unreal-commands*", "*unreal-config*", "*unreal-extensions*", "*:Unreal*" }) do
         it("has tag " .. tag, function()
             assert.is_truthy(help:find(tag, 1, true))
         end)

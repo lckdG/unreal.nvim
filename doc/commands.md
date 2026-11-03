@@ -39,8 +39,14 @@ Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` specifier under the cursor
 
 ## FindSource
 
-Find header, source, or both kinds of files with telescope.
+Find header, source, or both kinds of files with `rg`. Asks for the file type first, then:
+
+- built-in UI: asks for part of the file name, runs the search once and fills the quickfix list
+- with an [extension](#extensions) such as Telescope: opens its live file search
 
 ## GrepSource
 
-Live grep header, source, or both kinds of files with telescope.
+Grep header, source, or both kinds of files with `rg`. Asks for the file type first, then:
+
+- built-in UI: asks for the pattern, runs the search once and fills the quickfix list
+- with an [extension](#extensions) such as Telescope: opens its live grep

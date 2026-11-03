@@ -10,8 +10,8 @@ require('unreal').setup({
     },
     command_lead = "Unreal",
     cmd_abbreviations = {},
-    telescope_extended_ignores = { --[[ Unreal defaults, see below ]] },
     clangd_build_args = { "-NoExecCodeGenActions" },
+    extensions = {},
 })
 ```
 
@@ -31,12 +31,22 @@ Command-line abbreviations, expanded to `<command_lead> <value>`:
 cmd_abbreviations = { uo = "OpenProject", uc = "RebuildClangd" }
 ```
 
-## telescope_extended_ignores
-
-Lua patterns appended to telescope's global `file_ignore_patterns`, so they apply to every telescope picker, not only [FindSource](#findsource) / [GrepSource](#grepsource).
-
-Setting this **replaces** the defaults (Unreal binaries, assets and generated directories such as `Binaries/` and `Intermediate/`). To keep them, copy the list from `require('unreal.config').defaults.telescope_extended_ignores` and edit it.
-
 ## clangd_build_args
 
 Extra arguments for the UnrealBuildTool `-mode=GenerateClangDatabase` call made by [RebuildClangd](#rebuildclangd). Each entry is one argument.
+
+## extensions
+
+Optional integrations, keyed by name. A table enables the extension with those options, `true` enables it with none, `false` disables it. Unknown names show an error. See [Extensions](#extensions).
+
+```lua
+extensions = {
+    telescope = { ignores = { "%.uasset" } },
+}
+```
+
+## telescope_extended_ignores
+
+Deprecated, removed in 0.2.0. Use `extensions = { telescope = { ignores = ... } }` instead.
+
+Still accepted for now: it shows a deprecation warning and becomes `extensions.telescope.ignores`, which enables the extension. It is ignored if `ignores` is already set there, or if the extension is set to `false`.
