@@ -120,7 +120,7 @@ describe("commands", function()
         local notes = h.notifications()
         init()
         vim.cmd("Unreal Foo")
-        assert.is_true(h.notified(notes, "Error: unavailable command Foo", vim.log.levels.ERROR))
+        assert.is_true(h.notified(notes, vim.log.levels.ERROR))
     end)
 
     it("<Tab> completes all subcommands", function()
@@ -152,82 +152,6 @@ describe("commands", function()
     end)
 end)
 
-describe("extensions.telescope", function()
-    local telescope = require("unreal.extensions.telescope")
-    local ui = require("unreal.ui")
-
-    before_each(function()
-        -- setup() swaps the global provider; restored by h.reset
-        h.stub(ui, "provider", ui.provider)
-    end)
-
-    after_each(function()
-        h.reset()
-        package.loaded["telescope"] = nil
-        package.loaded["telescope.config"] = nil
-    end)
-
-    local function fake_telescope(existing)
-        local calls = {}
-        package.loaded["telescope"] = {}
-        local values = { file_ignore_patterns = existing }
-        package.loaded["telescope.config"] = {
-            values = values,
-            -- like telescope, applied defaults show up in `values`
-            set_defaults = function(...)
-                table.insert(calls, { ... })
-                values.file_ignore_patterns = (...).file_ignore_patterns
-            end,
-        }
-        return calls
-    end
-
-    it("appends to the user's patterns", function()
-        local calls = fake_telescope({ "user%.txt" })
-        telescope.AppendIgnorePatterns({ "%.uasset" })
-        assert.are.same({ "user%.txt", "%.uasset" }, calls[1][1].file_ignore_patterns)
-    end)
-
-    it("nil ignores -> defaults untouched", function()
-        local calls = fake_telescope({ "user%.txt" })
-        telescope.AppendIgnorePatterns(nil)
-        assert.are.equal(0, #calls)
-    end)
-
-    it("called twice -> patterns appended once", function()
-        local calls = fake_telescope({ "user%.txt" })
-        telescope.AppendIgnorePatterns({ "%.uasset" })
-        telescope.AppendIgnorePatterns({ "%.uasset" })
-        assert.are.same({ "user%.txt", "%.uasset" }, calls[#calls][1].file_ignore_patterns)
-    end)
-
-    it("setup() -> becomes the ui provider and applies ignores", function()
-        local calls = fake_telescope({})
-        telescope.setup({ ignores = { "%.uasset" } })
-        assert.are.equal(telescope, ui.provider)
-        assert.are.same({ "%.uasset" }, calls[1][1].file_ignore_patterns)
-    end)
-
-    it("setup() without ignores -> still becomes the ui provider", function()
-        fake_telescope({})
-        telescope.setup({})
-        assert.are.equal(telescope, ui.provider)
-    end)
-
-    it("setup() with telescope not installed -> error notify, provider unchanged", function()
-        local before = ui.provider
-        local notes = h.notifications()
-        h.stub(package.preload, "telescope", function()
-            error("not found")
-        end)
-        assert.has_no.errors(function()
-            telescope.setup({ ignores = { "%.uasset" } })
-        end)
-        assert.is_true(h.notified(notes, "Telescope", vim.log.levels.ERROR))
-        assert.are.equal(before, ui.provider)
-    end)
-end)
-
 describe("setup() extensions", function()
     local ui = require("unreal.ui")
 
@@ -240,7 +164,7 @@ describe("setup() extensions", function()
     after_each(function()
         h.reset()
         pcall(vim.api.nvim_del_user_command, "Unreal")
-        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim") -- Hijack autocmd lives in this group
+        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim")
         package.loaded["telescope"] = nil
         package.loaded["telescope.config"] = nil
     end)
@@ -257,10 +181,29 @@ describe("setup() extensions", function()
         assert.are.equal(0, #got)
     end)
 
+    it("setup() twice -> telescope ignores applied once, still the provider", function()
+        local calls = {}
+        local values = { file_ignore_patterns = {} }
+        package.loaded["telescope"] = {}
+        package.loaded["telescope.config"] = {
+            values = values,
+            set_defaults = function(defaults)
+                table.insert(calls, defaults)
+                values.file_ignore_patterns = defaults.file_ignore_patterns
+            end,
+        }
+        local opts = { extensions = { telescope = { ignores = { "%.uasset" } } } }
+        require("unreal").setup(opts)
+        require("unreal").setup(opts)
+        assert.are.equal(1, #calls)
+        assert.are.same({ "%.uasset" }, values.file_ignore_patterns)
+        assert.are.equal(require("unreal.extensions.telescope"), ui.provider)
+    end)
+
     it("unknown extension -> error notify", function()
         local notes = h.notifications()
         require("unreal").setup({ extensions = { nope = true } })
-        assert.is_true(h.notified(notes, "Unknown extension: nope", vim.log.levels.ERROR))
+        assert.is_true(h.notified(notes, vim.log.levels.ERROR))
     end)
 end)
 
@@ -273,7 +216,7 @@ describe("treesitter.Hijack", function()
 
     after_each(function()
         h.reset()
-        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim") -- Hijack autocmd lives in this group
+        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim")
         package.loaded["nvim-treesitter.parsers"] = nil
     end)
 

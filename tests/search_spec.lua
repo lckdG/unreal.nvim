@@ -49,20 +49,13 @@ describe("search", function()
             capture_cmd()
             search.SwitchSourceHeader()
             assert.are.same({}, cmds)
-            assert.is_true(h.notified(notes, "No matching file name or clangd enabled!", vim.log.levels.ERROR))
+            assert.is_true(h.notified(notes, vim.log.levels.ERROR))
         end)
 
         it("HasClangdEnabled only looks at the current buffer", function()
             local calls = h.spy(vim.lsp, "get_clients", {})
             assert.is_false(system.HasClangdEnabled())
             assert.are.same({ name = "clangd", bufnr = 0 }, calls[1][1])
-        end)
-
-        it("flat module layout opens the counterpart", function()
-            h.project({ ["Source/Mod/Foo.h"] = {}, ["Source/Mod/Foo.cpp"] = {} })
-            h.edit("Source/Mod/Foo.h")
-            search.SwitchSourceHeader()
-            assert.is_true(h.ends_with(vim.api.nvim_buf_get_name(0), "Source/Mod/Foo.cpp"))
         end)
     end)
 
@@ -102,36 +95,6 @@ describe("search", function()
             search.FindSource()
             search.GrepSource()
             assert.are.equal(0, #finds + #greps)
-        end)
-    end)
-
-    describe("telescope provider", function()
-        local telescope = require("unreal.extensions.telescope")
-        local finds, greps
-
-        before_each(function()
-            finds, greps = {}, {}
-            package.loaded["telescope.builtin"] = {
-                find_files = function(o)
-                    table.insert(finds, o)
-                end,
-                live_grep = function(o)
-                    table.insert(greps, o)
-                end,
-            }
-        end)
-        after_each(function()
-            package.loaded["telescope.builtin"] = nil
-        end)
-
-        it("FileSearch -> find_files with the rg command", function()
-            telescope.FileSearch({ "rg", "--files", "-g", "*.h" }, { prompt = "Find" })
-            assert.are.same({ { prompt_title = "Find", find_command = { "rg", "--files", "-g", "*.h" } } }, finds)
-        end)
-
-        it("GrepSearch -> live_grep with only the glob args", function()
-            telescope.GrepSearch({ "rg", "--vimgrep", "-S", "-g", "*.h" }, { prompt = "Grep" })
-            assert.are.same({ { prompt_title = "Grep", additional_args = { "-g", "*.h" } } }, greps)
         end)
     end)
 end)

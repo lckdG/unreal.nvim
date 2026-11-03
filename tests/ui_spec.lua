@@ -5,7 +5,6 @@ describe("ui", function()
     local native
 
     before_each(function()
-        -- Use(nil) falls back to the native provider; grab it, then restore after the test
         h.stub(ui, "provider", ui.provider)
         ui.Use(nil)
         native = ui.provider
@@ -101,5 +100,63 @@ describe("ui", function()
         it("empty -> empty", function()
             assert.are.same({}, ui.WrapList({}))
         end)
+    end)
+
+    describe("native search", function()
+        local runs, qf, notes, typed
+
+        before_each(function()
+            runs, qf, typed = {}, {}, "Foo"
+            notes = h.notifications()
+            h.stub(vim.ui, "input", function(_, cb)
+                cb(typed)
+            end)
+            h.stub(vim, "schedule", function(fn)
+                fn()
+            end)
+            h.stub(vim.fn, "setqflist", function(_, _, what)
+                table.insert(qf, what)
+            end)
+            h.stub(vim.cmd, "copen", function() end)
+        end)
+
+        local function rg(result)
+            h.stub(vim, "system", function(cmd, cb)
+                table.insert(runs, vim.deepcopy(cmd))
+                cb(vim.tbl_extend("keep", result, { stdout = "", stderr = "" }))
+            end)
+        end
+
+        it("FileSearch puts the typed name into the glob, fills quickfix", function()
+            rg({ code = 0, stdout = "Source/Foo.h\nSource/FooBar.h\n" })
+            ui.FileSearch({ "rg", "--files", "-g", "*.h" }, { prompt = "Find" })
+            assert.are.same({ { "rg", "--files", "-g", "*Foo*.h" } }, runs)
+            assert.are.same({ "Source/Foo.h", "Source/FooBar.h" }, qf[1].lines)
+            assert.are.equal("Find", qf[1].title)
+        end)
+
+        it("GrepSearch appends the pattern after --", function()
+            typed = "-dash"
+            rg({ code = 0, stdout = "a.h:1:1:-dash\n" })
+            ui.GrepSearch({ "rg", "--vimgrep", "-S", "-g", "*.h" }, { prompt = "Grep" })
+            assert.are.same({ { "rg", "--vimgrep", "-S", "-g", "*.h", "--", "-dash" } }, runs)
+            assert.are.same({ "a.h:1:1:-dash" }, qf[1].lines)
+        end)
+
+        for _, fn in ipairs({ "FileSearch", "GrepSearch" }) do
+            it(fn .. " input cancelled -> rg not run", function()
+                typed = nil
+                rg({ code = 0 })
+                ui[fn]({ "rg", "-g", "*.h" }, { prompt = "x" })
+                assert.are.equal(0, #runs)
+            end)
+
+            it(fn .. " rg error (exit 2) -> error notify with stderr, no quickfix", function()
+                rg({ code = 2, stderr = "bad glob" })
+                ui[fn]({ "rg", "-g", "*.h" }, { prompt = "x" })
+                assert.are.equal(0, #qf)
+                assert.is_true(h.notified(notes, vim.log.levels.ERROR, "bad glob"))
+            end)
+        end
     end)
 end)

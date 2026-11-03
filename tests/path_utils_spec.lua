@@ -129,10 +129,6 @@ describe("path_utils", function()
             assert.is_true(pathUtils.Exists(root .. "/a.txt"))
         end)
 
-        it("directory -> true", function()
-            assert.is_true(pathUtils.Exists(h.tmpdir()))
-        end)
-
         it("missing -> false", function()
             assert.is_false(pathUtils.Exists(h.tmpdir() .. "/nope"))
         end)

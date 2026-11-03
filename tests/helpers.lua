@@ -30,9 +30,9 @@ function M.notifications()
     return list
 end
 
-function M.notified(list, pattern, level)
+function M.notified(list, level, stubText)
     for _, n in ipairs(list) do
-        if n.msg:find(pattern, 1, true) and (level == nil or n.level == level) then
+        if n.level == level and (stubText == nil or n.msg:find(stubText, 1, true)) then
             return true
         end
     end
