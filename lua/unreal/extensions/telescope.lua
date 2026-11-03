@@ -4,7 +4,10 @@ local TelescopeUiProvider = {}
 function TelescopeUiProvider.setup(opts)
     local success, _ = pcall(require, "telescope")
     if success == false then
-        require("unreal.log").Notify("Telescope is set as Unreal's extension, but the plugin is not enabled or installed", vim.log.levels.ERROR)
+        require("unreal.log").Notify(
+            "Telescope is set as Unreal's extension, but the plugin is not enabled or installed",
+            vim.log.levels.ERROR
+        )
         return
     end
 
@@ -55,14 +58,18 @@ function TelescopeUiProvider.Select(items, opts, cb)
     local action_state = require("telescope.actions.state")
     local conf = require("telescope.config").values
 
-    local previewer = items[1] and items[1].desc and previewers.new_buffer_previewer({
-        title = "Description",
-        define_preview = function(self, entry, status)
-            vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, entry.desc)
-        end,
-    }) or nil
+    local previewer = items[1]
+            and items[1].desc
+            and previewers.new_buffer_previewer({
+                title = "Description",
+                define_preview = function(self, entry, status)
+                    vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, entry.desc)
+                end,
+            })
+        or nil
 
-    pickers.new({}, {
+    pickers
+        .new({}, {
             prompt_title = opts.prompt,
             finder = finders.new_table({
                 results = items,

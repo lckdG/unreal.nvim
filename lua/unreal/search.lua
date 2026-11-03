@@ -40,20 +40,20 @@ local function getInputSourceTypes(callback)
     local choices = {
         {
             name = "All",
-            value = "*.{h,cpp}"
+            value = "*.{h,cpp}",
         },
         {
             name = "Headers",
-            value = "*.h"
+            value = "*.h",
         },
         {
             name = "Cpp",
-            value = "*.cpp"
-        }
+            value = "*.cpp",
+        },
     }
 
     local prompt = "Select source types:"
-    require("unreal.ui").Select(choices, { prompt = prompt }, function (item)
+    require("unreal.ui").Select(choices, { prompt = prompt }, function(item)
         if item == nil then
             callback(nil)
             return

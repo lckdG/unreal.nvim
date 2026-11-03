@@ -5,7 +5,7 @@ local function enableExtensions(extensions)
             if not ok then
                 require("unreal.log").Notify("Unknown extension: " .. name, vim.log.levels.ERROR)
             else
-               ext.setup(extOpts == true and {} or extOpts)
+                ext.setup(extOpts == true and {} or extOpts)
             end
         end
     end

@@ -35,15 +35,11 @@ function M.OpenUproject()
         OpenUproject_Internal(uprojectFiles[1])
     else
         local ui = require("unreal.ui")
-        ui.Select(
-            ui.WrapList(uprojectFiles),
-            "Multiple uproject found, choose one",
-            function (item)
-                if item ~= nil then
-                    OpenUproject_Internal(item.value)
-                end
+        ui.Select(ui.WrapList(uprojectFiles), "Multiple uproject found, choose one", function(item)
+            if item ~= nil then
+                OpenUproject_Internal(item.value)
             end
-        )
+        end)
     end
 end
 
@@ -115,15 +111,11 @@ function M.RebuildClangd()
         RebuildClangd_Internal(uprojectFiles[1])
     else
         local ui = require("unreal.ui")
-        ui.Select(
-            ui.WrapList(uprojectFiles),
-            "Multiple uproject found, choose one",
-            function (item)
-                if item ~= nil then
-                    RebuildClangd_Internal(item.value)
-                end
+        ui.Select(ui.WrapList(uprojectFiles), "Multiple uproject found, choose one", function(item)
+            if item ~= nil then
+                RebuildClangd_Internal(item.value)
             end
-        )
+        end)
     end
 end
 
