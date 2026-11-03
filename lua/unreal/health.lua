@@ -94,7 +94,13 @@ function M.check()
     check_executable("clangd", "for LSP functionalities")
 
     health.start("Plugin dependencies")
-    check_plugin("telescope", "telescope.nvim", "required for search commands")
+
+    local config = require("unreal.config")
+
+    if config.IsExtensionEnabled("telescope") then
+        check_plugin("telescope", "telescope.nvim", "required for search commands")
+    end
+
     check_plugin("plenary", "plenary.nvim", "required for CompleteMacro")
 
     health.start("Plugin core")

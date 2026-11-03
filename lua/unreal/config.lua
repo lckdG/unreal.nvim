@@ -55,4 +55,8 @@ function M.GetClangdBuildArgs()
     return args
 end
 
+function M.IsExtensionEnabled(name)
+    return M.opts.extensions[name] and M.opts.extensions[name] ~= false
+end
+
 return M
