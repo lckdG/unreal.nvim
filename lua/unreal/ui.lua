@@ -53,7 +53,7 @@ function NativeUiProvider.GrepSearch(searchArgs, opts)
             return
         end
 
-        table.insert(searchArgs, 4, "input")
+        vim.list_extend(searchArgs, { "--", input })
         vim.system(searchArgs, function(exitInfo)
             vim.schedule(function()
                 if exitInfo.code > 1 then
