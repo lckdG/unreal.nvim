@@ -1,6 +1,8 @@
 local NativeUiProvider = {}
 
-NativeUiProvider.Input = vim.ui.input
+function NativeUiProvider.Input(...)
+    return vim.ui.input(...)
+end
 
 ---
 ---@param items unreal.UiEntry[]

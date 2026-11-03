@@ -44,7 +44,9 @@ function TelescopeUiProvider.AppendIgnorePatterns(ignores)
     end
 end
 
-TelescopeUiProvider.Input = vim.ui.input
+function TelescopeUiProvider.Input(...)
+    return vim.ui.input(...)
+end
 
 ---
 ---@param items unreal.UiEntry[]
