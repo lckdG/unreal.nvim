@@ -67,6 +67,46 @@ describe("search", function()
     end)
 
     describe("FindSource / GrepSource", function()
+        local ui = require("unreal.ui")
+        local finds, greps
+
+        before_each(function()
+            finds = h.spy(ui, "FileSearch")
+            greps = h.spy(ui, "GrepSearch")
+        end)
+
+        local function choose(name)
+            h.stub(ui, "Select", function(items, _, cb)
+                for _, item in ipairs(items) do
+                    if item.name == name then
+                        return cb(item)
+                    end
+                end
+                cb(nil)
+            end)
+        end
+
+        local cases = { { "All", "*.{h,cpp}" }, { "Headers", "*.h" }, { "Cpp", "*.cpp" } }
+        for _, case in ipairs(cases) do
+            it("choice " .. case[1] .. " -> -g " .. case[2], function()
+                choose(case[1])
+                search.FindSource()
+                search.GrepSource()
+                assert.are.same({ "rg", "--files", "-g", case[2] }, finds[1][1])
+                assert.are.same({ "rg", "--vimgrep", "-S", "-g", case[2] }, greps[1][1])
+            end)
+        end
+
+        it("cancelled -> no search", function()
+            choose(nil)
+            search.FindSource()
+            search.GrepSource()
+            assert.are.equal(0, #finds + #greps)
+        end)
+    end)
+
+    describe("telescope provider", function()
+        local telescope = require("unreal.extensions.telescope")
         local finds, greps
 
         before_each(function()
@@ -84,29 +124,14 @@ describe("search", function()
             package.loaded["telescope.builtin"] = nil
         end)
 
-        local cases = { { 1, "*.{h,cpp}" }, { 2, "*.h" }, { 3, "*.cpp" } }
-        for _, case in ipairs(cases) do
-            it("choice " .. case[1] .. " -> -g " .. case[2], function()
-                h.stub(vim.fn, "inputlist", function()
-                    return case[1]
-                end)
-                search.FindSource()
-                search.GrepSource()
-                assert.are.same({ "rg", "--files", "-g", case[2] }, finds[1].find_command)
-                assert.are.same({ "-g", case[2] }, greps[1].additional_args)
-            end)
-        end
+        it("FileSearch -> find_files with the rg command", function()
+            telescope.FileSearch({ "rg", "--files", "-g", "*.h" }, { prompt = "Find" })
+            assert.are.same({ { prompt_title = "Find", find_command = { "rg", "--files", "-g", "*.h" } } }, finds)
+        end)
 
-        for _, choice in ipairs({ 0, 4 }) do
-            it("choice " .. choice .. " -> warn, telescope not called", function()
-                h.stub(vim.fn, "inputlist", function()
-                    return choice
-                end)
-                search.FindSource()
-                search.GrepSource()
-                assert.are.equal(0, #finds + #greps)
-                assert.is_true(h.notified(notes, "Invalid search choice", vim.log.levels.WARN))
-            end)
-        end
+        it("GrepSearch -> live_grep with only the glob args", function()
+            telescope.GrepSearch({ "rg", "--vimgrep", "-S", "-g", "*.h" }, { prompt = "Grep" })
+            assert.are.same({ { prompt_title = "Grep", additional_args = { "-g", "*.h" } } }, greps)
+        end)
     end)
 end)

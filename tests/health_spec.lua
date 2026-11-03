@@ -141,6 +141,7 @@ describe("health", function()
         end)
 
         it("telescope missing -> error", function()
+            require("unreal.config").config({ extensions = { telescope = true } })
             h.stub(package.loaded, "telescope", nil)
             h.stub(package.preload, "telescope", function()
                 error("not found")
@@ -150,10 +151,24 @@ describe("health", function()
         end)
 
         it("telescope present -> ok", function()
+            require("unreal.config").config({ extensions = { telescope = true } })
             h.stub(package.loaded, "telescope", {})
             require("unreal.health").check()
             assert.is_not_nil(find("ok", "telescope.nvim found"))
         end)
+
+        for _, value in ipairs({ "nil", false }) do
+            it("telescope extension " .. tostring(value) .. " -> telescope not checked", function()
+                require("unreal.config").config({ extensions = { telescope = value ~= "nil" and value or nil } })
+                h.stub(package.loaded, "telescope", nil)
+                h.stub(package.preload, "telescope", function()
+                    error("not found")
+                end)
+                require("unreal.health").check()
+                assert.is_nil(find("error", "telescope.nvim"))
+                assert.is_nil(find("ok", "telescope.nvim"))
+            end)
+        end
 
         it("plenary missing -> error with hint", function()
             h.stub(package.loaded, "plenary", nil)
