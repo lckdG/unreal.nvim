@@ -56,7 +56,8 @@ function M.GetClangdBuildArgs()
 end
 
 function M.IsExtensionEnabled(name)
-    return M.opts.extensions[name] and M.opts.extensions[name] ~= false
+    local ext = M.opts and M.opts.extensions[name]
+    return ext ~= nil and ext ~= false
 end
 
 return M
