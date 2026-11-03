@@ -18,6 +18,7 @@ function M.setup(opts)
     require("unreal.treesitter").init(configOpts)
     require("unreal.telescope").init(configOpts)
 
+    require("unreal.ui").Use(nil)
     require("unreal.commands").init(configOpts)
 
     M.inited = true

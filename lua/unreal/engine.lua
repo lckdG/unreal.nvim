@@ -143,7 +143,7 @@ function M.ReadEnginePath()
 end
 
 function M.InputEnginePath()
-    require("unreal.ui").Input("Enter Unreal Engine path: ", "dir", function(input)
+    require("unreal.ui").Input({ prompt = "Enter Unreal Engine path: ", completion = "dir" }, function(input)
         if input == nil or input == "" then
             return
         end

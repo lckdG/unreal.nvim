@@ -34,10 +34,15 @@ function M.OpenUproject()
     elseif #uprojectFiles == 1 then
         OpenUproject_Internal(uprojectFiles[1])
     else
-        require("unreal.ui").SelectOptionsCb(
+        local ui = require("unreal.ui")
+        ui.Select(
+            ui.WrapList(uprojectFiles),
             "Multiple uproject found, choose one",
-            uprojectFiles,
-            OpenUproject_Internal
+            function (item)
+                if item ~= nil then
+                    OpenUproject_Internal(item.value)
+                end
+            end
         )
     end
 end
@@ -109,10 +114,15 @@ function M.RebuildClangd()
     elseif #uprojectFiles == 1 then
         RebuildClangd_Internal(uprojectFiles[1])
     else
-        require("unreal.ui").SelectOptionsCb(
+        local ui = require("unreal.ui")
+        ui.Select(
+            ui.WrapList(uprojectFiles),
             "Multiple uproject found, choose one",
-            uprojectFiles,
-            RebuildClangd_Internal
+            function (item)
+                if item ~= nil then
+                    RebuildClangd_Internal(item.value)
+                end
+            end
         )
     end
 end
