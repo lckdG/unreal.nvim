@@ -89,7 +89,7 @@ function M.check()
     local health = vim.health
 
     health.start("System dependencies")
-    check_executable("rg", "telescope.nvim dependency")
+    check_executable("rg", "required for Search commands")
     check_executable("dotnet", "for Unreal tools, e.g. UBT, UHT,...")
     check_executable("clangd", "for LSP functionalities")
 
