@@ -1,85 +1,116 @@
-local M = {}
+local NativeUiProvider = {}
+
+function NativeUiProvider.Input(...)
+    return vim.ui.input(...)
+end
 
 ---
----@param prompt string
----@param completion string
----@param callback function
-function M.Input(prompt, completion, callback)
-    vim.ui.input({ prompt = prompt, completion = completion }, callback)
+---@param items unreal.UiEntry[]
+---@param opts {prompt?: string}
+---@param cb fun(value?: unreal.UiEntry)
+function NativeUiProvider.Select(items, opts, cb)
+    vim.ui.select(items, {
+        prompt = opts.prompt,
+        format_item = function(item)
+            return item.name
+        end,
+    }, function(choice)
+        cb(choice)
+    end)
 end
 
----Prompt an option panel for user to select.
----Inputs are numbers from 1-n for a n-options panel
----@param prompt string
----@param options table
----@return number
-function M.SelectOptions(prompt, options)
-    local prompts = { prompt }
-    for index, opt in ipairs(options) do
-        table.insert(prompts, tostring(index) .. ": " .. opt)
+---
+---@param searchArgs string[]
+---@param opts {prompt?: string}
+function NativeUiProvider.FileSearch(searchArgs, opts)
+    NativeUiProvider.Input({ prompt = opts.prompt }, function(input)
+        if input == nil then
+            return
+        end
+
+        searchArgs[#searchArgs] = "*" .. input .. searchArgs[#searchArgs]
+        vim.system(searchArgs, function(exitInfo)
+            vim.schedule(function()
+                if exitInfo.code > 1 then
+                    require("unreal.log").Notify(exitInfo.stderr, vim.log.levels.ERROR)
+                    return
+                end
+
+                local lines = vim.split(exitInfo.stdout, "\n", { trimempty = true })
+                vim.fn.setqflist({}, " ", { title = opts.prompt or "File search output", lines = lines, efm = "%f" })
+                vim.cmd.copen()
+            end)
+        end)
+    end)
+end
+
+---
+---@param searchArgs string[]
+---@param opts {prompt?: string}
+function NativeUiProvider.GrepSearch(searchArgs, opts)
+    NativeUiProvider.Input({ prompt = opts.prompt }, function(input)
+        if input == nil then
+            return
+        end
+
+        vim.list_extend(searchArgs, { "--", input })
+        vim.system(searchArgs, function(exitInfo)
+            vim.schedule(function()
+                if exitInfo.code > 1 then
+                    require("unreal.log").Notify(exitInfo.stderr, vim.log.levels.ERROR)
+                    return
+                end
+
+                local lines = vim.split(exitInfo.stdout, "\n", { trimempty = true })
+                vim.fn.setqflist(
+                    {},
+                    " ",
+                    { title = opts.prompt or "Grep search output", lines = lines, efm = "%f:%l:%c:%m" }
+                )
+                vim.cmd.copen()
+            end)
+        end)
+    end)
+end
+
+local Ui = {}
+
+---@type unreal.UiProvider
+Ui.provider = NativeUiProvider
+
+function Ui.Use(p)
+    Ui.provider = p or NativeUiProvider
+end
+
+function Ui.Select(...)
+    return Ui.provider.Select(...)
+end
+
+function Ui.Input(...)
+    return Ui.provider.Input(...)
+end
+
+function Ui.FileSearch(...)
+    return Ui.provider.FileSearch(...)
+end
+
+function Ui.GrepSearch(...)
+    return Ui.provider.GrepSearch(...)
+end
+
+---
+---@param items string[]
+---@param indexAsValue boolean?
+---@return unreal.UiEntry[]
+function Ui.WrapList(items, indexAsValue)
+    local result = {}
+
+    for index, item in ipairs(items) do
+        local itemValue = indexAsValue and index or item
+        table.insert(result, { name = item, value = itemValue, desc = "" })
     end
 
-    return vim.fn.inputlist(prompts)
+    return result
 end
 
----Prompt an option panel for user to select.
----Inputs are numbers from 1-n for a n-options panel
----This option also trigger a callback
----@param prompt string
----@param options table
----@param callback function
-function M.SelectOptionsCb(prompt, options, callback)
-    local index = M.SelectOptions(prompt, options)
-    if index == nil or index <= 0 or index > #options then
-        return
-    end
-
-    callback(options[index])
-end
-
-function M.EntryPicker(completionList, callback)
-    local pickers = require("telescope.pickers")
-    local previewers = require("telescope.previewers")
-    local finders = require("telescope.finders")
-    local actions = require("telescope.actions")
-    local action_state = require("telescope.actions.state")
-    local conf = require("telescope.config").values
-
-    local opts = {}
-    pickers
-        .new(opts, {
-            prompt_title = "Attribute Picker",
-            finder = finders.new_table({
-                results = completionList,
-                entry_maker = function(entry)
-                    return {
-                        value = entry.value,
-                        ordinal = entry.name,
-                        display = entry.name,
-                        desc = entry.desc,
-                    }
-                end,
-            }),
-            sorter = conf.generic_sorter(opts),
-
-            previewer = previewers.new_buffer_previewer({
-                title = "Description",
-                define_preview = function(self, entry, status)
-                    vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, entry.desc)
-                end,
-            }),
-
-            attach_mappings = function(prompt_bufnr)
-                actions.select_default:replace(function()
-                    actions.close(prompt_bufnr)
-
-                    local selection = action_state.get_selected_entry()
-                    callback(selection.value)
-                end)
-
-                return true
-            end,
-        })
-        :find()
-end
-return M
+return Ui

@@ -1,5 +1,3 @@
-local pathUtils = require("unreal.path_utils")
-
 local M = {}
 
 M.info = {
@@ -19,38 +17,33 @@ M.defaults = {
         revision = "2d2d5c19a9a83e432e43c041252106995614b29a",
     },
     command_lead = "Unreal",
-    cmd_abbreviations = {},
-    telescope_extended_ignores = {
-        "%.exe", -- Executables
-        "%.dll",
-        "%.lib",
-        "%.modules", -- Libraries, modules, etc.
-        "%.uasset",
-        "%.umap",
-        "%.pdb",
-        "%.archive",
-        "%.natvis", -- Unreal specific
-        "%.po",
-        "%.manifest", -- Localization assets
-        "%.uexp",
-        "%.dmp",
-        "%.pb",
-        "%.bin", -- Something I dont really know :)
-
-        -- Generated Directories
-        pathUtils.ToIgnoreDirPattern("Binaries"),
-        pathUtils.ToIgnoreDirPattern("Build"),
-        pathUtils.ToIgnoreDirPattern("DerivedDataCache"),
-        pathUtils.ToIgnoreDirPattern("Intermediate"),
-        pathUtils.ToIgnoreDirPattern("Cooked"),
-    },
     clangd_build_args = {
         "-NoExecCodeGenActions",
     },
+    cmd_abbreviations = {},
+    extensions = {},
 }
 
 function M.config(opts)
-    M.opts = vim.tbl_deep_extend("force", M.defaults, opts or {})
+    M.opts = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), opts or {})
+
+    -- TODO: remove
+    if M.opts.telescope_extended_ignores ~= nil then
+        vim.deprecate(
+            "telescope_extended_ignores",
+            "extensions = { telescope = { ignores = ... } }",
+            "0.2.0",
+            M.info.PluginName,
+            false
+        )
+
+        local telescope = M.opts.extensions.telescope
+        if telescope == nil or telescope == true then
+            M.opts.extensions.telescope = { ignores = M.opts.telescope_extended_ignores }
+        elseif type(telescope) == "table" and telescope.ignores == nil then
+            telescope.ignores = M.opts.telescope_extended_ignores
+        end
+    end
 end
 
 function M.GetClangdBuildArgs()
@@ -60,6 +53,11 @@ function M.GetClangdBuildArgs()
     end
 
     return args
+end
+
+function M.IsExtensionEnabled(name)
+    local ext = M.opts and M.opts.extensions[name]
+    return ext ~= nil and ext ~= false
 end
 
 return M

@@ -1,10 +1,5 @@
 local M = {}
 
-function M.ToIgnoreDirPattern(name)
-    local slash = package.config:sub(1, 1)
-    return "%f[^" .. slash .. "%z]" .. name .. slash
-end
-
 function M.Exists(path)
     if path == nil then
         return false

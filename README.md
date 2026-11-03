@@ -1,6 +1,6 @@
 # unreal.nvim
 
-A Neovim plugin for working on Unreal Engine C++ projects: source/header switching, clangd compilation-database generation, `UFUNCTION`/`UCLASS` macro attribute completion, function implementation stubbing, and Unreal-aware treesitter/telescope integration.
+A Neovim plugin for working on Unreal Engine C++ projects: source/header switching, clangd compilation-database generation, `UFUNCTION`/`UCLASS` macro attribute completion, function implementation stubbing, an Unreal-aware treesitter grammar, and optional extensions.
 
 > **Work in progress:** commands, config options, and behavior may change without notice.
 
@@ -10,19 +10,20 @@ A Neovim plugin for working on Unreal Engine C++ projects: source/header switchi
 - Generate function implementation stubs from a header declaration
 - Rebuild the clangd compilation database
 - Complete `UCLASS`/`UFUNCTION`/`UPROPERTY` macro attributes
-- Find/grep source files via telescope
+- Find/grep source files
 - Open the `.uproject` with the OS default handler
 - Per-project engine path, cached across sessions
-- Unreal-aware treesitter grammar (via [taku25/tree-sitter-unreal-cpp](https://github.com/taku25/tree-sitter-unreal-cpp)) and telescope ignore patterns
+- Optional extensions, e.g. telescope integration
+- Unreal-aware treesitter grammar (via [taku25/tree-sitter-unreal-cpp](https://github.com/taku25/tree-sitter-unreal-cpp))
 
 ## Requirements
 
 - Neovim >= 0.12
 - [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter), `main` branch (the `master` branch is not supported)
-- [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)
 - [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
 - [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) with clangd set up (`SwitchSourceHeader` falls back to `:LspClangdSwitchSourceHeader`)
-- `rg`, `clangd`, and `dotnet` on `$PATH`
+- `rg`, `clangd`, and `dotnet` on `$PATH` (`rg` for `FindSource` / `GrepSource`)
+- Optional: plugins needed by the [extensions](#extensions) you enable
 - An installed Unreal Engine build to point the plugin at
 
 ## Installation
@@ -34,7 +35,6 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
     "lckdG/unreal.nvim",
     dependencies = {
         { "nvim-treesitter/nvim-treesitter", branch = "main" },
-        "nvim-telescope/telescope.nvim",
         "nvim-lua/plenary.nvim",
         "neovim/nvim-lspconfig",
     },
@@ -83,19 +83,39 @@ require('unreal').setup({
         ugs = "GrepSource",
     },
 
-    -- Lua patterns appended to telescope's global `file_ignore_patterns`, so they
-    -- apply to every telescope picker, not only FindSource/GrepSource.
-    -- Setting this REPLACES the defaults (Unreal binaries, assets and generated
-    -- directories such as Binaries/, Intermediate/). To keep them, copy the list
-    -- from `require('unreal.config').defaults.telescope_extended_ignores` and edit it.
-    -- telescope_extended_ignores = { ... },
-
     -- Extra arguments appended to the UnrealBuildTool GenerateClangDatabase invocation.
     clangd_build_args = {
         "-NoExecCodeGenActions",
     },
+
+    -- Optional integrations, none enabled by default. See Extensions below.
+    extensions = {},
 })
 ```
+
+`telescope_extended_ignores` is deprecated and will be removed in 0.2.0; use `extensions.telescope.ignores` instead.
+
+## Extensions
+
+Extensions are optional integrations with other plugins, enabled through the `extensions` option. Available: Telescope.
+
+### Telescope
+
+Makes `FindSource` / `GrepSource` live telescope pickers, and opens uproject and macro choices in telescope (with macro documentation preview):
+
+```lua
+require('unreal').setup({
+    extensions = {
+        telescope = {
+            -- Lua patterns appended to telescope's global `file_ignore_patterns`,
+            -- so they apply to every telescope picker. No defaults.
+            ignores = { "%.uasset", "%.umap" },
+        },
+    },
+})
+```
+
+`telescope = true` enables it without options. Without the extension, the plugin uses `vim.ui.select` / `vim.ui.input` and fills the quickfix list for searches. Other pickers can be plugged in with `require('unreal.ui').Use(provider)`, see `:help unreal-extensions`.
 
 ## Commands
 
@@ -109,8 +129,8 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 | `:Unreal SwitchSourceHeader` | Switch between the current header and its matching source file |
 | `:Unreal CreateImpl` | Generate a `.cpp` implementation stub for the function under the cursor (in a header) |
 | `:Unreal CompleteMacro` | Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` attribute under the cursor |
-| `:Unreal FindSource` | Find header/cpp/both files via telescope |
-| `:Unreal GrepSource` | Live grep header/cpp/both files via telescope |
+| `:Unreal FindSource` | Find header/cpp/both files (quickfix list, or live with an extension) |
+| `:Unreal GrepSource` | Grep header/cpp/both files (quickfix list, or live with an extension) |
 
 If multiple `.uproject` files are found in the working directory tree, commands that need one (`OpenProject`, `RebuildClangd`) will prompt you to choose.
 

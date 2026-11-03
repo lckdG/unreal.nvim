@@ -149,7 +149,7 @@ function M.CompleteMacro()
         end
 
         local completionList = vim.list_extend(namespaceCompletions, metaCompletions)
-        require("unreal.ui").EntryPicker(completionList, function(entry)
+        require("unreal.ui").Select(completionList, { prompt = "Complete macro: " }, function(entry)
             if entry == nil then
                 return
             end

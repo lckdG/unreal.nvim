@@ -6,7 +6,7 @@
 ```
 -->
 
-**unreal.nvim** helps working on Unreal Engine C++ projects: source/header switching, clangd compilation-database generation, `UFUNCTION`/`UCLASS` macro attribute completion, function implementation stubbing, and Unreal-aware treesitter/telescope integration.
+**unreal.nvim** helps working on Unreal Engine C++ projects: source/header switching, clangd compilation-database generation, `UFUNCTION`/`UCLASS` macro attribute completion, function implementation stubbing, an Unreal-aware treesitter grammar, and optional extensions.
 
 > **Warning:** this plugin is a work in progress. Commands, config options, and behavior may change without notice.
 
@@ -16,10 +16,11 @@
 - Generate function implementation stubs from a header declaration
 - Rebuild the clangd compilation database
 - Complete `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` macro attributes
-- Find/grep source files via telescope
+- Find/grep source files
 - Open the `.uproject` in the Unreal editor
 - Per-project engine path, cached across sessions
-- Unreal-aware treesitter grammar and telescope ignore patterns
+- Optional extensions, e.g. telescope integration
+- Unreal-aware treesitter grammar
 
 ## Acknowledgements
 

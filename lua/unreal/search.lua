@@ -36,23 +36,31 @@ function M.FindImplementation(buf, marker)
     return -1
 end
 
-local function getInputSourceTypes()
-    local index = require("unreal.ui").SelectOptions("Select source types:", { "All", "Headers", "Cpp" })
+local function getInputSourceTypes(callback)
+    local choices = {
+        {
+            name = "All",
+            value = "*.{h,cpp}",
+        },
+        {
+            name = "Headers",
+            value = "*.h",
+        },
+        {
+            name = "Cpp",
+            value = "*.cpp",
+        },
+    }
 
-    if index <= 0 or index > 3 then
-        log.Notify("Invalid search choice " .. index, vim.log.levels.WARN)
-        return nil
-    end
+    local prompt = "Select source types:"
+    require("unreal.ui").Select(choices, { prompt = prompt }, function(item)
+        if item == nil then
+            callback(nil)
+            return
+        end
 
-    if index == 1 then
-        return "*.{h,cpp}"
-    elseif index == 2 then
-        return "*.h"
-    elseif index == 3 then
-        return "*.cpp"
-    end
-
-    return nil
+        callback(item.value)
+    end)
 end
 
 ---Find header/cpp/both files via telescope. Prompts for scope:
@@ -62,15 +70,14 @@ end
 ---The chosen glob is sent to telescope's ripgrep-backed `find_files` to filter results.
 ---No-ops if the prompt is dismissed or an invalid choice is entered.
 function M.FindSource()
-    local globPattern = getInputSourceTypes()
-    if globPattern == nil then
-        return
-    end
+    getInputSourceTypes(function(globPattern)
+        if globPattern == nil then
+            return
+        end
 
-    local types = { "rg", "--files", "-g", globPattern }
-    require("telescope.builtin").find_files({
-        find_command = types,
-    })
+        local args = { "rg", "--files", "-g", globPattern }
+        require("unreal.ui").FileSearch(args, { prompt = "Find source file: " })
+    end)
 end
 
 ---Live grep header/cpp/both files via telescope. Prompts for scope:
@@ -80,14 +87,14 @@ end
 ---The chosen glob is sent to telescope's ripgrep-backed `live_grep` to filter results.
 ---No-ops if the prompt is dismissed or an invalid choice is entered.
 function M.GrepSource()
-    local globPattern = getInputSourceTypes()
-    if globPattern == nil then
-        return
-    end
+    getInputSourceTypes(function(globPattern)
+        if globPattern == nil then
+            return
+        end
 
-    require("telescope.builtin").live_grep({
-        additional_args = { "-g", globPattern },
-    })
+        local args = { "rg", "--vimgrep", "-S", "-g", globPattern }
+        require("unreal.ui").GrepSearch(args, { prompt = "Grep source file: " })
+    end)
 end
 
 return M

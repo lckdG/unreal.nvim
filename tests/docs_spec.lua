@@ -7,7 +7,7 @@ end
 describe("help file", function()
     local help = read("doc/unreal.txt")
 
-    for _, tag in ipairs({ "*unreal.nvim*", "*unreal-commands*", "*unreal-config*", "*:Unreal*" }) do
+    for _, tag in ipairs({ "*unreal.nvim*", "*unreal-commands*", "*unreal-config*", "*unreal-extensions*", "*:Unreal*" }) do
         it("has tag " .. tag, function()
             assert.is_truthy(help:find(tag, 1, true))
         end)
@@ -20,9 +20,9 @@ describe("help file", function()
         -- nightly :helptags is Lua and calls global assert(); luassert's returns extra values (E118)
         local luassert = _G.assert
         _G.assert = _PlenaryBustedOldAssert or luassert
-        local ok, err = pcall(vim.cmd.helptags, vim.fn.fnameescape(dir .. "/doc"))
+        local ok = pcall(vim.cmd.helptags, vim.fn.fnameescape(dir .. "/doc"))
         _G.assert = luassert
-        assert.is_true(ok, err)
+        assert.is_true(ok)
     end)
 
     it("README and help agree on the WIP notice", function()

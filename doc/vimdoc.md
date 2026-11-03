@@ -2,6 +2,7 @@
 doc/index.md
 doc/installation.md
 doc/configuration.md
+doc/extensions.md
 doc/commands.md
 doc/engine-path.md
 doc/health.md

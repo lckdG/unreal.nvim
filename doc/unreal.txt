@@ -1,5 +1,5 @@
 *unreal.txt*                      Neovim plugin for Unreal Engine C++ projects
-                               For NVIM v0.12    Last change: 2026 November 02
+                               For NVIM v0.12    Last change: 2026 November 03
 
 ==============================================================================
 Table of Contents                                   *unreal-table-of-contents*
@@ -15,9 +15,13 @@ Table of Contents                                   *unreal-table-of-contents*
   - custom_treesitter                        |unreal-config-custom_treesitter|
   - command_lead                                  |unreal-config-command_lead|
   - cmd_abbreviations                        |unreal-config-cmd_abbreviations|
-  - telescope_extended_ignores      |unreal-config-telescope_extended_ignores|
   - clangd_build_args                        |unreal-config-clangd_build_args|
-4. Commands                                                  |unreal-commands|
+  - extensions                                      |unreal-config-extensions|
+  - telescope_extended_ignores      |unreal-config-telescope_extended_ignores|
+4. Extensions                                              |unreal-extensions|
+  - Telescope                                    |unreal-extensions-telescope|
+  - Custom UI provider                  |unreal-extensions-custom-ui-provider|
+5. Commands                                                  |unreal-commands|
   - SetEnginePath                              |unreal-commands-setenginepath|
   - OpenProject                                  |unreal-commands-openproject|
   - RebuildClangd                              |unreal-commands-rebuildclangd|
@@ -26,8 +30,8 @@ Table of Contents                                   *unreal-table-of-contents*
   - CompleteMacro                              |unreal-commands-completemacro|
   - FindSource                                    |unreal-commands-findsource|
   - GrepSource                                    |unreal-commands-grepsource|
-5. Engine path                                            |unreal-engine-path|
-6. Health                                                      |unreal-health|
+6. Engine path                                            |unreal-engine-path|
+7. Health                                                      |unreal-health|
 
 ==============================================================================
 1. Introduction                                          *unreal-introduction*
@@ -36,8 +40,8 @@ Table of Contents                                   *unreal-table-of-contents*
 
 **unreal.nvim** helps working on Unreal Engine C++ projects: source/header
 switching, clangd compilation-database generation, `UFUNCTION`/`UCLASS` macro
-attribute completion, function implementation stubbing, and Unreal-aware
-treesitter/telescope integration.
+attribute completion, function implementation stubbing, an Unreal-aware
+treesitter grammar, and optional extensions.
 
 
   **Warning:** this plugin is a work in progress. Commands, config options, and
@@ -49,10 +53,11 @@ FEATURES                                        *unreal-introduction-features*
 - Generate function implementation stubs from a header declaration
 - Rebuild the clangd compilation database
 - Complete `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` macro attributes
-- Find/grep source files via telescope
+- Find/grep source files
 - Open the `.uproject` in the Unreal editor
 - Per-project engine path, cached across sessions
-- Unreal-aware treesitter grammar and telescope ignore patterns
+- Optional extensions, e.g. telescope integration
+- Unreal-aware treesitter grammar
 
 
 ACKNOWLEDGEMENTS                        *unreal-introduction-acknowledgements*
@@ -70,15 +75,16 @@ REQUIREMENTS                                *unreal-installation-requirements*
 
 - Neovim >= 0.12
 - nvim-treesitter <https://github.com/nvim-treesitter/nvim-treesitter>
-- telescope.nvim <https://github.com/nvim-telescope/telescope.nvim>
 - plenary.nvim <https://github.com/nvim-lua/plenary.nvim>
 - nvim-lspconfig <https://github.com/neovim/nvim-lspconfig>
-- `rg`, `clangd` and `dotnet` on `$PATH`
+- `rg`, `clangd` and `dotnet` on `$PATH` (`rg` for |unreal-commands-findsource| / |unreal-commands-grepsource|)
 - An installed Unreal Engine build
 
 Use the nvim-treesitter `main` branch; `master` is not supported.
 nvim-lspconfig needs clangd set up: it provides `:LspClangdSwitchSourceHeader`,
 the fallback of |unreal-commands-switchsourceheader|.
+
+|unreal-extensions| are optional and may need other plugins.
 
 
 LAZY.NVIM                                      *unreal-installation-lazy.nvim*
@@ -88,7 +94,6 @@ LAZY.NVIM                                      *unreal-installation-lazy.nvim*
         "lckdG/unreal.nvim",
         dependencies = {
             { "nvim-treesitter/nvim-treesitter", branch = "main" },
-            "nvim-telescope/telescope.nvim",
             "nvim-lua/plenary.nvim",
             "neovim/nvim-lspconfig",
         },
@@ -127,8 +132,8 @@ All options are optional. Defaults:
         },
         command_lead = "Unreal",
         cmd_abbreviations = {},
-        telescope_extended_ignores = { --[[ Unreal defaults, see below ]] },
         clangd_build_args = { "-NoExecCodeGenActions" },
+        extensions = {},
     })
 <
 
@@ -154,26 +159,100 @@ Command-line abbreviations, expanded to `<command_lead> <value>`:
 <
 
 
-TELESCOPE_EXTENDED_IGNORES          *unreal-config-telescope_extended_ignores*
-
-Lua patterns appended to telescope’s global `file_ignore_patterns`, so they
-apply to every telescope picker, not only |unreal-commands-findsource| /
-|unreal-commands-grepsource|.
-
-Setting this **replaces** the defaults (Unreal binaries, assets and generated
-directories such as `Binaries/` and `Intermediate/`). To keep them, copy the
-list from `require('unreal.config').defaults.telescope_extended_ignores` and
-edit it.
-
-
 CLANGD_BUILD_ARGS                            *unreal-config-clangd_build_args*
 
 Extra arguments for the UnrealBuildTool `-mode=GenerateClangDatabase` call made
 by |unreal-commands-rebuildclangd|. Each entry is one argument.
 
 
+EXTENSIONS                                          *unreal-config-extensions*
+
+Optional integrations, keyed by name. A table enables the extension with those
+options, `true` enables it with none, `false` disables it. Unknown names show
+an error. See |unreal-extensions|.
+
+>lua
+    extensions = {
+        telescope = { ignores = { "%.uasset" } },
+    }
+<
+
+
+TELESCOPE_EXTENDED_IGNORES          *unreal-config-telescope_extended_ignores*
+
+Deprecated, removed in 0.2.0. Use `extensions = { telescope = { ignores = ... }
+}` instead.
+
+Still accepted for now: it shows a deprecation warning and becomes
+`extensions.telescope.ignores`, which enables the extension. It is ignored if
+`ignores` is already set there, or if the extension is set to `false`.
+
+
 ==============================================================================
-4. Commands                                                  *unreal-commands*
+4. Extensions                                              *unreal-extensions*
+
+Extensions are optional integrations, enabled through the `extensions` option
+in |unreal-config|. Nothing is enabled by default.
+
+
+TELESCOPE                                        *unreal-extensions-telescope*
+
+Runs pickers and searches through telescope.nvim
+<https://github.com/nvim-telescope/telescope.nvim>:
+
+- |unreal-commands-findsource| and |unreal-commands-grepsource| become live telescope pickers
+- uproject and macro choices open in a telescope picker; |unreal-commands-completemacro| previews the macro documentation
+
+>lua
+    require('unreal').setup({
+        extensions = {
+            telescope = {
+                ignores = { "%.uasset", "%.umap" },
+            },
+        },
+    })
+<
+
+`telescope = true` enables it with no options.
+
+`ignores` are Lua patterns appended to telescope’s global
+`file_ignore_patterns`, so they apply to every telescope picker, not only
+FindSource / GrepSource. There are no default patterns.
+
+If telescope.nvim is not installed, an error is shown and the built-in UI is
+kept.
+
+
+CUSTOM UI PROVIDER                      *unreal-extensions-custom-ui-provider*
+
+All prompts, pickers and searches go through `require('unreal.ui')`. Without an
+extension it uses `vim.ui.select`, `vim.ui.input` and the quickfix list, so
+plugins that replace `vim.ui` (dressing.nvim, snacks.nvim) apply.
+
+To plug in another picker, pass a provider to `Use()` after `setup()`. It must
+implement all four functions:
+
+>lua
+    require('unreal.ui').Use({
+        -- items: { name = string, value = any, desc = string[] | "" }
+        -- call cb with the chosen item, or nil when cancelled
+        Select = function(items, opts, cb) end,
+        -- same signature as vim.ui.input
+        Input = function(opts, cb) end,
+        -- cmd: { "rg", "--files", "-g", <glob> }
+        FileSearch = function(cmd, opts) end,
+        -- cmd: { "rg", "--vimgrep", "-S", "-g", <glob> }, without the search pattern
+        GrepSearch = function(cmd, opts) end,
+    })
+<
+
+`opts.prompt` holds the prompt or picker title. `desc` holds documentation
+lines for |unreal-commands-completemacro| items and is `""` otherwise.
+`Use(nil)` restores the built-in UI.
+
+
+==============================================================================
+5. Commands                                                  *unreal-commands*
 
                                                                      *:Unreal*
 
@@ -226,16 +305,24 @@ cursor. Requires clangd.
 
 FINDSOURCE                                        *unreal-commands-findsource*
 
-Find header, source, or both kinds of files with telescope.
+Find header, source, or both kinds of files with `rg`. Asks for the file type
+first, then:
+
+- built-in UI: asks for part of the file name, runs the search once and fills the quickfix list
+- with an extension |unreal-extensions| such as Telescope: opens its live file search
 
 
 GREPSOURCE                                        *unreal-commands-grepsource*
 
-Live grep header, source, or both kinds of files with telescope.
+Grep header, source, or both kinds of files with `rg`. Asks for the file type
+first, then:
+
+- built-in UI: asks for the pattern, runs the search once and fills the quickfix list
+- with an extension |unreal-extensions| such as Telescope: opens its live grep
 
 
 ==============================================================================
-5. Engine path                                            *unreal-engine-path*
+6. Engine path                                            *unreal-engine-path*
 
 The engine path is stored per project, keyed by the nearest `.uproject`
 directory found upward from the working directory, in
@@ -248,12 +335,13 @@ longer valid, or the working directory moved to another project.
 
 
 ==============================================================================
-6. Health                                                      *unreal-health*
+7. Health                                                      *unreal-health*
 
 Run `:checkhealth unreal` to check:
 
 - `setup()` was called
-- telescope.nvim, plenary.nvim, `rg`, `clangd` and `dotnet` are available
+- `rg`, `clangd`, `dotnet` and plenary.nvim are available
+- telescope.nvim is available, only when the telescope extension |unreal-extensions-telescope| is enabled
 - the saved engine path, the editor executable and UnrealBuildTool exist
 
 Generated by panvimdoc <https://github.com/kdheepak/panvimdoc>

@@ -1,3 +1,16 @@
+local function enableExtensions(extensions)
+    for name, extOpts in pairs(extensions) do
+        if extOpts ~= false then
+            local ok, ext = pcall(require, "unreal.extensions." .. name)
+            if not ok then
+                require("unreal.log").Notify("Unknown extension: " .. name, vim.log.levels.ERROR)
+            else
+                ext.setup(extOpts == true and {} or extOpts)
+            end
+        end
+    end
+end
+
 local M = {}
 
 M.inited = false
@@ -16,9 +29,10 @@ function M.setup(opts)
     require("unreal.engine").init()
     require("unreal.project").init()
     require("unreal.treesitter").init(configOpts)
-    require("unreal.telescope").init(configOpts)
 
     require("unreal.commands").init(configOpts)
+
+    enableExtensions(configOpts.extensions)
 
     M.inited = true
 end

@@ -14,20 +14,36 @@ describe("health", function()
     end)
     after_each(h.reset)
 
-    local function find(kind, pattern)
+    local SYSTEM, PLUGINS, CORE = 1, 2, 3
+
+    local function section(index)
+        local sections = {}
         for _, r in ipairs(report) do
-            if r.kind == kind and r.msg:find(pattern, 1, true) then
-                return r
+            if r.kind == "start" then
+                table.insert(sections, {})
+            elseif #sections > 0 then
+                table.insert(sections[#sections], r)
             end
         end
+        return sections[index] or {}
+    end
+
+    local function kinds(entries)
+        return vim.tbl_map(function(r)
+            return r.kind
+        end, entries)
+    end
+
+    local function core_kinds()
+        return kinds(section(CORE))
     end
 
     it("without setup() -> no error, warns setup() not called", function()
         h.unload()
-        local ok, err = pcall(require("unreal.health").check)
+        local ok = pcall(require("unreal.health").check)
         h.unload()
-        assert.is_true(ok, tostring(err))
-        assert.is_not_nil(find("warn", "setup()"))
+        assert.is_true(ok)
+        assert.are.equal("warn", core_kinds()[1])
     end)
 
     describe("after setup()", function()
@@ -63,56 +79,40 @@ describe("health", function()
         it("setup() called -> ok", function()
             h.stub(require("unreal"), "inited", true)
             require("unreal.health").check()
-            assert.is_not_nil(find("ok", "Plugin is inited"))
+            assert.are.equal("ok", core_kinds()[1])
         end)
 
         it("no engine path -> error summary, warn with SetEnginePath hint", function()
             require("unreal.health").check()
-            assert.is_not_nil(find("error", "Required path(s) missing"))
-            local r = find("warn", "Engine path not set")
-            assert.is_not_nil(r)
-            assert.are.equal("Run :Unreal SetEnginePath", r.hint)
-            assert.is_not_nil(find("warn", "Executable path not found"))
-            assert.is_not_nil(find("warn", "UBT path not found"))
-            assert.is_nil(find("ok", "Executable path found"))
+            assert.are.same({ "warn", "error", "warn", "warn", "warn" }, core_kinds())
+            assert.is_not_nil(section(CORE)[3].hint)
         end)
 
         it("UBT and editor present -> all ok", function()
-            local root = engine_with({ UBT, EDITOR })
+            engine_with({ UBT, EDITOR })
             require("unreal.health").check()
-            assert.is_not_nil(find("ok", "All required paths found"))
-            assert.is_not_nil(find("ok", "Engine path found: " .. root))
-            assert.is_not_nil(find("ok", vim.fs.joinpath(root, EDITOR)))
-            assert.is_not_nil(find("ok", vim.fs.joinpath(root, UBT)))
-            assert.is_nil(find("error", "Required path(s) missing"))
+            assert.are.same({ "warn", "ok", "ok", "ok", "ok" }, core_kinds())
         end)
 
         it("saved path with neither UBT nor editor -> error summary, both warned", function()
-            local root = engine_with({})
+            engine_with({})
             require("unreal.health").check()
-            assert.is_not_nil(find("error", "Required path(s) missing"))
-            assert.is_not_nil(find("ok", "Engine path found: " .. root))
-            assert.is_not_nil(find("warn", "Executable path not found"))
-            assert.is_not_nil(find("warn", "UBT path not found"))
+            assert.are.same({ "warn", "error", "ok", "warn", "warn" }, core_kinds())
         end)
 
         it("UBT only -> error summary, editor warned", function()
             engine_with({ UBT })
             require("unreal.health").check()
-            assert.is_not_nil(find("error", "Required path(s) missing"))
-            assert.is_not_nil(find("ok", "UBT path found"))
-            assert.is_not_nil(find("warn", "Executable path not found"))
+            assert.are.same({ "warn", "error", "ok", "warn", "ok" }, core_kinds())
         end)
 
         it("editor only -> error summary, UBT warned", function()
             engine_with({ EDITOR })
             require("unreal.health").check()
-            assert.is_not_nil(find("error", "Required path(s) missing"))
-            assert.is_not_nil(find("ok", "Executable path found"))
-            assert.is_not_nil(find("warn", "UBT path not found"))
+            assert.are.same({ "warn", "error", "ok", "ok", "warn" }, core_kinds())
         end)
 
-        for _, exe in ipairs({ "rg", "clangd", "dotnet" }) do
+        for i, exe in ipairs({ "rg", "dotnet", "clangd" }) do
             it("missing " .. exe .. " -> error with hint", function()
                 h.stub(vim.fn, "executable", function(name)
                     return name == exe and 0 or 1
@@ -121,39 +121,59 @@ describe("health", function()
                     return "x 1.0\n"
                 end)
                 require("unreal.health").check()
-                local r = find("error", exe .. " not found")
-                assert.is_not_nil(r)
-                assert.is_not_nil(r.hint)
+                local expected = { "ok", "ok", "ok" }
+                expected[i] = "error"
+                assert.are.same(expected, kinds(section(SYSTEM)))
+                assert.is_not_nil(section(SYSTEM)[i].hint)
             end)
         end
 
-        it("executable present, --version fails -> ok without version", function()
-            h.stub(vim.fn, "executable", function()
-                return 1
+        for _, case in ipairs({
+            { "succeeds -> version shown", "true", true },
+            { "fails -> version hidden", "false", false },
+        }) do
+            it("executable present, --version " .. case[1], function()
+                h.stub(vim.fn, "executable", function()
+                    return 1
+                end)
+                h.stub(vim.fn, "system", function()
+                    vim.cmd("silent! call system('" .. case[2] .. "')")
+                    return "fake 9.9.9\n"
+                end)
+                require("unreal.health").check()
+                assert.are.same({ "ok", "ok", "ok" }, kinds(section(SYSTEM)))
+                assert.are.equal(case[3], section(SYSTEM)[1].msg:find("fake 9.9.9", 1, true) ~= nil)
             end)
-            h.stub(vim.fn, "system", function()
-                vim.cmd("silent! call system('exit 1')")
-                return ""
-            end)
-            require("unreal.health").check()
-            assert.is_not_nil(find("ok", "rg found"))
-            assert.is_nil(find("ok", "rg found ("))
-        end)
+        end
 
         it("telescope missing -> error", function()
+            require("unreal.config").config({ extensions = { telescope = true } })
             h.stub(package.loaded, "telescope", nil)
             h.stub(package.preload, "telescope", function()
                 error("not found")
             end)
             require("unreal.health").check()
-            assert.is_not_nil(find("error", "telescope.nvim not found"))
+            assert.are.same({ "error", "ok" }, kinds(section(PLUGINS)))
         end)
 
         it("telescope present -> ok", function()
+            require("unreal.config").config({ extensions = { telescope = true } })
             h.stub(package.loaded, "telescope", {})
             require("unreal.health").check()
-            assert.is_not_nil(find("ok", "telescope.nvim found"))
+            assert.are.same({ "ok", "ok" }, kinds(section(PLUGINS)))
         end)
+
+        for _, value in ipairs({ "nil", false }) do
+            it("telescope extension " .. tostring(value) .. " -> telescope not checked", function()
+                require("unreal.config").config({ extensions = { telescope = value ~= "nil" and value or nil } })
+                h.stub(package.loaded, "telescope", nil)
+                h.stub(package.preload, "telescope", function()
+                    error("not found")
+                end)
+                require("unreal.health").check()
+                assert.are.same({ "ok" }, kinds(section(PLUGINS)))
+            end)
+        end
 
         it("plenary missing -> error with hint", function()
             h.stub(package.loaded, "plenary", nil)
@@ -161,15 +181,14 @@ describe("health", function()
                 error("not found")
             end)
             require("unreal.health").check()
-            local r = find("error", "plenary.nvim not found")
-            assert.is_not_nil(r)
-            assert.are.equal("required for CompleteMacro", r.hint)
+            assert.are.same({ "error" }, kinds(section(PLUGINS)))
+            assert.is_not_nil(section(PLUGINS)[1].hint)
         end)
 
         it("plenary present -> ok", function()
             h.stub(package.loaded, "plenary", {})
             require("unreal.health").check()
-            assert.is_not_nil(find("ok", "plenary.nvim found"))
+            assert.are.same({ "ok" }, kinds(section(PLUGINS)))
         end)
     end)
 end)

@@ -1,4 +1,4 @@
-local Types = {}
+--- Module options
 
 ---@class (exact) UprojectFindOpts
 ---@field nameOnly boolean
@@ -23,8 +23,10 @@ local Types = {}
 ---@field custom_treesitter CustomTreesitterOpts?
 ---@field command_lead string
 ---@field cmd_abbreviations table?
----@field telescope_extended_ignores table?
 ---@field clangd_build_args table?
+---@field extensions table<string, table|boolean>
+
+--- Treesitter types
 
 ---@class (exact) ExistedMacroVaiables
 ---@field arguments string[]
@@ -40,6 +42,22 @@ local Types = {}
 ---@field Skip boolean
 ---@field paramIdentifiers string[]
 ---@field ufunctionSpecifiers string[]
+
+--- Ui Classes
+---@class unreal.UiEntry
+---@field name string
+---@field value any
+---@field desc? string[]
+
+---@class unreal.UiProvider
+---@field Select? fun(items: unreal.UiEntry[], opts: {prompt?: string}, cb: fun(value?: unreal.UiEntry))
+---@field Input? fun(opts: {prompt?: string, default?: string, completion?: string}, cb: fun(text?: string))
+---@field FileSearch? fun(searchArgs: string[], opts: {prompt?: string})
+---@field GrepSearch? fun(searchArgs: string[], opts: {prompt?: string})
+
+---
+
+local Types = {}
 
 ---@enum MacroAddType
 Types.MACRO_ADD_TYPE = {

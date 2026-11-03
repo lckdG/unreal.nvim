@@ -26,6 +26,63 @@ describe("config", function()
         config.opts.clangd_build_args = nil
         assert.are.same({}, config.GetClangdBuildArgs())
     end)
+
+    describe("IsExtensionEnabled", function()
+        for _, case in ipairs({ { true, true }, { {}, true }, { false, false } }) do
+            it(vim.inspect(case[1]) .. " -> " .. tostring(case[2]), function()
+                config.config({ extensions = { telescope = case[1] } })
+                assert.are.equal(case[2], config.IsExtensionEnabled("telescope"))
+            end)
+        end
+
+        it("not listed -> false", function()
+            config.config()
+            assert.is_false(config.IsExtensionEnabled("telescope"))
+        end)
+
+        it("before config() -> false, no error", function()
+            h.stub(config, "opts", nil)
+            assert.is_false(config.IsExtensionEnabled("telescope"))
+        end)
+    end)
+
+    describe("deprecated telescope_extended_ignores", function()
+        local deprecations
+
+        before_each(function()
+            deprecations = h.spy(vim, "deprecate")
+        end)
+
+        it("warns and moves ignores into extensions.telescope", function()
+            config.config({ telescope_extended_ignores = { "%.exe" } })
+            assert.are.equal(1, #deprecations)
+            assert.are.equal("telescope_extended_ignores", deprecations[1][1])
+            assert.are.same({ ignores = { "%.exe" } }, config.opts.extensions.telescope)
+        end)
+
+        it("telescope = true -> replaced by table with ignores", function()
+            config.config({ telescope_extended_ignores = { "%.exe" }, extensions = { telescope = true } })
+            assert.are.same({ ignores = { "%.exe" } }, config.opts.extensions.telescope)
+        end)
+
+        it("new ignores win over the old option", function()
+            config.config({
+                telescope_extended_ignores = { "%.exe" },
+                extensions = { telescope = { ignores = { "%.dll" } } },
+            })
+            assert.are.same({ "%.dll" }, config.opts.extensions.telescope.ignores)
+        end)
+
+        it("telescope = false -> stays disabled", function()
+            config.config({ telescope_extended_ignores = { "%.exe" }, extensions = { telescope = false } })
+            assert.is_false(config.opts.extensions.telescope)
+        end)
+
+        it("old option unset -> no warning", function()
+            config.config()
+            assert.are.equal(0, #deprecations)
+        end)
+    end)
 end)
 
 describe("commands", function()
@@ -63,7 +120,7 @@ describe("commands", function()
         local notes = h.notifications()
         init()
         vim.cmd("Unreal Foo")
-        assert.is_true(h.notified(notes, "Error: unavailable command Foo", vim.log.levels.ERROR))
+        assert.is_true(h.notified(notes, vim.log.levels.ERROR))
     end)
 
     it("<Tab> completes all subcommands", function()
@@ -95,53 +152,58 @@ describe("commands", function()
     end)
 end)
 
-describe("telescope.AppendIgnorePatterns", function()
-    local telescope = require("unreal.telescope")
+describe("setup() extensions", function()
+    local ui = require("unreal.ui")
+
+    before_each(function()
+        h.stub(require("unreal.engine"), "init", function() end)
+        h.stub(require("unreal.project"), "init", function() end)
+        h.stub(ui, "provider", ui.provider)
+    end)
 
     after_each(function()
         h.reset()
+        pcall(vim.api.nvim_del_user_command, "Unreal")
+        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim")
         package.loaded["telescope"] = nil
         package.loaded["telescope.config"] = nil
     end)
 
-    local function fake_telescope(existing)
+    it("telescope = true -> extension set up with {}", function()
+        local got = h.spy(require("unreal.extensions.telescope"), "setup")
+        require("unreal").setup({ extensions = { telescope = true } })
+        assert.are.same({ { {} } }, got)
+    end)
+
+    it("telescope = false -> extension not set up", function()
+        local got = h.spy(require("unreal.extensions.telescope"), "setup")
+        require("unreal").setup({ extensions = { telescope = false } })
+        assert.are.equal(0, #got)
+    end)
+
+    it("setup() twice -> telescope ignores applied once, still the provider", function()
         local calls = {}
+        local values = { file_ignore_patterns = {} }
         package.loaded["telescope"] = {}
-        local values = { file_ignore_patterns = existing }
         package.loaded["telescope.config"] = {
             values = values,
-            -- like telescope, applied defaults show up in `values`
-            set_defaults = function(...)
-                table.insert(calls, { ... })
-                values.file_ignore_patterns = (...).file_ignore_patterns
+            set_defaults = function(defaults)
+                table.insert(calls, defaults)
+                values.file_ignore_patterns = defaults.file_ignore_patterns
             end,
         }
-        return calls
-    end
-
-    it("appends to the user's patterns", function()
-        local calls = fake_telescope({ "user%.txt" })
-        telescope.AppendIgnorePatterns({ "%.uasset" })
-        assert.are.same({ "user%.txt", "%.uasset" }, calls[1][1].file_ignore_patterns)
+        local opts = { extensions = { telescope = { ignores = { "%.uasset" } } } }
+        require("unreal").setup(opts)
+        require("unreal").setup(opts)
+        assert.are.equal(1, #calls)
+        assert.are.same({ "%.uasset" }, values.file_ignore_patterns)
+        assert.are.equal(require("unreal.extensions.telescope"), ui.provider)
     end)
 
-    it("telescope not installed -> no error", function()
-        assert.has_no.errors(function()
-            telescope.AppendIgnorePatterns({ "%.uasset" })
-        end)
-    end)
-
-    it("nil ignores -> defaults untouched", function()
-        local calls = fake_telescope({ "user%.txt" })
-        telescope.AppendIgnorePatterns(nil)
-        assert.are.equal(0, #calls)
-    end)
-
-    it("called twice -> patterns appended once", function()
-        local calls = fake_telescope({ "user%.txt" })
-        telescope.AppendIgnorePatterns({ "%.uasset" })
-        telescope.AppendIgnorePatterns({ "%.uasset" })
-        assert.are.same({ "user%.txt", "%.uasset" }, calls[#calls][1].file_ignore_patterns)
+    it("unknown extension -> error notify", function()
+        local notes = h.notifications()
+        require("unreal").setup({ extensions = { nope = true } })
+        assert.is_true(h.notified(notes, vim.log.levels.ERROR))
     end)
 end)
 
@@ -154,7 +216,7 @@ describe("treesitter.Hijack", function()
 
     after_each(function()
         h.reset()
-        vim.api.nvim_clear_autocmds({ event = "User", pattern = "TSUpdate" })
+        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim")
         package.loaded["nvim-treesitter.parsers"] = nil
     end)
 

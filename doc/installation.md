@@ -4,13 +4,14 @@
 
 - Neovim >= 0.12
 - [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter)
-- [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)
 - [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
 - [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig)
-- `rg`, `clangd` and `dotnet` on `$PATH`
+- `rg`, `clangd` and `dotnet` on `$PATH` (`rg` for [FindSource](#findsource) / [GrepSource](#grepsource))
 - An installed Unreal Engine build
 
 Use the nvim-treesitter `main` branch; `master` is not supported. nvim-lspconfig needs clangd set up: it provides `:LspClangdSwitchSourceHeader`, the fallback of [SwitchSourceHeader](#switchsourceheader).
+
+[Extensions](#extensions) are optional and may need other plugins.
 
 ## lazy.nvim
 
@@ -19,7 +20,6 @@ Use the nvim-treesitter `main` branch; `master` is not supported. nvim-lspconfig
     "lckdG/unreal.nvim",
     dependencies = {
         { "nvim-treesitter/nvim-treesitter", branch = "main" },
-        "nvim-telescope/telescope.nvim",
         "nvim-lua/plenary.nvim",
         "neovim/nvim-lspconfig",
     },

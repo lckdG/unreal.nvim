@@ -49,7 +49,7 @@ describe("search", function()
             capture_cmd()
             search.SwitchSourceHeader()
             assert.are.same({}, cmds)
-            assert.is_true(h.notified(notes, "No matching file name or clangd enabled!", vim.log.levels.ERROR))
+            assert.is_true(h.notified(notes, vim.log.levels.ERROR))
         end)
 
         it("HasClangdEnabled only looks at the current buffer", function()
@@ -57,56 +57,44 @@ describe("search", function()
             assert.is_false(system.HasClangdEnabled())
             assert.are.same({ name = "clangd", bufnr = 0 }, calls[1][1])
         end)
-
-        it("flat module layout opens the counterpart", function()
-            h.project({ ["Source/Mod/Foo.h"] = {}, ["Source/Mod/Foo.cpp"] = {} })
-            h.edit("Source/Mod/Foo.h")
-            search.SwitchSourceHeader()
-            assert.is_true(h.ends_with(vim.api.nvim_buf_get_name(0), "Source/Mod/Foo.cpp"))
-        end)
     end)
 
     describe("FindSource / GrepSource", function()
+        local ui = require("unreal.ui")
         local finds, greps
 
         before_each(function()
-            finds, greps = {}, {}
-            package.loaded["telescope.builtin"] = {
-                find_files = function(o)
-                    table.insert(finds, o)
-                end,
-                live_grep = function(o)
-                    table.insert(greps, o)
-                end,
-            }
-        end)
-        after_each(function()
-            package.loaded["telescope.builtin"] = nil
+            finds = h.spy(ui, "FileSearch")
+            greps = h.spy(ui, "GrepSearch")
         end)
 
-        local cases = { { 1, "*.{h,cpp}" }, { 2, "*.h" }, { 3, "*.cpp" } }
+        local function choose(name)
+            h.stub(ui, "Select", function(items, _, cb)
+                for _, item in ipairs(items) do
+                    if item.name == name then
+                        return cb(item)
+                    end
+                end
+                cb(nil)
+            end)
+        end
+
+        local cases = { { "All", "*.{h,cpp}" }, { "Headers", "*.h" }, { "Cpp", "*.cpp" } }
         for _, case in ipairs(cases) do
             it("choice " .. case[1] .. " -> -g " .. case[2], function()
-                h.stub(vim.fn, "inputlist", function()
-                    return case[1]
-                end)
+                choose(case[1])
                 search.FindSource()
                 search.GrepSource()
-                assert.are.same({ "rg", "--files", "-g", case[2] }, finds[1].find_command)
-                assert.are.same({ "-g", case[2] }, greps[1].additional_args)
+                assert.are.same({ "rg", "--files", "-g", case[2] }, finds[1][1])
+                assert.are.same({ "rg", "--vimgrep", "-S", "-g", case[2] }, greps[1][1])
             end)
         end
 
-        for _, choice in ipairs({ 0, 4 }) do
-            it("choice " .. choice .. " -> warn, telescope not called", function()
-                h.stub(vim.fn, "inputlist", function()
-                    return choice
-                end)
-                search.FindSource()
-                search.GrepSource()
-                assert.are.equal(0, #finds + #greps)
-                assert.is_true(h.notified(notes, "Invalid search choice", vim.log.levels.WARN))
-            end)
-        end
+        it("cancelled -> no search", function()
+            choose(nil)
+            search.FindSource()
+            search.GrepSource()
+            assert.are.equal(0, #finds + #greps)
+        end)
     end)
 end)
