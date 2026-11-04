@@ -1,8 +1,4 @@
-local log = require("unreal.log")
 local pathUtils = require("unreal.path_utils")
-local system = require("unreal.system")
-
-local logLevel = vim.log.levels
 
 local M = {}
 
@@ -12,10 +8,8 @@ function M.SwitchSourceHeader()
     local switchingFile = pathUtils.GetSourceHeader()
     if switchingFile ~= nil then
         vim.cmd.edit(vim.fn.fnameescape(switchingFile))
-    elseif system.HasClangdEnabled() then
-        vim.cmd("LspClangdSwitchSourceHeader")
     else
-        log.Notify("No matching file name or clangd enabled!", logLevel.ERROR)
+        require("unreal.lsp").SwitchSourceHeader()
     end
 end
 

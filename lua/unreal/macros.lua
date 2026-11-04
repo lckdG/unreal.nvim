@@ -60,17 +60,17 @@ function M.CompleteMacro()
 
     local async = require("plenary.async")
     async.run(function()
-        local namespaceCompletions = lsp.GetMacroCompletions{
+        local namespaceCompletions = lsp.GetMacroCompletions({
             identifier = identifier,
             exclusions = existedVariables.arguments,
-        }
+        })
 
         -- We need the UM:: here
         -- The rest are just for human readability
-        local metaCompletions = lsp.GetMacroCompletions{
+        local metaCompletions = lsp.GetMacroCompletions({
             identifier = "UMETA",
-            exclusions = existedVariables.metas
-        }
+            exclusions = existedVariables.metas,
+        })
 
         if #namespaceCompletions + #metaCompletions == 0 then
             return

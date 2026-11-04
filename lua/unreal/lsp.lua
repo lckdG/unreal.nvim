@@ -1,6 +1,8 @@
 local log = require("unreal.log")
 local logLevel = vim.log.levels
 
+local LSP_NOT_FOUND_ERROR = "Cannot find clangd client"
+
 local function createCompletionEntry(rawEntry, namespace, exclusions)
     local label = vim.trim(rawEntry.label)
     if vim.tbl_contains(exclusions, label) then
@@ -40,7 +42,7 @@ end
 function M.GetMacroCompletions(request)
     local lspClient = GetClangdClient()
     if lspClient == nil then
-        log.Notify("Cannot find clangd client", logLevel.ERROR)
+        log.Notify(LSP_NOT_FOUND_ERROR, logLevel.ERROR)
         return {}
     end
 
@@ -87,6 +89,30 @@ function M.GetMacroCompletions(request)
     end
 
     return entries
+end
+
+function M.SwitchSourceHeader()
+    local requestMethod = "textDocument/switchSourceHeader"
+    local lspClient = GetClangdClient()
+
+    if lspClient == nil then
+        log.Notify(LSP_NOT_FOUND_ERROR, logLevel.ERROR)
+        return
+    ---@diagnostic disable-next-line param-type-mismatch
+    elseif not lspClient:supports_method(requestMethod, 0) then
+        log.Notify("Method not supported: " .. requestMethod, logLevel.ERROR)
+        return
+    end
+
+    ---@diagnostic disable-next-line param-type-mismatch
+    lspClient:request(requestMethod, vim.lsp.util.make_text_document_params(0), function(err, uri)
+        if err or not uri or uri == "" then
+            log.Notify("No matching source/header found", logLevel.WARN)
+            return
+        end
+
+        vim.cmd.edit(vim.fn.fnameescape(vim.uri_to_fname(uri)))
+    end)
 end
 
 return M
