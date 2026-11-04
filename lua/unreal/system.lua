@@ -10,6 +10,17 @@ function M.GetPlatform()
     end
 end
 
+function M.GetArch()
+    local map = {
+        x86_64 = "x64",
+        aarch64 = "aarch64",
+        arm64 = "arm64",
+    }
+
+    local uname = vim.loop.os_uname()
+    return map[uname.machine]
+end
+
 function M.HasClangdEnabled()
     local clients = vim.lsp.get_clients({ name = "clangd", bufnr = 0 })
     return #clients > 0
