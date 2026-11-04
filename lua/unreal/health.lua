@@ -32,6 +32,15 @@ local function check_executable(name, hint)
     end
 end
 
+local function check_lsp()
+    local health = vim.health
+    if vim.lsp.is_enabled("clangd") then
+        health.ok("nvim clangd is enabled")
+    else
+        health.warn("nvim clangd is not enabled", 'call vim.lsp.enable("clangd")')
+    end
+end
+
 ---@param module string Lua module to require
 ---@param name string plugin name shown in the report
 ---@param hint string why the plugin is needed
@@ -103,6 +112,7 @@ function M.check()
     end
 
     check_plugin("plenary", "plenary.nvim", "required for CompleteMacro")
+    check_lsp()
 
     health.start("Plugin core")
     check_setup()
