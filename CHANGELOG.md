@@ -2,6 +2,18 @@
 
 All notable changes to unreal.nvim are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- `:Unreal Project Edit` opens the `.uproject` in a buffer. No engine path needed.
+- `.uproject` and `.uplugin` files open as `json`, indented with tabs (4 wide).
+- `Search Files` / `Search Grep` scopes `Ini` (`*.ini`, including gitignored `Saved/Config/`) and `Build Files` (`*.Build.cs`, `*.Target.cs`).
+
+### Changed
+
+- Custom UI providers: `FileSearch` / `GrepSearch` now get `{ "rg", ..., <scope args...> }`, which can hold several args (e.g. `--no-ignore -g !Intermediate/ -g *.ini`). Do not assume the cmd ends with a single `-g <glob>`.
+
 ## [0.2.0] - 2026-11-04
 
 ### Breaking

@@ -7,6 +7,10 @@ function M.Exists(path)
     return vim.uv.fs_stat(path) ~= nil
 end
 
+---The folder that counts as "this project" (used to remember the engine path per project).
+---Walks up from the working directory and picks the first folder with a `.uproject`,
+---else the first with `.git` or `.p4ignore`, else the working directory itself.
+---@return string
 function M.GetProjectRoot()
     local cwd = vim.fn.getcwd()
     local function isUproject(name)
@@ -17,9 +21,10 @@ function M.GetProjectRoot()
     return root or cwd
 end
 
----Find uproject files in current directory
----@param opts UprojectFindOpts
----@return table
+---Find `.uproject` files. `upward = false` searches the whole tree under cwd;
+---`upward = true` searches cwd and its parents.
+---@param opts UprojectFindOpts?
+---@return string[] files full paths, or basenames when `opts.nameOnly`
 function M.FindUprojects(opts)
     if opts == nil then
         opts = {
@@ -49,6 +54,11 @@ function M.FindUprojects(opts)
     return files
 end
 
+---The module folder of the current file, where its matching header/source lives.
+---Unreal modules usually split code into `Public/` (headers) and `Private/` (sources),
+---so from `Source/Game/Private/Foo.cpp` this returns `Source/Game`.
+---Without `Public/`/`Private/`, it stops at the folder right under `Source/`.
+---@return string? root nil when the file is not inside a `Source/` tree
 function M.GetSourceFilesRoot()
     local function isWanted(name)
         return name == "Public" or name == "Private"

@@ -94,8 +94,9 @@ local function check_engine_path()
     end
 end
 
----Run `:checkhealth unreal` diagnostics: dependencies (with version if found)
----and whether an engine path is resolved for the current project.
+---`:checkhealth unreal`: check everything the plugin needs and explain what is missing:
+---programs (`rg`, `clangd`), plugins (plenary.nvim, telescope.nvim when its extension is on),
+---whether `setup()` ran, and the engine path for the current project.
 function M.check()
     local health = vim.health
 
@@ -108,7 +109,7 @@ function M.check()
     local config = require("unreal.config")
 
     if config.IsExtensionEnabled("telescope") then
-        check_plugin("telescope", "telescope.nvim", "required for search commands")
+        check_plugin("telescope", "telescope.nvim", "required by the telescope extension")
     end
 
     check_plugin("plenary", "plenary.nvim", "required for LSP async calls")

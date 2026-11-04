@@ -7,6 +7,8 @@ local log = require("unreal.log")
 local info = config.info
 local logLevel = vim.log.levels
 
+---Find `.uproject` files under the working directory and call `cb` with one of them.
+---Errors if none, prompts if several, skips `cb` if the prompt is dismissed.
 ---@param cb fun(uprojectPath: string)
 local function withUproject(cb)
     local files = pathUtils.FindUprojects({ nameOnly = false, upward = false })
@@ -28,8 +30,10 @@ local M = {}
 
 function M.init() end
 
----Open the `.uproject` file in the current directory with the OS default handler.
----Prompts to choose one if multiple are found; no-ops if none are found.
+---`:Unreal Project Open`: open the project in Unreal Editor.
+---Needs an engine path (asks for one if unset). On Windows the `.uproject` opens with its
+---default program; on Linux/Mac the engine's `UnrealEditor` starts with it.
+---Shows an error if no `.uproject` is found or the editor program is missing.
 function M.OpenUproject()
     if engine.EnsureEnginePath() == false then
         return
@@ -46,9 +50,11 @@ function M.OpenUproject()
     end)
 end
 
----Regenerate `compile_commands.json` via UnrealBuildTool and copy it into the working directory.
----Uses `clangd_build_args` from setup() config for extra UBT arguments.
----Prompts for an engine path if none is set yet; aborts if still unresolved.
+---`:Unreal Build Clangd`: regenerate `compile_commands.json`, the file clangd reads to
+---understand your code (include paths, defines). Run it after adding modules, plugins or files.
+---Runs UnrealBuildTool in a terminal split, then copies the result into the working directory.
+---Extra UnrealBuildTool arguments come from the `clangd_build_args` option.
+---Needs an engine path (asks for one if unset). Shows an error if the build or copy fails.
 function M.RebuildClangd()
     if engine.EnsureEnginePath() == false then
         return
@@ -106,6 +112,14 @@ function M.RebuildClangd()
                 end
             end,
         })
+    end)
+end
+
+---`:Unreal Project Edit`: open the `.uproject` file (JSON with modules, plugins, engine version)
+---in a buffer to edit it. No engine path needed. Several files: the user picks one.
+function M.EditUproject()
+    withUproject(function(path)
+        vim.cmd.edit(vim.fn.fnameescape(path))
     end)
 end
 

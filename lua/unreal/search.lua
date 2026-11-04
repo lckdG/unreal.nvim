@@ -2,8 +2,9 @@ local pathUtils = require("unreal.path_utils")
 
 local M = {}
 
----Open the matching source/header file. Searches under the Public/Private
----source root first, falls back to clangd's switch-source-header if unresolved.
+---`:Unreal Code SwitchSourceHeader`: jump between `Foo.h` and `Foo.cpp`.
+---Looks in the module's `Public/`/`Private/` folders first; if that finds nothing,
+---asks clangd, which also knows files outside the usual layout.
 function M.SwitchSourceHeader()
     local switchingFile = pathUtils.GetSourceHeader()
     if switchingFile ~= nil then
@@ -13,11 +14,11 @@ function M.SwitchSourceHeader()
     end
 end
 
----Compare a buffer content with the marker
+---Find the first line in `buf` exactly equal to `marker`.
 --- TODO: use treesitter token for comparison
 ---@param buf number
 ---@param marker string
----@return number
+---@return number line 1-based line number, or -1 if not found
 function M.FindImplementation(buf, marker)
     -- String matching, should be token checks
     local bufLines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
@@ -34,15 +35,33 @@ local function getInputSourceTypes(callback)
     local choices = {
         {
             name = "All",
-            value = "*.{h,cpp}",
+            value = { "-g", "*.{h,cpp}" },
         },
         {
             name = "Headers",
-            value = "*.h",
+            value = { "-g", "*.h" },
         },
         {
             name = "Cpp",
-            value = "*.cpp",
+            value = { "-g", "*.cpp" },
+        },
+        {
+            name = "Ini",
+            value = {
+                "--no-ignore",
+                "-g",
+                "!Intermediate/",
+                "-g",
+                "!Binaries/",
+                "-g",
+                "!CrashReportClient/",
+                "-g",
+                "*.ini",
+            },
+        },
+        {
+            name = "Build Files",
+            value = { "-g", "*.{Build,Target}.cs" },
         },
     }
 
@@ -57,36 +76,38 @@ local function getInputSourceTypes(callback)
     end)
 end
 
----Find header/cpp/both files via telescope. Prompts for scope:
----  1. All     - `*.{h,cpp}`
----  2. Headers - `*.h`
----  3. Cpp     - `*.cpp`
----The chosen glob is sent to telescope's ripgrep-backed `find_files` to filter results.
----No-ops if the prompt is dismissed or an invalid choice is entered.
+---`:Unreal Search Files`: find files by name with ripgrep (`rg`).
+---First asks which kind of files to look at:
+---  - All:         headers and sources (`.h`, `.cpp`)
+---  - Headers:     `.h` only
+---  - Cpp:         `.cpp` only
+---  - Ini:         config files (`.ini`), also ignored ones such as `Saved/Config/`;
+---                 generated copies in `Intermediate/`, `Binaries/`, `CrashReportClient/` are skipped
+---  - Build Files: module and target rules (`.Build.cs`, `.Target.cs`)
+---Then the active UI shows results: the quickfix list by default, a live picker with an
+---extension such as Telescope. Cancelling the question does nothing.
 function M.FindSource()
     getInputSourceTypes(function(globPattern)
         if globPattern == nil then
             return
         end
 
-        local args = { "rg", "--files", "-g", globPattern }
+        local args = vim.list_extend({ "rg", "--files" }, globPattern)
         require("unreal.ui").FileSearch(args, { prompt = "Find source file: " })
     end)
 end
 
----Live grep header/cpp/both files via telescope. Prompts for scope:
----  1. All     - `*.{h,cpp}`
----  2. Headers - `*.h`
----  3. Cpp     - `*.cpp`
----The chosen glob is sent to telescope's ripgrep-backed `live_grep` to filter results.
----No-ops if the prompt is dismissed or an invalid choice is entered.
+---`:Unreal Search Grep`: search file contents with ripgrep (`rg`).
+---Asks for the same kinds of files as `FindSource` (All, Headers, Cpp, Ini, Build Files),
+---then the active UI asks for the text to search and shows matches: the quickfix list by default,
+---a live picker with an extension such as Telescope. Cancelling the question does nothing.
 function M.GrepSource()
     getInputSourceTypes(function(globPattern)
         if globPattern == nil then
             return
         end
 
-        local args = { "rg", "--vimgrep", "-S", "-g", globPattern }
+        local args = vim.list_extend({ "rg", "--vimgrep", "-S" }, globPattern)
         require("unreal.ui").GrepSearch(args, { prompt = "Grep source file: " })
     end)
 end

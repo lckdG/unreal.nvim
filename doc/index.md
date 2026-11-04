@@ -16,8 +16,9 @@
 - Generate function implementation stubs from a header declaration
 - Rebuild the clangd compilation database
 - Complete `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` macro attributes
-- Find/grep source files
+- Find/grep source, `.ini` and `Build.cs`/`Target.cs` files
 - Open the `.uproject` in the Unreal editor
+- Edit the `.uproject` in a buffer
 - Per-project engine path, cached across sessions
 - Optional extensions, e.g. telescope integration
 - Unreal-aware treesitter grammar

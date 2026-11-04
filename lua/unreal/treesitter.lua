@@ -37,13 +37,17 @@ function M.init(opts)
     M.Hijack(custom_treesitter_opts)
 end
 
----@param custom_treesitter_opts CustomTreesitterOpts?
+---Make nvim-treesitter install an Unreal-aware C++ grammar instead of the stock one,
+---so macros such as `UCLASS()` and `UPROPERTY()` parse correctly.
+---Takes effect the next time nvim-treesitter installs or updates parsers (`TSUpdate`).
+---`nil` keeps the stock grammar.
+---@param custom_treesitter_opts CustomTreesitterOpts? `{ url, revision }` of the grammar repo
 function M.Hijack(custom_treesitter_opts)
     if custom_treesitter_opts == nil then
         return
     end
 
-    local augroup = vim.api.nvim_create_augroup("unreal.nvim", { clear = true })
+    local augroup = vim.api.nvim_create_augroup("unreal.nvim.treesitter", { clear = true })
     vim.api.nvim_create_autocmd("User", {
         group = augroup,
         pattern = "TSUpdate",
@@ -59,9 +63,9 @@ function M.Hijack(custom_treesitter_opts)
     })
 end
 
----
----@return boolean
----@return QueryInfo
+---Resolve the treesitter language of the current buffer.
+---@return boolean ok false when the filetype has no treesitter language
+---@return QueryInfo info `{ bufnr, lang }`, empty when not ok
 function M.PrepareForQuery()
     local bufnr = vim.api.nvim_get_current_buf()
 
@@ -78,8 +82,10 @@ function M.PrepareForQuery()
     return true, queryInfo
 end
 
----
+---Qualified name of the classes/structs enclosing `node`, outermost first, e.g. `AOuter::FInner`.
+---Only definitions with a body count; returns "" outside any class.
 ---@param node TSNode
+---@return string
 function M.GetTypeName(node)
     local classRoots = {
         "unreal_class_declaration",
@@ -128,10 +134,10 @@ local function getDeclarationRoot()
     return node
 end
 
----
+---Return type text of the function declaration that owns `decl`.
 ---@param decl TSNode
 ---@param bufnr number
----@return string? returnType
+---@return string? returnType nil for constructors/destructors
 local function getReturnType(decl, bufnr)
     local declTypes = {
         "field_declaration",
@@ -193,10 +199,10 @@ local function getParamName(param, bufnr)
     return node and vim.treesitter.get_node_text(node, bufnr)
 end
 
----
+---Rebuild a parameter list for the `.cpp`: default values dropped, whitespace collapsed.
 ---@param paramsNode TSNode
 ---@param bufnr number
----@return string paramString
+---@return string paramString e.g. `(int32 A, float B)`
 ---@return string[] paramNames
 local function buildParamsText(paramsNode, bufnr)
     local skipNodes = { "(", ")", ",", "comment" }
@@ -221,9 +227,13 @@ local function buildParamsText(paramsNode, bufnr)
     return "(" .. table.concat(params, ", ") .. ")", names
 end
 
----
----@param className string
----@return DeclarationTemplate
+---Read the function declaration under the cursor into parts (return type, name, parameters,
+---`const`, specifiers) so `impl.lua` can write the `.cpp` version. The name is prefixed with
+---`className::`.
+---`Skip = true` means no body should be written (pure virtual, deleted, inline,
+---`BlueprintImplementableEvent`).
+---@param className string e.g. `AMyActor`
+---@return DeclarationTemplate parts are missing when the cursor is not on a declaration
 function M.GetDeclarationTemplate(className)
     ---@type DeclarationTemplate
     local result = {
@@ -278,7 +288,7 @@ function M.GetDeclarationTemplate(className)
     return result
 end
 
----
+---Closest `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` macro node at or above the cursor.
 ---@return TSNode?
 local function getMacroRoot()
     local macroRoots = {
@@ -296,10 +306,11 @@ local function getMacroRoot()
     return node
 end
 
----
----@return TSNode? macroNode
+---Read the macro under the cursor: the macro node, its name (e.g. `UPROPERTY`) and the
+---specifiers and meta keys it already has, so they are not suggested twice.
+---@return TSNode? macroNode nil when the cursor is not inside a macro
 ---@return string macroIdentifier
----@return ExistedMacroVaiables existedVariables
+---@return ExistedMacroVariables existedVariables `{ arguments, metas }`
 function M.GetMacro()
     local existedVariables = {
         arguments = {},
@@ -352,15 +363,16 @@ function M.GetMacro()
     return macroNode, identifier, existedVariables
 end
 
----Get the position for the next macro variable
----New variable is always appended to the end of the list
----If there is meta=(...) the function will always return the position before it
----The append rule applies for meta-specific values
+---Where to insert a new specifier in a macro, and how to join it to what is there.
+---New specifiers go at the end, but always before `meta = (...)`;
+---new meta keys go at the end inside `meta = (...)`.
+---Example: in `UPROPERTY(EditAnywhere, meta = (ClampMin = 0))`, `BlueprintReadOnly` goes
+---before `meta`, `ClampMax` goes after `ClampMin = 0`.
 ---@param macroNode TSNode
----@param isMeta boolean
----@return MacroAddType addType
----@return number row
----@return number col
+---@param isMeta boolean whether the new item is a meta key
+---@return MacroAddType addType how to join: first item, append, prepend, or append inside meta
+---@return number row 0-based
+---@return number col 0-based
 function M.GetNextMacroPosition(macroNode, isMeta)
     local types = require("unreal.types")
     local _, _, endRow, endCol = macroNode:range()

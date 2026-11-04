@@ -163,6 +163,13 @@ describe("engine", function()
             assert.are.equal(vim.fs.joinpath(root, bundled_dotnet("9.0.100")), path)
         end)
 
+        it("several bundled versions -> compared as versions, not strings", function()
+            local root = fake_engine()
+            h.write(root, bundled_dotnet("10.0.100"))
+            local _, path = engine.ParseDotnetPath(root)
+            assert.are.equal(vim.fs.joinpath(root, bundled_dotnet("10.0.100")), path)
+        end)
+
         it("bundled preferred over system dotnet", function()
             h.stub(vim.fn, "exepath", function()
                 return "/usr/bin/dotnet"

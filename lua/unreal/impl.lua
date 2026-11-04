@@ -20,9 +20,12 @@ local specifierOverrides = {
 
 local M = {}
 
----Generate a `.cpp` implementation stub for the function declaration under the cursor.
----Requires an open header file; jumps to the existing implementation instead of
----duplicating it if one is already present in the target `.cpp` file.
+---`:Unreal Code Impl`: with the cursor on a function declaration in a header, write an
+---empty implementation at the end of the matching `.cpp` and jump to it.
+---If the function is already implemented there, it jumps to it instead.
+---Unreal-specific cases: `BlueprintNativeEvent` and RPCs (`Server`, `Client`, `NetMulticast`)
+---get a `_Implementation` function, `WithValidation` also gets `_Validate`.
+---Shows an error outside a header or when no matching `.cpp` is found.
 function M.ImplementFunction()
     local res = M.PrepareForFunctionImpl()
     if not res.success then
@@ -111,12 +114,12 @@ function M.PrepareForFunctionImpl()
     }
 end
 
----
+---Build one `.cpp` definition block (blank line, signature, `: Super(...)` for constructors, body).
 ---@param template DeclarationTemplate
----@param suffix string?
----@param typeOverride string?
----@return table
----@return number
+---@param suffix string? appended to the function name, e.g. `_Implementation`
+---@param typeOverride string? replaces the return type, e.g. `bool` for `_Validate`
+---@return string[] lines
+---@return number sigIndex index of the signature line in `lines`
 local function constructFunctionBlock(template, suffix, typeOverride)
     local declTypeKey = treesitter.Keys.DeclType
     local declKeys = treesitter.DeclKeys
@@ -160,10 +163,11 @@ local function constructFunctionBlock(template, suffix, typeOverride)
     return content, sigIndex
 end
 
----
+---Write every function body a declaration needs. Usually one; Unreal specifiers can rename it
+---(`BlueprintNativeEvent` -> `Foo_Implementation`) or add more (`WithValidation` -> `Foo_Validate`).
 ---@param declaration DeclarationTemplate
----@return table
----@return number
+---@return string[] lines all bodies, ready to append to the `.cpp`
+---@return number sigIndex which line to search for to tell if it already exists
 function M.ParseImplementation(declaration)
     local mainImpl = { suffix = nil, type = nil }
     local additionalImpls = {}

@@ -77,8 +77,11 @@ function M.initDefaults()
     M.WorkingDir = nil
 end
 
----Set (and optionally persist) the Unreal Engine path used to locate UnrealBuildTool.
----@param opts ParseEnginePathOpts
+---Use `opts.path` as the Unreal Engine folder for this project, if it is valid
+---(it must contain UnrealBuildTool and a usable dotnet, see `IsRootEngineDirValid`).
+---With `savePath = true` it is also remembered for next time.
+---An invalid path is ignored; it shows an error unless `silent = true`.
+---@param opts ParseEnginePathOpts `{ path, silent?, savePath? }`
 function M.SetEnginePath(opts)
     if M.IsRootEngineDirValid(opts.path) then
         M.EnginePath = opts.path
@@ -99,11 +102,14 @@ local function parseFromBinaryDir(engineDir, ...)
     return vim.fs.joinpath(engineDir, "Engine", "Binaries", ...)
 end
 
----Find dotNET executable, prioritize the bundled files from engine itself
----Then look for dotnet in $PATH
----@param engineDir string?
----@return boolean ok
----@return string? path
+---Find the `dotnet` program used to run UnrealBuildTool (Unreal's build tool, a .NET app).
+---Prefers the copy bundled with the engine (`Engine/Binaries/ThirdParty/DotNet/<version>/...`),
+---and falls back to `dotnet` installed on your system ($PATH).
+---With several bundled versions it takes the newest one, comparing folder names as versions
+---(`10.0.100` beats `8.0.300`).
+---@param engineDir string? engine root folder
+---@return boolean bundled true only when the engine's own copy is used
+---@return string? path nil when neither is found
 function M.ParseDotnetPath(engineDir)
     if engineDir == nil then
         return false, nil
@@ -137,9 +143,23 @@ function M.ParseDotnetPath(engineDir)
     local globPattern = vim.fs.joinpath(dotnetDir, "*", parentDir, map[platform].fileName)
 
     local found = vim.fn.glob(globPattern, false, true)
-    table.sort(found)
+    table.sort(found, function(a, b)
+        local function parseVersion(path)
+            local archDir = vim.fs.dirname(path)
+            local versionDir = vim.fs.dirname(archDir)
 
-    local path = found[#found]
+            return vim.version.parse(vim.fs.basename(versionDir))
+        end
+
+        local va, vb = parseVersion(a), parseVersion(b)
+        if va and vb then
+            return vim.version.gt(va, vb)
+        end
+
+        return a > b
+    end)
+
+    local path = found[1]
     if path and path ~= "" then
         return true, path
     end
@@ -152,9 +172,10 @@ function M.ParseDotnetPath(engineDir)
     return false, nil
 end
 
----
----@return boolean ok
----@return string path
+---Build the `UnrealBuildTool.dll` path inside an engine root.
+---@param engineDir string
+---@return boolean ok the dll exists
+---@return string path built even when the dll is missing
 function M.ParseUbtPath(engineDir)
     local path = vim.fs.joinpath(engineDir, "Engine", "Binaries", "DotNET", "UnrealBuildTool", "UnrealBuildTool.dll")
     return pathUtils.Exists(path), path
@@ -205,6 +226,11 @@ function M.InputEnginePath()
     end)
 end
 
+---Make sure an engine path is known before a command that needs it.
+---If the working directory moved to another project, its saved path is loaded first.
+---Still unknown: asks the user. With a prompt that answers later (e.g. from dressing.nvim),
+---this returns false before the user types; they run the command again afterwards.
+---@return boolean ok true when an engine path is set right now
 function M.EnsureEnginePath()
     if M.WorkingDir ~= pathUtils.GetProjectRoot() then
         M.initDefaults()
@@ -236,6 +262,12 @@ function M.GetEngineExecutable(platform, enginePath)
     return vim.fs.joinpath(binariesPath, platform, executableName)
 end
 
+---The command that starts Unreal Editor in the background; add the `.uproject` path at the end.
+---Windows opens the file with its default program (normally Unreal Editor).
+---Linux and Mac start the engine's `UnrealEditor` directly, detached so it keeps running
+---if Neovim closes.
+---@return boolean ok whether the editor program exists (always true on Windows)
+---@return string[] cmd command and arguments, without the `.uproject` path
 function M.GetExecuteCmd()
     local platform = require("unreal.system").GetPlatform()
     local executablePath = M.GetEngineExecutable(platform, M.EnginePath)

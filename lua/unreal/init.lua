@@ -11,12 +11,35 @@ local function enableExtensions(extensions)
     end
 end
 
+local function hookFileTypes()
+    vim.filetype.add({
+        extension = {
+            uproject = "json",
+            uplugin = "json",
+        },
+    })
+
+    local augroup = vim.api.nvim_create_augroup("unreal.nvim.ft", { clear = true })
+    vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
+        group = augroup,
+        pattern = { "*.uproject", "*.uplugin" },
+        callback = function()
+            vim.bo.shiftwidth = 4
+            vim.bo.tabstop = 4
+            vim.bo.expandtab = false
+        end,
+    })
+end
+
 local M = {}
 
 M.inited = false
 
----Entry point for the plugin. Applies config, then registers the `:Unreal` command.
----@param opts ConfigOpts?
+---Start the plugin. Call this once from your config: `require("unreal").setup({ ... })`.
+---It merges your options with the defaults, loads the engine path saved for this project,
+---registers the `:Unreal` command (and your abbreviations), turns on extensions,
+---and sets up `.uproject`/`.uplugin` file types.
+---@param opts ConfigOpts? your options; omitted means all defaults
 function M.setup(opts)
     local config = require("unreal.config")
     config.config(opts)
@@ -33,6 +56,7 @@ function M.setup(opts)
     require("unreal.commands").init(configOpts)
 
     enableExtensions(configOpts.extensions)
+    hookFileTypes()
 
     M.inited = true
 end

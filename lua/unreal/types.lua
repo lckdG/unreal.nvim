@@ -28,7 +28,7 @@
 
 --- Treesitter types
 
----@class (exact) ExistedMacroVaiables
+---@class (exact) ExistedMacroVariables
 ---@field arguments string[]
 ---@field metas string[]
 

@@ -11,7 +11,8 @@ A Neovim plugin for working on Unreal Engine C++ projects: source/header switchi
 - Rebuild the clangd compilation database
 - Complete `UCLASS`/`UFUNCTION`/`UPROPERTY` macro attributes
 - Find/grep source files
-- Open the `.uproject` with the OS default handler
+- Open the `.uproject` in the Unreal editor
+- Edit the `.uproject` in a buffer
 - Per-project engine path, cached across sessions
 - Optional extensions, e.g. telescope integration
 - Unreal-aware treesitter grammar (via [taku25/tree-sitter-unreal-cpp](https://github.com/taku25/tree-sitter-unreal-cpp))
@@ -135,15 +136,16 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 | Command | Description |
 |---|---|
 | `:Unreal Engine SetPath` | Prompt for and store the engine path for the current project |
-| `:Unreal Project Open` | Open the `.uproject` in the working directory with the OS default handler |
+| `:Unreal Project Open` | Open the `.uproject` in the working directory in the Unreal editor (on Windows, with the default handler) |
+| `:Unreal Project Edit` | Open the `.uproject` in the working directory in a buffer |
 | `:Unreal Build Clangd` | Regenerate `compile_commands.json` via `UnrealBuildTool` and copy it into the working directory |
 | `:Unreal Code SwitchSourceHeader` | Switch between the current header and its matching source file (falls back to clangd) |
 | `:Unreal Code Impl` | Generate a `.cpp` implementation stub for the function under the cursor (in a header) |
 | `:Unreal Code Macro` | Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` attribute under the cursor |
-| `:Unreal Search Files` | Find header/cpp/both files (quickfix list, or live with an extension) |
-| `:Unreal Search Grep` | Grep header/cpp/both files (quickfix list, or live with an extension) |
+| `:Unreal Search Files` | Find header/cpp, `.ini` or `Build.cs`/`Target.cs` files (quickfix list, or live with an extension) |
+| `:Unreal Search Grep` | Grep header/cpp, `.ini` or `Build.cs`/`Target.cs` files (quickfix list, or live with an extension) |
 
-If multiple `.uproject` files are found in the working directory tree, commands that need one (`Project Open`, `Build Clangd`) will prompt you to choose.
+If multiple `.uproject` files are found in the working directory tree, commands that need one (`Project Open`, `Project Edit`, `Build Clangd`) will prompt you to choose.
 
 The old one-word names (`OpenProject`, `RebuildClangd`, ...) still work until 0.3.0, with a deprecation warning.
 
