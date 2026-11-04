@@ -27,29 +27,23 @@ describe("search", function()
             assert.is_true(h.ends_with(vim.api.nvim_buf_get_name(0), "Source/My Mod #1/Foo%.cpp"))
         end)
 
-        it("not found, clangd attached -> LspClangdSwitchSourceHeader", function()
+        it("not found -> falls back to clangd switchSourceHeader", function()
             h.stub(pathUtils, "GetSourceHeader", function()
                 return nil
             end)
-            h.stub(system, "HasClangdEnabled", function()
-                return true
-            end)
+            local switches = h.spy(require("unreal.lsp"), "SwitchSourceHeader")
             capture_cmd()
             search.SwitchSourceHeader()
-            assert.are.same({ "LspClangdSwitchSourceHeader" }, cmds)
+            assert.are.equal(1, #switches)
+            assert.are.same({}, cmds)
         end)
 
-        it("not found, no clangd -> error notify", function()
-            h.stub(pathUtils, "GetSourceHeader", function()
-                return nil
-            end)
-            h.stub(system, "HasClangdEnabled", function()
-                return false
-            end)
-            capture_cmd()
+        it("found -> clangd not asked", function()
+            h.project({ ["Source/Mod/Foo.h"] = {}, ["Source/Mod/Foo.cpp"] = {} })
+            h.edit("Source/Mod/Foo.h")
+            local switches = h.spy(require("unreal.lsp"), "SwitchSourceHeader")
             search.SwitchSourceHeader()
-            assert.are.same({}, cmds)
-            assert.is_true(h.notified(notes, vim.log.levels.ERROR))
+            assert.are.equal(0, #switches)
         end)
 
         it("HasClangdEnabled only looks at the current buffer", function()
