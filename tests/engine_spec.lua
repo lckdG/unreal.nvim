@@ -8,10 +8,18 @@ local engine = require("unreal.engine")
 local system = require("unreal.system")
 
 local UBT = "Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
+local DOTNET_DIR = "Engine/Binaries/ThirdParty/DotNet"
+local hostDotnet = ({ Win64 = "win", Linux = "linux", Mac = "mac" })[system.GetPlatform()] .. "-" .. system.GetArch()
+local hostDotnetExe = system.GetPlatform() == "Win64" and "dotnet.exe" or "dotnet"
+
+local function bundled_dotnet(version)
+    return vim.fs.joinpath(DOTNET_DIR, version, hostDotnet, hostDotnetExe)
+end
 
 local function fake_engine()
     local root = h.tmpdir()
     h.write(root, UBT)
+    h.write(root, bundled_dotnet("8.0.300"))
     return root
 end
 
@@ -25,6 +33,10 @@ describe("engine", function()
     before_each(function()
         config.config()
         notes = h.notifications()
+        -- host-independent: tests wanting a PATH dotnet stub exepath themselves
+        h.stub(vim.fn, "exepath", function()
+            return ""
+        end)
     end)
     after_each(h.reset)
 
@@ -60,7 +72,7 @@ describe("engine", function()
             engine.init()
             assert.is_false(engine.EnginePathSet)
             assert.is_nil(engine.EnginePath)
-            assert.is_nil(engine.BuildTool)
+            assert.is_nil(engine.GetUbtDll())
         end)
 
         it("saved valid path -> set silently", function()
@@ -72,7 +84,7 @@ describe("engine", function()
             engine.init()
             assert.is_true(engine.EnginePathSet)
             assert.are.equal(root, engine.EnginePath)
-            assert.are.equal(vim.fs.joinpath(root, UBT), engine.BuildTool)
+            assert.are.equal(vim.fs.joinpath(root, UBT), engine.GetUbtDll())
             assert.are.equal(0, #notes)
             vim.fn.writefile({}, engine.LockFilePath)
         end)
@@ -86,7 +98,7 @@ describe("engine", function()
             engine.init()
             assert.is_false(engine.EnginePathSet)
             assert.is_nil(engine.EnginePath)
-            assert.is_nil(engine.BuildTool)
+            assert.is_nil(engine.GetUbtDll())
             assert.are.equal(0, #notes)
             vim.fn.writefile({}, engine.LockFilePath)
         end)
@@ -101,24 +113,154 @@ describe("engine", function()
             engine.init()
             assert.is_false(engine.EnginePathSet)
             assert.is_nil(engine.EnginePath)
-            assert.is_nil(engine.BuildTool)
+            assert.is_nil(engine.GetUbtDll())
             assert.are.equal(0, #notes)
             vim.fn.writefile({}, engine.LockFilePath)
         end)
     end)
 
-    describe("IsUbtExist", function()
-        it("engine dir without UnrealBuildTool.dll -> false", function()
-            assert.is_false(engine.IsUbtExist(h.tmpdir()))
+    describe("ParseUbtPath", function()
+        it("engine dir without UnrealBuildTool.dll -> false, expected path", function()
+            local root = h.tmpdir()
+            local ok, path = engine.ParseUbtPath(root)
+            assert.is_false(ok)
+            assert.are.equal(vim.fs.joinpath(root, UBT), path)
         end)
 
-        it("engine dir with UnrealBuildTool.dll -> true", function()
-            assert.is_true(engine.IsUbtExist(fake_engine()))
+        it("engine dir with UnrealBuildTool.dll -> true, dll path", function()
+            local root = fake_engine()
+            local ok, path = engine.ParseUbtPath(root)
+            assert.is_true(ok)
+            assert.are.equal(vim.fs.joinpath(root, UBT), path)
+        end)
+    end)
+
+    describe("ParseDotnetPath", function()
+        local function no_system_dotnet()
+            h.stub(vim.fn, "exepath", function()
+                return ""
+            end)
+        end
+
+        it("nil engine dir -> false, nil", function()
+            local ok, path = engine.ParseDotnetPath(nil)
+            assert.is_false(ok)
+            assert.is_nil(path)
         end)
 
-        it("ParseUbtPath points at the dll under the engine dir", function()
-            assert.are.equal(vim.fs.joinpath("/ue", UBT), engine.ParseUbtPath("/ue"))
+        it("bundled dotnet -> true, bundled path", function()
+            no_system_dotnet()
+            local root = fake_engine()
+            local ok, path = engine.ParseDotnetPath(root)
+            assert.is_true(ok)
+            assert.are.equal(vim.fs.joinpath(root, bundled_dotnet("8.0.300")), path)
         end)
+
+        it("several bundled versions -> highest sorted one", function()
+            local root = fake_engine()
+            h.write(root, bundled_dotnet("6.0.302"))
+            h.write(root, bundled_dotnet("9.0.100"))
+            local _, path = engine.ParseDotnetPath(root)
+            assert.are.equal(vim.fs.joinpath(root, bundled_dotnet("9.0.100")), path)
+        end)
+
+        it("bundled preferred over system dotnet", function()
+            h.stub(vim.fn, "exepath", function()
+                return "/usr/bin/dotnet"
+            end)
+            local root = fake_engine()
+            local ok, path = engine.ParseDotnetPath(root)
+            assert.is_true(ok)
+            assert.are.equal(vim.fs.joinpath(root, bundled_dotnet("8.0.300")), path)
+        end)
+
+        it("no bundled, system dotnet -> false, system path", function()
+            h.stub(vim.fn, "exepath", function()
+                return "/usr/bin/dotnet"
+            end)
+            local ok, path = engine.ParseDotnetPath(h.tmpdir())
+            assert.is_false(ok)
+            assert.are.equal("/usr/bin/dotnet", path)
+        end)
+
+        it("no bundled, no system dotnet -> false, nil", function()
+            no_system_dotnet()
+            local ok, path = engine.ParseDotnetPath(h.tmpdir())
+            assert.is_false(ok)
+            assert.is_nil(path)
+        end)
+
+        it("unknown arch -> false, nil", function()
+            -- engine resolves unreal.system at call time; earlier h.unload() may have replaced the module
+            h.stub(require("unreal.system"), "GetArch", function()
+                return nil
+            end)
+            local ok, path = engine.ParseDotnetPath(fake_engine())
+            assert.is_false(ok)
+            assert.is_nil(path)
+        end)
+    end)
+
+    describe("IsRootEngineDirValid", function()
+        it("UBT and bundled dotnet -> true", function()
+            assert.is_true(engine.IsRootEngineDirValid(fake_engine()))
+        end)
+
+        it("UBT, no bundled dotnet, no PATH dotnet -> false", function()
+            local root = h.tmpdir()
+            h.write(root, UBT)
+            assert.is_false(engine.IsRootEngineDirValid(root))
+        end)
+
+        it("UBT, no bundled dotnet, PATH dotnet -> true", function()
+            h.stub(vim.fn, "exepath", function()
+                return "/usr/bin/dotnet"
+            end)
+            local root = h.tmpdir()
+            h.write(root, UBT)
+            assert.is_true(engine.IsRootEngineDirValid(root))
+        end)
+
+        it("bundled dotnet without UBT -> false", function()
+            local root = h.tmpdir()
+            h.write(root, bundled_dotnet("8.0.300"))
+            assert.is_false(engine.IsRootEngineDirValid(root))
+        end)
+    end)
+
+    describe("GetUbtDll / GetDotNetCmd", function()
+        it("engine path not set -> nil", function()
+            engine.initDefaults()
+            assert.is_nil(engine.GetUbtDll())
+            assert.is_nil(engine.GetDotNetCmd())
+        end)
+
+        it("engine path set -> dll and bundled dotnet", function()
+            h.project({})
+            fresh_lockfile()
+            local root = fake_engine()
+            engine.SetEnginePath({ path = root, silent = true, savePath = false })
+            assert.are.equal(vim.fs.joinpath(root, UBT), engine.GetUbtDll())
+            assert.are.equal(vim.fs.joinpath(root, bundled_dotnet("8.0.300")), engine.GetDotNetCmd())
+        end)
+
+        for _, case in ipairs({
+            { "dotnet on PATH -> PATH dotnet", "/usr/bin/dotnet" },
+            { "no PATH dotnet -> nil", "" },
+        }) do
+            it("bundled dotnet removed after set, " .. case[1], function()
+                h.project({})
+                fresh_lockfile()
+                local root = fake_engine()
+                engine.SetEnginePath({ path = root, silent = true, savePath = false })
+                vim.fn.delete(vim.fs.joinpath(root, DOTNET_DIR), "rf")
+                h.stub(vim.fn, "exepath", function()
+                    return case[2]
+                end)
+                local expected = case[2] ~= "" and case[2] or nil
+                assert.are.equal(expected, engine.GetDotNetCmd())
+            end)
+        end
     end)
 
     describe("lock file", function()
@@ -174,12 +316,12 @@ describe("engine", function()
             engine.initDefaults()
         end)
 
-        it("valid engine tree -> set, BuildTool points at the dll", function()
+        it("valid engine tree -> set, GetUbtDll points at the dll", function()
             local root = fake_engine()
             engine.SetEnginePath({ path = root, silent = true, savePath = false })
             assert.is_true(engine.EnginePathSet)
             assert.are.equal(root, engine.EnginePath)
-            assert.are.equal(vim.fs.joinpath(root, UBT), engine.BuildTool)
+            assert.are.equal(vim.fs.joinpath(root, UBT), engine.GetUbtDll())
         end)
 
         it("missing dll, silent = false -> error notify", function()
@@ -208,7 +350,7 @@ describe("engine", function()
             engine.SetEnginePath({ path = h.tmpdir(), silent = true, savePath = false })
             assert.is_true(engine.EnginePathSet)
             assert.are.equal(root, engine.EnginePath)
-            assert.are.equal(vim.fs.joinpath(root, UBT), engine.BuildTool)
+            assert.are.equal(vim.fs.joinpath(root, UBT), engine.GetUbtDll())
         end)
     end)
 
@@ -260,7 +402,7 @@ describe("engine", function()
         local function assert_unchanged()
             assert.is_true(engine.EnginePathSet)
             assert.are.equal(root, engine.EnginePath)
-            assert.are.equal(vim.fs.joinpath(root, UBT), engine.BuildTool)
+            assert.are.equal(vim.fs.joinpath(root, UBT), engine.GetUbtDll())
         end
 
         for _, case in ipairs({ { "cancel (nil)", nil }, { "empty string", "" } }) do
@@ -309,7 +451,7 @@ describe("engine", function()
         vim.wait(50)
         engine.EnsureEnginePath()
         assert.are.equal(b, engine.EnginePath)
-        assert.are.equal(vim.fs.joinpath(b, UBT), engine.BuildTool)
+        assert.are.equal(vim.fs.joinpath(b, UBT), engine.GetUbtDll())
     end)
 
     for _, case in ipairs({ { "no saved path", false }, { "saved path without UnrealBuildTool.dll", true } }) do
@@ -330,7 +472,7 @@ describe("engine", function()
             assert.is_false(engine.EnsureEnginePath())
             assert.are.equal(1, #prompts)
             assert.is_nil(engine.EnginePath)
-            assert.is_nil(engine.BuildTool)
+            assert.is_nil(engine.GetUbtDll())
         end)
     end
 
