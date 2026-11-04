@@ -21,8 +21,9 @@ A Neovim plugin for working on Unreal Engine C++ projects: source/header switchi
 - Neovim >= 0.12
 - [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter), `main` branch (the `master` branch is not supported)
 - [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
-- [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) with clangd set up (`SwitchSourceHeader` falls back to `:LspClangdSwitchSourceHeader`)
-- `rg`, `clangd`, and `dotnet` on `$PATH` (`rg` for `FindSource` / `GrepSource`)
+- `rg` and `clangd` on `$PATH`
+- clangd enabled with `vim.lsp` (see below)
+- `dotnet` prioritizes the bundled executable from the engine, then the one from `$PATH`
 - Optional: plugins needed by the [extensions](#extensions) you enable
 - An installed Unreal Engine build to point the plugin at
 
@@ -36,10 +37,20 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
     dependencies = {
         { "nvim-treesitter/nvim-treesitter", branch = "main" },
         "nvim-lua/plenary.nvim",
-        "neovim/nvim-lspconfig",
     },
     opts = {},
 }
+```
+
+Configure and enable clangd with `vim.lsp`:
+
+```lua
+vim.lsp.config("clangd", {
+    cmd = { "clangd" },
+    filetypes = { "c", "cpp" },
+    root_markers = { "compile_commands.json", ".git" },
+})
+vim.lsp.enable("clangd")
 ```
 
 After installing, run `:TSUpdate cpp` once so nvim-treesitter builds the Unreal C++ grammar.
@@ -126,7 +137,7 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 | `:Unreal SetEnginePath` | Prompt for and store the engine path for the current project |
 | `:Unreal OpenProject` | Open the `.uproject` in the working directory with the OS default handler |
 | `:Unreal RebuildClangd` | Regenerate `compile_commands.json` via `UnrealBuildTool` and copy it into the working directory |
-| `:Unreal SwitchSourceHeader` | Switch between the current header and its matching source file |
+| `:Unreal SwitchSourceHeader` | Switch between the current header and its matching source file (falls back to clangd) |
 | `:Unreal CreateImpl` | Generate a `.cpp` implementation stub for the function under the cursor (in a header) |
 | `:Unreal CompleteMacro` | Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` attribute under the cursor |
 | `:Unreal FindSource` | Find header/cpp/both files (quickfix list, or live with an extension) |
@@ -134,7 +145,9 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 
 If multiple `.uproject` files are found in the working directory tree, commands that need one (`OpenProject`, `RebuildClangd`) will prompt you to choose.
 
-The engine path is resolved per-project (keyed by the nearest `.uproject` directory found upward from the current working directory) and cached in `stdpath('data')/unreal.nvim/lock.dat`. A path counts as valid only if it contains `Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll`; otherwise you are prompted again.
+Each project remembers its own engine path in `stdpath('data')/unreal.nvim/lock.dat`. The project folder is the closest one above the working directory that has a `.uproject`; if there is none, the closest one with `.git` or `.p4ignore`, and finally the working directory itself. An engine path is accepted when it has `Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll` and a usable `dotnet`; otherwise you are asked again.
+
+`dotnet` prioritizes the bundled executable from the engine (`Engine/Binaries/ThirdParty/DotNet/<version>/<os>-<arch>/`, newest version first), then the one from `$PATH`.
 
 Run `:checkhealth unreal` to check dependencies and the engine path for the current project. See `:help unreal.nvim` or the [doc](doc/) directory for the full reference.
 
