@@ -87,14 +87,14 @@ end)
 
 describe("commands", function()
     local subcommands = {
-        SetEnginePath = { "unreal.engine", "InputEnginePath" },
-        OpenProject = { "unreal.project", "OpenUproject" },
-        RebuildClangd = { "unreal.project", "RebuildClangd" },
-        SwitchSourceHeader = { "unreal.search", "SwitchSourceHeader" },
-        CreateImpl = { "unreal.impl", "ImplementFunction" },
-        CompleteMacro = { "unreal.macros", "CompleteMacro" },
-        FindSource = { "unreal.search", "FindSource" },
-        GrepSource = { "unreal.search", "GrepSource" },
+        ["Engine SetPath"] = { "unreal.engine", "InputEnginePath" },
+        ["Project Open"] = { "unreal.project", "OpenUproject" },
+        ["Build Clangd"] = { "unreal.project", "RebuildClangd" },
+        ["Code Impl"] = { "unreal.impl", "ImplementFunction" },
+        ["Code Macro"] = { "unreal.macros", "CompleteMacro" },
+        ["Code SwitchSourceHeader"] = { "unreal.search", "SwitchSourceHeader" },
+        ["Search Files"] = { "unreal.search", "FindSource" },
+        ["Search Grep"] = { "unreal.search", "GrepSource" },
     }
 
     local function init(opts)
@@ -116,22 +116,6 @@ describe("commands", function()
         assert.is_nil(cmds.Unreal)
     end)
 
-    it("unknown subcommand -> error notify", function()
-        local notes = h.notifications()
-        init()
-        vim.cmd("Unreal Foo")
-        assert.is_true(h.notified(notes, vim.log.levels.ERROR))
-    end)
-
-    it("<Tab> completes all subcommands", function()
-        init()
-        local got = vim.fn.getcompletion("Unreal ", "cmdline")
-        table.sort(got)
-        local want = vim.tbl_keys(subcommands)
-        table.sort(want)
-        assert.are.same(want, got)
-    end)
-
     for name, target in pairs(subcommands) do
         it(name .. " dispatches to " .. target[1] .. "." .. target[2], function()
             local calls = h.spy(require(target[1]), target[2])
@@ -141,9 +125,31 @@ describe("commands", function()
         end)
     end
 
+    it("extra spaces between group and action -> still dispatches", function()
+        local calls = h.spy(require("unreal.project"), "RebuildClangd")
+        init()
+        vim.cmd("Unreal   Build   Clangd  ")
+        assert.are.equal(1, #calls)
+    end)
+
+    for _, case in ipairs({
+        { "Unreal ", { "Build", "Code", "Engine", "Project", "Search" } },
+        { "Unreal Bu", { "Build" } },
+        { "Unreal Code ", { "Impl", "Macro", "SwitchSourceHeader" } },
+        { "Unreal Code M", { "Macro" } },
+        { "Unreal Search ", { "Files", "Grep" } },
+        { "Unreal Foo ", {} },
+        { "Unreal Code Impl ", {} },
+    }) do
+        it("<Tab> on '" .. case[1] .. "' -> " .. vim.inspect(case[2]), function()
+            init()
+            assert.are.same(case[2], vim.fn.getcompletion(case[1], "cmdline"))
+        end)
+    end
+
     it("cmd_abbreviations expand with command_lead", function()
-        init({ command_lead = "UE", cmd_abbreviations = { uo = "OpenProject" } })
-        assert.are.equal("UE OpenProject", vim.fn.maparg("uo", "c", true))
+        init({ command_lead = "UE", cmd_abbreviations = { uo = "Project Open" } })
+        assert.are.equal("UE Project Open", vim.fn.maparg("uo", "c", true))
     end)
 
     it("empty cmd_abbreviations -> none", function()

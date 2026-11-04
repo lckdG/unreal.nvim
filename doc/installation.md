@@ -51,4 +51,4 @@ vim.lsp.enable("clangd")
 
 After installing, run `:TSUpdate cpp` once so nvim-treesitter builds the Unreal C++ grammar.
 
-The plugin replaces nvim-treesitter's `cpp` parser with [tree-sitter-unreal-cpp](https://github.com/taku25/tree-sitter-unreal-cpp). This applies to every C++ file, not only Unreal projects, and there is no opt-out: [CreateImpl](#createimpl) and [CompleteMacro](#completemacro) depend on it.
+The plugin replaces nvim-treesitter's `cpp` parser with [tree-sitter-unreal-cpp](https://github.com/taku25/tree-sitter-unreal-cpp). This applies to every C++ file, not only Unreal projects, and there is no opt-out: [Code Impl](#code) and [Code Macro](#code) depend on it.

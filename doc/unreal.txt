@@ -23,14 +23,12 @@ Table of Contents                                   *unreal-table-of-contents*
   - Telescope                                    |unreal-extensions-telescope|
   - Custom UI provider                  |unreal-extensions-custom-ui-provider|
 5. Commands                                                  |unreal-commands|
-  - SetEnginePath                              |unreal-commands-setenginepath|
-  - OpenProject                                  |unreal-commands-openproject|
-  - RebuildClangd                              |unreal-commands-rebuildclangd|
-  - SwitchSourceHeader                    |unreal-commands-switchsourceheader|
-  - CreateImpl                                    |unreal-commands-createimpl|
-  - CompleteMacro                              |unreal-commands-completemacro|
-  - FindSource                                    |unreal-commands-findsource|
-  - GrepSource                                    |unreal-commands-grepsource|
+  - Engine                                            |unreal-commands-engine|
+  - Project                                          |unreal-commands-project|
+  - Build                                              |unreal-commands-build|
+  - Code                                                |unreal-commands-code|
+  - Search                                            |unreal-commands-search|
+  - Deprecated names                        |unreal-commands-deprecated-names|
 6. Engine path                                            |unreal-engine-path|
 7. Health                                                      |unreal-health|
 
@@ -131,7 +129,8 @@ C++ grammar.
 The plugin replaces nvim-treesitter’s `cpp` parser with
 tree-sitter-unreal-cpp <https://github.com/taku25/tree-sitter-unreal-cpp>. This
 applies to every C++ file, not only Unreal projects, and there is no opt-out:
-|unreal-commands-createimpl| and |unreal-commands-completemacro| depend on it.
+Code Impl |unreal-commands-code| and Code Macro |unreal-commands-code| depend
+on it.
 
 
 ==============================================================================
@@ -162,7 +161,7 @@ Grammar registered as nvim-treesitter’s `cpp` parser. Override `url` and
 COMMAND_LEAD                                      *unreal-config-command_lead*
 
 Name of the user command. With `command_lead = "UE"` the commands become `:UE
-OpenProject`, `:UE RebuildClangd`, …
+Project Open`, `:UE Build Clangd`, …
 
 
 CMD_ABBREVIATIONS                            *unreal-config-cmd_abbreviations*
@@ -170,14 +169,14 @@ CMD_ABBREVIATIONS                            *unreal-config-cmd_abbreviations*
 Command-line abbreviations, expanded to `<command_lead> <value>`:
 
 >lua
-    cmd_abbreviations = { uo = "OpenProject", uc = "RebuildClangd" }
+    cmd_abbreviations = { uo = "Project Open", uc = "Build Clangd" }
 <
 
 
 CLANGD_BUILD_ARGS                            *unreal-config-clangd_build_args*
 
 Extra arguments for the UnrealBuildTool `-mode=GenerateClangDatabase` call made
-by |unreal-commands-rebuildclangd|. Each entry is one argument.
+by Build Clangd |unreal-commands-build|. Each entry is one argument.
 
 
 EXTENSIONS                                          *unreal-config-extensions*
@@ -215,8 +214,8 @@ TELESCOPE                                        *unreal-extensions-telescope*
 Runs pickers and searches through telescope.nvim
 <https://github.com/nvim-telescope/telescope.nvim>:
 
-- |unreal-commands-findsource| and |unreal-commands-grepsource| become live telescope pickers
-- uproject and macro choices open in a telescope picker; |unreal-commands-completemacro| previews the macro documentation
+- Search Files |unreal-commands-search| and Search Grep |unreal-commands-search| become live telescope pickers
+- uproject and macro choices open in a telescope picker; Code Macro |unreal-commands-code| previews the macro documentation
 
 >lua
     require('unreal').setup({
@@ -232,7 +231,7 @@ Runs pickers and searches through telescope.nvim
 
 `ignores` are Lua patterns appended to telescope’s global
 `file_ignore_patterns`, so they apply to every telescope picker, not only
-FindSource / GrepSource. There are no default patterns.
+Search Files / Search Grep. There are no default patterns.
 
 If telescope.nvim is not installed, an error is shown and the built-in UI is
 kept.
@@ -262,7 +261,7 @@ implement all four functions:
 <
 
 `opts.prompt` holds the prompt or picker title. `desc` holds documentation
-lines for |unreal-commands-completemacro| items and is `""` otherwise.
+lines for Code Macro |unreal-commands-code| items and is `""` otherwise.
 `Use(nil)` restores the built-in UI.
 
 
@@ -271,24 +270,39 @@ lines for |unreal-commands-completemacro| items and is `""` otherwise.
 
                                                                      *:Unreal*
 
-All commands are subcommands of `:Unreal` (see |unreal-config-command_lead|),
-with `<Tab>` completion. If several `.uproject` files are found, commands that
-need one prompt you to choose.
+All commands are `:Unreal <Group> <Action>` (see |unreal-config-command_lead|),
+with `<Tab>` completion for both words. If several `.uproject` files are found,
+commands that need one prompt you to choose.
 
 
-SETENGINEPATH                                  *unreal-commands-setenginepath*
+ENGINE                                                *unreal-commands-engine*
+
+
+ENGINE SETPATH ~
+
+                                                      *:Unreal-Engine-SetPath*
 
 Prompt for the engine path of the current project and save it. See
 |unreal-engine-path|.
 
 
-OPENPROJECT                                      *unreal-commands-openproject*
+PROJECT                                              *unreal-commands-project*
+
+
+PROJECT OPEN ~
+
+                                                        *:Unreal-Project-Open*
 
 Open the `.uproject` in the working directory in the Unreal editor (on Windows,
 with the default handler).
 
 
-REBUILDCLANGD                                  *unreal-commands-rebuildclangd*
+BUILD                                                  *unreal-commands-build*
+
+
+BUILD CLANGD ~
+
+                                                        *:Unreal-Build-Clangd*
 
 Regenerate `compile_commands.json` with UnrealBuildTool and copy it into the
 working directory. UnrealBuildTool runs with the engine’s bundled `dotnet`
@@ -297,13 +311,12 @@ when there is one, otherwise with the one from `$PATH` (see
 close it when the build is done.
 
 
-SWITCHSOURCEHEADER                        *unreal-commands-switchsourceheader*
-
-Switch between a header and its source file. Looks in the module’s
-`Public`/`Private` folders first; if nothing matches, asks clangd.
+CODE                                                    *unreal-commands-code*
 
 
-CREATEIMPL                                        *unreal-commands-createimpl*
+CODE IMPL ~
+
+                                                           *:Unreal-Code-Impl*
 
 With the cursor on a function declaration in a header, append an implementation
 stub to the matching `.cpp`, or jump to it if it exists.
@@ -314,13 +327,28 @@ stub to the matching `.cpp`, or jump to it if it exists.
 - Pure virtual, deleted and inline functions: no stub
 
 
-COMPLETEMACRO                                  *unreal-commands-completemacro*
+CODE MACRO ~
+
+                                                          *:Unreal-Code-Macro*
 
 Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` specifier under the
 cursor. Requires clangd.
 
 
-FINDSOURCE                                        *unreal-commands-findsource*
+CODE SWITCHSOURCEHEADER ~
+
+                                             *:Unreal-Code-SwitchSourceHeader*
+
+Switch between a header and its source file. Looks in the module’s
+`Public`/`Private` folders first; if nothing matches, asks clangd.
+
+
+SEARCH                                                *unreal-commands-search*
+
+
+SEARCH FILES ~
+
+                                                        *:Unreal-Search-Files*
 
 Find header, source, or both kinds of files with `rg`. Asks for the file type
 first, then:
@@ -329,7 +357,9 @@ first, then:
 - with an extension |unreal-extensions| such as Telescope: opens its live file search
 
 
-GREPSOURCE                                        *unreal-commands-grepsource*
+SEARCH GREP ~
+
+                                                         *:Unreal-Search-Grep*
 
 Grep header, source, or both kinds of files with `rg`. Asks for the file type
 first, then:
@@ -337,6 +367,21 @@ first, then:
 - built-in UI: asks for the pattern, runs the search once and fills the quickfix list
 - with an extension |unreal-extensions| such as Telescope: opens its live grep
 
+
+DEPRECATED NAMES                            *unreal-commands-deprecated-names*
+
+The old one-word commands still work until 0.2.0, with a deprecation warning:
+
+  Old                  New
+  -------------------- -------------------------
+  SetEnginePath        Engine SetPath
+  OpenProject          Project Open
+  RebuildClangd        Build Clangd
+  CreateImpl           Code Impl
+  CompleteMacro        Code Macro
+  SwitchSourceHeader   Code SwitchSourceHeader
+  FindSource           Search Files
+  GrepSource           Search Grep
 
 ==============================================================================
 6. Engine path                                            *unreal-engine-path*

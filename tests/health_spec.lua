@@ -91,10 +91,10 @@ describe("health", function()
             assert.are.equal("ok", core_kinds()[1])
         end)
 
-        it("no engine path -> warn with SetEnginePath hint, rest warned", function()
+        it("no engine path -> warn with Engine SetPath hint, rest warned", function()
             require("unreal.health").check()
             assert.are.same({ "warn", "warn", "warn", "warn", "warn" }, core_kinds())
-            assert.is_not_nil(section(CORE)[2].hint)
+            assert.are.equal("Run :Unreal Engine SetPath", section(CORE)[2].hint)
         end)
 
         it("UBT, editor and bundled dotnet present -> all ok, dotnet reported as bundled", function()
