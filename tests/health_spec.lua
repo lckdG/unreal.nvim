@@ -53,7 +53,6 @@ describe("health", function()
             local engine = require("unreal.engine")
             engine.init()
             h.stub(engine, "LockFilePath", vim.fs.joinpath(h.tmpdir(), "lock.dat"))
-            -- host-independent: system dotnet cases opt in
             h.stub(vim.fn, "exepath", function()
                 return ""
             end)
@@ -89,7 +88,6 @@ describe("health", function()
             assert.are.equal("ok", core_kinds()[1])
         end)
 
-        -- core section: setup, engine path, editor, dotnet, UBT
         it("no engine path -> warn with SetEnginePath hint, rest warned", function()
             require("unreal.health").check()
             assert.are.same({ "warn", "warn", "warn", "warn", "warn" }, core_kinds())
