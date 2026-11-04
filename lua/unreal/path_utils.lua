@@ -7,6 +7,16 @@ function M.Exists(path)
     return vim.uv.fs_stat(path) ~= nil
 end
 
+function M.GetProjectRoot()
+    local cwd = vim.fn.getcwd()
+    local function isUproject(name)
+        return name:match("%.uproject$") ~= nil
+    end
+
+    local root = vim.fs.root(cwd, { isUproject, { ".git", ".p4ignore" } })
+    return root or cwd
+end
+
 ---Find uproject files in current directory
 ---@param opts UprojectFindOpts
 ---@return table

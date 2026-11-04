@@ -1,5 +1,5 @@
 *unreal.txt*                      Neovim plugin for Unreal Engine C++ projects
-                               For NVIM v0.12    Last change: 2026 November 03
+                               For NVIM v0.12    Last change: 2026 November 04
 
 ==============================================================================
 Table of Contents                                   *unreal-table-of-contents*
@@ -10,6 +10,7 @@ Table of Contents                                   *unreal-table-of-contents*
 2. Installation                                          |unreal-installation|
   - Requirements                            |unreal-installation-requirements|
   - lazy.nvim                                  |unreal-installation-lazy.nvim|
+  - clangd                                        |unreal-installation-clangd|
   - Tree-sitter grammar              |unreal-installation-tree-sitter-grammar|
 3. Config                                                      |unreal-config|
   - custom_treesitter                        |unreal-config-custom_treesitter|
@@ -76,13 +77,14 @@ REQUIREMENTS                                *unreal-installation-requirements*
 - Neovim >= 0.12
 - nvim-treesitter <https://github.com/nvim-treesitter/nvim-treesitter>
 - plenary.nvim <https://github.com/nvim-lua/plenary.nvim>
-- nvim-lspconfig <https://github.com/neovim/nvim-lspconfig>
-- `rg`, `clangd` and `dotnet` on `$PATH` (`rg` for |unreal-commands-findsource| / |unreal-commands-grepsource|)
+- `rg` and `clangd` on `$PATH`
+- clangd enabled with `vim.lsp` (see |unreal-installation-clangd|)
 - An installed Unreal Engine build
 
 Use the nvim-treesitter `main` branch; `master` is not supported.
-nvim-lspconfig needs clangd set up: it provides `:LspClangdSwitchSourceHeader`,
-the fallback of |unreal-commands-switchsourceheader|.
+
+`dotnet` prioritizes the bundled executable from the engine, then the one from
+`$PATH`, so you usually don’t need to install it. See |unreal-engine-path|.
 
 |unreal-extensions| are optional and may need other plugins.
 
@@ -95,7 +97,6 @@ LAZY.NVIM                                      *unreal-installation-lazy.nvim*
         dependencies = {
             { "nvim-treesitter/nvim-treesitter", branch = "main" },
             "nvim-lua/plenary.nvim",
-            "neovim/nvim-lspconfig",
         },
         opts = {},
     }
@@ -105,6 +106,20 @@ Or call `setup()` yourself:
 
 >lua
     require('unreal').setup({})
+<
+
+
+CLANGD                                            *unreal-installation-clangd*
+
+Configure and enable clangd with `vim.lsp`:
+
+>lua
+    vim.lsp.config("clangd", {
+        cmd = { "clangd" },
+        filetypes = { "c", "cpp" },
+        root_markers = { "compile_commands.json", ".git" },
+    })
+    vim.lsp.enable("clangd")
 <
 
 
@@ -276,14 +291,16 @@ with the default handler).
 REBUILDCLANGD                                  *unreal-commands-rebuildclangd*
 
 Regenerate `compile_commands.json` with UnrealBuildTool and copy it into the
-working directory. Output is shown in a terminal split; press any key to close
-it when the build is done.
+working directory. UnrealBuildTool runs with the engine’s bundled `dotnet`
+when there is one, otherwise with the one from `$PATH` (see
+|unreal-engine-path|). Output is shown in a terminal split; press any key to
+close it when the build is done.
 
 
 SWITCHSOURCEHEADER                        *unreal-commands-switchsourceheader*
 
-Switch between a header and its source file. Searches the module’s
-`Public`/`Private` folders first, then falls back to clangd.
+Switch between a header and its source file. Looks in the module’s
+`Public`/`Private` folders first; if nothing matches, asks clangd.
 
 
 CREATEIMPL                                        *unreal-commands-createimpl*
@@ -324,14 +341,22 @@ first, then:
 ==============================================================================
 6. Engine path                                            *unreal-engine-path*
 
-The engine path is stored per project, keyed by the nearest `.uproject`
-directory found upward from the working directory, in
-`stdpath('data')/unreal.nvim/lock.dat`.
+Each project remembers its own engine path in
+`stdpath('data')/unreal.nvim/lock.dat`. The project folder is the closest one
+above the working directory that has a `.uproject`. If there is none, the
+closest one with `.git` or `.p4ignore` is used, and finally the working
+directory itself.
 
-A path is valid only if it contains
-`Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll`. Commands that
-need the engine prompt for a path when none is saved, the saved one is no
-longer valid, or the working directory moved to another project.
+An engine path is accepted when it has
+`Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll` and a usable
+`dotnet`.
+
+`dotnet` prioritizes the bundled executable from the engine
+(`Engine/Binaries/ThirdParty/DotNet/<version>/<os>-<arch>/`, newest version
+first), then the one from `$PATH`.
+
+Commands that need the engine prompt for a path when none is saved, the saved
+one is no longer valid, or the working directory moved to another project.
 
 
 ==============================================================================
@@ -339,10 +364,12 @@ longer valid, or the working directory moved to another project.
 
 Run `:checkhealth unreal` to check:
 
-- `setup()` was called
-- `rg`, `clangd`, `dotnet` and plenary.nvim are available
+- `rg` and `clangd` are installed
+- plenary.nvim is installed
 - telescope.nvim is available, only when the telescope extension |unreal-extensions-telescope| is enabled
-- the saved engine path, the editor executable and UnrealBuildTool exist
+- clangd is enabled with `vim.lsp.enable("clangd")`
+- `setup()` was called
+- the engine path, editor, `dotnet` and UnrealBuildTool are found, with the path of each; for `dotnet` it also tells whether it is the engine’s bundled one or the one from `$PATH`
 
 Generated by panvimdoc <https://github.com/kdheepak/panvimdoc>
 

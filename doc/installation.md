@@ -5,11 +5,13 @@
 - Neovim >= 0.12
 - [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter)
 - [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
-- [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig)
-- `rg`, `clangd` and `dotnet` on `$PATH` (`rg` for [FindSource](#findsource) / [GrepSource](#grepsource))
+- `rg` and `clangd` on `$PATH`
+- clangd enabled with `vim.lsp` (see [clangd](#clangd))
 - An installed Unreal Engine build
 
-Use the nvim-treesitter `main` branch; `master` is not supported. nvim-lspconfig needs clangd set up: it provides `:LspClangdSwitchSourceHeader`, the fallback of [SwitchSourceHeader](#switchsourceheader).
+Use the nvim-treesitter `main` branch; `master` is not supported.
+
+`dotnet` prioritizes the bundled executable from the engine, then the one from `$PATH`, so you usually don't need to install it. See [Engine path](#engine-path).
 
 [Extensions](#extensions) are optional and may need other plugins.
 
@@ -21,7 +23,6 @@ Use the nvim-treesitter `main` branch; `master` is not supported. nvim-lspconfig
     dependencies = {
         { "nvim-treesitter/nvim-treesitter", branch = "main" },
         "nvim-lua/plenary.nvim",
-        "neovim/nvim-lspconfig",
     },
     opts = {},
 }
@@ -31,6 +32,19 @@ Or call `setup()` yourself:
 
 ```lua
 require('unreal').setup({})
+```
+
+## clangd
+
+Configure and enable clangd with `vim.lsp`:
+
+```lua
+vim.lsp.config("clangd", {
+    cmd = { "clangd" },
+    filetypes = { "c", "cpp" },
+    root_markers = { "compile_commands.json", ".git" },
+})
+vim.lsp.enable("clangd")
 ```
 
 ## Tree-sitter grammar

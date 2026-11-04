@@ -3,9 +3,23 @@ local config = require("unreal.config")
 local engine = require("unreal.engine")
 local project = require("unreal.project")
 local system = require("unreal.system")
+local ui = require("unreal.ui")
 local realGetExecuteCmd = engine.GetExecuteCmd
+local realGetUbtDll = engine.GetUbtDll
+local realGetDotNetCmd = engine.GetDotNetCmd
 
 local ERROR = vim.log.levels.ERROR
+
+local function use_select(index)
+    local calls = {}
+    ui.Use({
+        Select = function(items, opts, cb)
+            table.insert(calls, { items = items, opts = opts })
+            cb(index and items[index] or nil)
+        end,
+    })
+    return calls
+end
 
 local function stub_jobstart(code)
     local state = { calls = {}, exited = false }
@@ -32,51 +46,58 @@ describe("project", function()
             return true
         end)
         h.stub(engine, "EnginePath", "/ue")
-        h.stub(engine, "BuildTool", "/ue/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll")
+        h.stub(engine, "GetUbtDll", function()
+            return "/ue/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
+        end)
+        h.stub(engine, "GetDotNetCmd", function()
+            return "/ue/dotnet"
+        end)
         h.stub(engine, "GetExecuteCmd", function()
             return true, { "editor" }
         end)
     end)
-    after_each(h.reset)
+    after_each(function()
+        ui.Use(nil)
+        h.reset()
+    end)
 
     describe("OpenUproject", function()
         it("0 uprojects -> error, no prompt, no jobstart", function()
             h.project({})
             local jobs = h.spy(vim.fn, "jobstart", 1)
-            local prompts = h.spy(vim.fn, "inputlist", 1)
+            local selects = use_select(1)
             project.OpenUproject()
             assert.is_true(h.notified(notes, ERROR))
             assert.are.equal(0, #jobs)
-            assert.are.equal(0, #prompts)
+            assert.are.equal(0, #selects)
         end)
 
         it("1 uproject -> jobstart detached, no prompt", function()
             local root = h.project({ ["Game.uproject"] = {} })
             local jobs = h.spy(vim.fn, "jobstart", 1)
-            local prompts = h.spy(vim.fn, "inputlist", 1)
+            local selects = use_select(1)
             project.OpenUproject()
             assert.are.same({ "editor", root .. "/Game.uproject" }, jobs[1][1])
             assert.are.same({ detach = true }, jobs[1][2])
-            assert.are.equal(0, #prompts)
+            assert.are.equal(0, #selects)
         end)
 
         it("2 uprojects, choose 2 -> second one opened", function()
             h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
             local jobs = h.spy(vim.fn, "jobstart", 1)
-            local prompts = h.spy(vim.fn, "inputlist", 2)
+            local selects = use_select(2)
             project.OpenUproject()
-            assert.are.equal(1, #prompts)
-            local second = prompts[1][1][3]:gsub("^2: ", "")
-            assert.are.equal(second, jobs[1][1][2])
+            assert.are.equal(1, #selects)
+            assert.are.equal(2, #selects[1].items)
+            assert.are.equal(selects[1].items[2].value, jobs[1][1][2])
         end)
 
-        it("2 uprojects, cancel -> nothing opened", function()
+        it("2 uprojects, select dismissed -> nothing opened", function()
             h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
             local jobs = h.spy(vim.fn, "jobstart", 1)
-            h.stub(vim.fn, "inputlist", function()
-                return 0
-            end)
+            local selects = use_select(nil)
             project.OpenUproject()
+            assert.are.equal(1, #selects)
             assert.are.equal(0, #jobs)
         end)
 
@@ -131,13 +152,17 @@ describe("project", function()
             assert.are.equal(0, #state.calls)
         end)
 
-        it("BuildTool nil -> warn, UBT not called", function()
-            h.project({ ["Game.uproject"] = {} })
-            h.stub(engine, "BuildTool", nil)
-            local state = run(0)
-            assert.are.equal(0, #state.calls)
-            assert.is_true(h.notified(notes, vim.log.levels.WARN))
-        end)
+        for _, getter in ipairs({ "GetUbtDll", "GetDotNetCmd" }) do
+            it(getter .. " nil -> warn, UBT not called", function()
+                h.project({ ["Game.uproject"] = {} })
+                h.stub(engine, getter, function()
+                    return nil
+                end)
+                local state = run(0)
+                assert.are.equal(0, #state.calls)
+                assert.is_true(h.notified(notes, vim.log.levels.WARN))
+            end)
+        end
 
         it("0 uprojects -> error, UBT not called", function()
             h.project({})
@@ -146,21 +171,67 @@ describe("project", function()
             assert.is_true(h.notified(notes, ERROR))
         end)
 
-        it("2 uprojects, cancel -> UBT not called", function()
-            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            h.stub(vim.fn, "inputlist", function()
-                return 0
+        describe("dotnet resolved from a real engine tree", function()
+            local root, bundled
+
+            before_each(function()
+                h.project({ ["Game.uproject"] = {} })
+                h.stub(engine, "GetUbtDll", realGetUbtDll)
+                h.stub(engine, "GetDotNetCmd", realGetDotNetCmd)
+                root = h.tmpdir()
+                h.write(root, "Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll")
+                local plat = ({ Win64 = "win", Linux = "linux", Mac = "mac" })[system.GetPlatform()]
+                local exe = system.GetPlatform() == "Win64" and "dotnet.exe" or "dotnet"
+                bundled = h.write(
+                    root,
+                    vim.fs.joinpath("Engine/Binaries/ThirdParty/DotNet/8.0.300", plat .. "-" .. system.GetArch(), exe)
+                )
+                h.stub(engine, "EnginePath", root)
+                h.stub(engine, "EnginePathSet", true)
             end)
+
+            local function path_dotnet(path)
+                h.stub(vim.fn, "exepath", function()
+                    return path
+                end)
+            end
+
+            it("bundled dotnet wins over PATH", function()
+                path_dotnet("/usr/bin/dotnet")
+                local state = run(0)
+                assert.are.equal(bundled, state.calls[1].cmd[1])
+            end)
+
+            it("no bundled dotnet -> falls back to PATH", function()
+                path_dotnet("/usr/bin/dotnet")
+                vim.fn.delete(bundled)
+                local state = run(0)
+                assert.are.equal("/usr/bin/dotnet", state.calls[1].cmd[1])
+            end)
+
+            it("neither -> warn, UBT not called", function()
+                path_dotnet("")
+                vim.fn.delete(bundled)
+                local state = run(0)
+                assert.are.equal(0, #state.calls)
+                assert.is_true(h.notified(notes, vim.log.levels.WARN))
+            end)
+        end)
+
+        it("2 uprojects, select dismissed -> UBT not called", function()
+            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
+            local selects = use_select(nil)
             local state = run(0)
+            assert.are.equal(1, #selects)
             assert.are.equal(0, #state.calls)
         end)
 
         it("2 uprojects, choose 2 -> UBT gets the second project and its Editor target", function()
             h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            local prompts = h.spy(vim.fn, "inputlist", 2)
+            local selects = use_select(2)
             local state = run(0)
-            assert.are.equal(1, #prompts)
-            local second = prompts[1][1][3]:gsub("^2: ", "")
+            assert.are.equal(1, #selects)
+            local second = selects[1].items[2].value
             local target = vim.fn.fnamemodify(second, ":t:r") .. "Editor"
             local cmd = state.calls[1].cmd
             assert.is_true(vim.tbl_contains(cmd, "-project=" .. second))
@@ -175,8 +246,8 @@ describe("project", function()
             config.opts.clangd_build_args = { "-NoExecCodeGenActions" }
             local state = run(0)
             assert.are.same({
-                "dotnet",
-                engine.BuildTool,
+                engine.GetDotNetCmd(),
+                engine.GetUbtDll(),
                 "-mode=GenerateClangDatabase",
                 "-NoExecCodeGenActions",
                 "-project=" .. root .. "/Game.uproject",
@@ -218,13 +289,12 @@ describe("project", function()
 
         it("engine path with spaces stays one argument", function()
             h.project({ ["Game.uproject"] = {} })
-            h.stub(
-                engine,
-                "BuildTool",
-                "C:/Program Files/Epic Games/UE_5.4/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
-            )
+            local dll = "C:/Program Files/Epic Games/UE_5.4/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
+            h.stub(engine, "GetUbtDll", function()
+                return dll
+            end)
             local state = run(0)
-            assert.is_true(vim.tbl_contains(state.calls[1].cmd, engine.BuildTool))
+            assert.is_true(vim.tbl_contains(state.calls[1].cmd, dll))
         end)
 
         it("each clangd_build_args entry is a separate argument", function()

@@ -6,18 +6,6 @@ local dataRoot = vim.fn.stdpath("data")
 
 --#region Utility functions
 
-local function getProjectRoot()
-    local uprojects = pathUtils.FindUprojects({
-        upward = true,
-        nameOnly = false,
-    })
-
-    if #uprojects == 0 then
-        return vim.fn.getcwd()
-    end
-    return vim.fn.fnamemodify(uprojects[1], ":p:h")
-end
-
 local function readLockfile(filePath)
     if filePath == nil or filePath == "" then
         return nil
@@ -77,7 +65,7 @@ function M.init()
     M.initDefaults()
 
     local enginePath = M.ReadEnginePath()
-    if enginePath ~= nil and M.IsUbtExist(enginePath) then
+    if enginePath ~= nil and M.IsRootEngineDirValid(enginePath) then
         M.SetEnginePath({ path = enginePath, silent = true, savePath = false })
     end
 end
@@ -86,18 +74,16 @@ end
 function M.initDefaults()
     M.EnginePathSet = false
     M.EnginePath = nil
-    M.BuildTool = nil
     M.WorkingDir = nil
 end
 
 ---Set (and optionally persist) the Unreal Engine path used to locate UnrealBuildTool.
 ---@param opts ParseEnginePathOpts
 function M.SetEnginePath(opts)
-    if M.IsUbtExist(opts.path) then
+    if M.IsRootEngineDirValid(opts.path) then
         M.EnginePath = opts.path
         M.EnginePathSet = true
-        M.BuildTool = M.ParseUbtPath(opts.path)
-        M.WorkingDir = getProjectRoot()
+        M.WorkingDir = pathUtils.GetProjectRoot()
 
         if opts.savePath then
             M.saveEnginePath(opts.path)
@@ -109,21 +95,89 @@ function M.SetEnginePath(opts)
     end
 end
 
-function M.ParseUbtPath(engineDir)
-    return vim.fs.joinpath(engineDir, "Engine", "Binaries", "DotNET", "UnrealBuildTool", "UnrealBuildTool.dll")
+local function parseFromBinaryDir(engineDir, ...)
+    return vim.fs.joinpath(engineDir, "Engine", "Binaries", ...)
 end
 
----@param enginePath string
----@return boolean
-function M.IsUbtExist(enginePath)
-    local buildTool = M.ParseUbtPath(enginePath)
-    return pathUtils.Exists(buildTool)
+---Find dotNET executable, prioritize the bundled files from engine itself
+---Then look for dotnet in $PATH
+---@param engineDir string?
+---@return boolean ok
+---@return string? path
+function M.ParseDotnetPath(engineDir)
+    if engineDir == nil then
+        return false, nil
+    end
+
+    local map = {
+        Win64 = {
+            name = "win",
+            fileName = "dotnet.exe",
+        },
+        Linux = {
+            name = "linux",
+            fileName = "dotnet",
+        },
+        Mac = {
+            name = "mac",
+            fileName = "dotnet",
+        },
+    }
+
+    local sys = require("unreal.system")
+    local platform = sys.GetPlatform()
+    local arch = sys.GetArch()
+
+    if arch == nil or map[platform] == nil then
+        return false, nil
+    end
+
+    local dotnetDir = parseFromBinaryDir(engineDir, "ThirdParty", "DotNet")
+    local parentDir = map[platform].name .. "-" .. arch
+    local globPattern = vim.fs.joinpath(dotnetDir, "*", parentDir, map[platform].fileName)
+
+    local found = vim.fn.glob(globPattern, false, true)
+    table.sort(found)
+
+    local path = found[#found]
+    if path and path ~= "" then
+        return true, path
+    end
+
+    path = vim.fn.exepath("dotnet")
+    if path and path ~= "" then
+        return false, path
+    end
+
+    return false, nil
+end
+
+---
+---@return boolean ok
+---@return string path
+function M.ParseUbtPath(engineDir)
+    local path = vim.fs.joinpath(engineDir, "Engine", "Binaries", "DotNET", "UnrealBuildTool", "UnrealBuildTool.dll")
+    return pathUtils.Exists(path), path
+end
+
+function M.IsRootEngineDirValid(engineDir)
+    local _, dotNetPath = M.ParseDotnetPath(engineDir)
+    if dotNetPath == nil then
+        return false
+    end
+
+    local ok, _ = M.ParseUbtPath(engineDir)
+    if not ok then
+        return false
+    end
+
+    return true
 end
 
 ---@private
 function M.saveEnginePath(path)
     local lockData = readLockfile(M.LockFilePath) or {}
-    lockData[getProjectRoot()] = path
+    lockData[pathUtils.GetProjectRoot()] = path
 
     local success, msg = writeLockfile(M.LockFilePath, lockData)
     if success then
@@ -139,7 +193,7 @@ function M.ReadEnginePath()
         return nil
     end
 
-    return lockData[getProjectRoot()]
+    return lockData[pathUtils.GetProjectRoot()]
 end
 
 function M.InputEnginePath()
@@ -152,11 +206,11 @@ function M.InputEnginePath()
 end
 
 function M.EnsureEnginePath()
-    if M.WorkingDir ~= getProjectRoot() then
+    if M.WorkingDir ~= pathUtils.GetProjectRoot() then
         M.initDefaults()
 
         local enginePath = M.ReadEnginePath()
-        if enginePath ~= nil and M.IsUbtExist(enginePath) then
+        if enginePath ~= nil and M.IsRootEngineDirValid(enginePath) then
             M.SetEnginePath({ path = enginePath, silent = true, savePath = false })
         end
     end
@@ -201,6 +255,26 @@ function M.GetExecuteCmd()
     end
 
     return false, {}
+end
+
+-----------------------------------
+
+function M.GetUbtDll()
+    if M.EnginePathSet == false then
+        return nil
+    end
+
+    local ok, ubtPath = M.ParseUbtPath(M.EnginePath)
+    return ok and ubtPath or nil
+end
+
+function M.GetDotNetCmd()
+    if M.EnginePathSet == false then
+        return nil
+    end
+
+    local _, dotnetExe = M.ParseDotnetPath(M.EnginePath)
+    return dotnetExe
 end
 
 return M

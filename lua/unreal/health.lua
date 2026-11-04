@@ -32,6 +32,15 @@ local function check_executable(name, hint)
     end
 end
 
+local function check_lsp()
+    local health = vim.health
+    if vim.lsp.is_enabled("clangd") then
+        health.ok("nvim clangd is enabled")
+    else
+        health.warn("nvim clangd is not enabled", 'call vim.lsp.enable("clangd")')
+    end
+end
+
 ---@param module string Lua module to require
 ---@param name string plugin name shown in the report
 ---@param hint string why the plugin is needed
@@ -52,23 +61,16 @@ local function check_engine_path()
     engine.initDefaults()
 
     local enginePath = engine.ReadEnginePath()
-    local ubtPathValid = enginePath ~= nil and engine.IsUbtExist(enginePath) or false
+
+    if enginePath ~= nil then
+        health.ok("Engine path found:\n" .. enginePath)
+    else
+        health.warn("Engine path not set", "Run :Unreal SetEnginePath")
+    end
 
     local platform = require("unreal.system").GetPlatform()
     local executablePath = enginePath ~= nil and engine.GetEngineExecutable(platform, enginePath) or nil
     local executablePathValid = require("unreal.path_utils").Exists(executablePath)
-
-    if ubtPathValid and executablePathValid then
-        health.ok("All required paths found")
-    else
-        health.error("Required path(s) missing")
-    end
-
-    if enginePath ~= nil then
-        health.ok("Engine path found: " .. enginePath)
-    else
-        health.warn("Engine path not set", "Run :Unreal SetEnginePath")
-    end
 
     if executablePathValid then
         health.ok("Executable path found:\n" .. executablePath)
@@ -76,8 +78,17 @@ local function check_engine_path()
         health.warn("Executable path not found")
     end
 
-    if ubtPathValid then
-        health.ok("UBT path found:\n" .. engine.ParseUbtPath(enginePath))
+    local dotNetBundled, dotnetPath = engine.ParseDotnetPath(enginePath)
+    if dotnetPath ~= nil then
+        local text = (dotNetBundled and "Bundled DotNet found:\n" or "System DotNet found:\n") .. dotnetPath
+        health.ok(text)
+    else
+        health.warn("DotNet path not found")
+    end
+
+    local UbtOk, ubtPath = engine.ParseUbtPath(enginePath)
+    if UbtOk then
+        health.ok("UBT path found:\n" .. ubtPath)
     else
         health.warn("UBT path not found")
     end
@@ -90,7 +101,6 @@ function M.check()
 
     health.start("System dependencies")
     check_executable("rg", "required for Search commands")
-    check_executable("dotnet", "for Unreal tools, e.g. UBT, UHT,...")
     check_executable("clangd", "for LSP functionalities")
 
     health.start("Plugin dependencies")
@@ -102,6 +112,7 @@ function M.check()
     end
 
     check_plugin("plenary", "plenary.nvim", "required for CompleteMacro")
+    check_lsp()
 
     health.start("Plugin core")
     check_setup()
