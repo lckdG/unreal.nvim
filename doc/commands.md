@@ -18,11 +18,11 @@ Open the `.uproject` in the working directory in the Unreal editor (on Windows, 
 
 ## RebuildClangd
 
-Regenerate `compile_commands.json` with UnrealBuildTool and copy it into the working directory. Output is shown in a terminal split; press any key to close it when the build is done.
+Regenerate `compile_commands.json` with UnrealBuildTool and copy it into the working directory. UnrealBuildTool runs with the engine's bundled `dotnet` when there is one, otherwise with the one from `$PATH` (see [Engine path](#engine-path)). Output is shown in a terminal split; press any key to close it when the build is done.
 
 ## SwitchSourceHeader
 
-Switch between a header and its source file. Searches the module's `Public`/`Private` folders first, then falls back to clangd.
+Switch between a header and its source file. Looks in the module's `Public`/`Private` folders first; if nothing matches, asks clangd.
 
 ## CreateImpl
 
