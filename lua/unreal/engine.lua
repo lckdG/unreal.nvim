@@ -6,18 +6,6 @@ local dataRoot = vim.fn.stdpath("data")
 
 --#region Utility functions
 
-local function getProjectRoot()
-    local uprojects = pathUtils.FindUprojects({
-        upward = true,
-        nameOnly = false,
-    })
-
-    if #uprojects == 0 then
-        return vim.fn.getcwd()
-    end
-    return vim.fn.fnamemodify(uprojects[1], ":p:h")
-end
-
 local function readLockfile(filePath)
     if filePath == nil or filePath == "" then
         return nil
@@ -95,7 +83,7 @@ function M.SetEnginePath(opts)
     if M.IsRootEngineDirValid(opts.path) then
         M.EnginePath = opts.path
         M.EnginePathSet = true
-        M.WorkingDir = getProjectRoot()
+        M.WorkingDir = pathUtils.GetProjectRoot()
 
         if opts.savePath then
             M.saveEnginePath(opts.path)
@@ -189,7 +177,7 @@ end
 ---@private
 function M.saveEnginePath(path)
     local lockData = readLockfile(M.LockFilePath) or {}
-    lockData[getProjectRoot()] = path
+    lockData[pathUtils.GetProjectRoot()] = path
 
     local success, msg = writeLockfile(M.LockFilePath, lockData)
     if success then
@@ -205,7 +193,7 @@ function M.ReadEnginePath()
         return nil
     end
 
-    return lockData[getProjectRoot()]
+    return lockData[pathUtils.GetProjectRoot()]
 end
 
 function M.InputEnginePath()
@@ -218,7 +206,7 @@ function M.InputEnginePath()
 end
 
 function M.EnsureEnginePath()
-    if M.WorkingDir ~= getProjectRoot() then
+    if M.WorkingDir ~= pathUtils.GetProjectRoot() then
         M.initDefaults()
 
         local enginePath = M.ReadEnginePath()
