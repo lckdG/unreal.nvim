@@ -13,7 +13,7 @@ function M.GetProjectRoot()
         return name:match("%.uproject$") ~= nil
     end
 
-    local root = vim.fs.root(cwd, { isUproject, { ".git", ".ignore", ".p4ignore" } })
+    local root = vim.fs.root(cwd, { isUproject, { ".git", ".p4ignore" } })
     return root or cwd
 end
 
