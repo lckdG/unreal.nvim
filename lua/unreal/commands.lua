@@ -1,4 +1,4 @@
---TODO: remove after 0.2.0
+--TODO: remove after 0.3.0
 local function getDeprecated()
     return {
         SetEnginePath = { "Engine", "SetPath" },
@@ -38,7 +38,7 @@ local function createCommands(config)
     vim.api.nvim_create_user_command(config.command_lead, function(opts)
         local args = opts.fargs
 
-        --TODO: remove after 0.2.0
+        --TODO: remove after 0.3.0
         if #args == 1 then
             local oldCommad = args[1]
             local deprecated = getDeprecated()
@@ -49,7 +49,7 @@ local function createCommands(config)
                 vim.deprecate(
                     oldCommad,
                     table.concat(args, " "),
-                    "0.2.0",
+                    "0.3.0",
                     require("unreal.config").info.PluginName,
                     false
                 )

@@ -111,7 +111,7 @@ Grep header, source, or both kinds of files with `rg`. Asks for the file type fi
 
 ## Deprecated names
 
-The old one-word commands still work until 0.2.0, with a deprecation warning:
+The old one-word commands still work until 0.3.0, with a deprecation warning:
 
 | Old | New |
 | --- | --- |
