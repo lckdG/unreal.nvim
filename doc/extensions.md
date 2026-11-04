@@ -38,11 +38,13 @@ require('unreal.ui').Use({
     Select = function(items, opts, cb) end,
     -- same signature as vim.ui.input
     Input = function(opts, cb) end,
-    -- cmd: { "rg", "--files", "-g", <glob> }
+    -- cmd: { "rg", "--files", <scope args...> }
     FileSearch = function(cmd, opts) end,
-    -- cmd: { "rg", "--vimgrep", "-S", "-g", <glob> }, without the search pattern
+    -- cmd: { "rg", "--vimgrep", "-S", <scope args...> }, without the search pattern
     GrepSearch = function(cmd, opts) end,
 })
 ```
+
+`<scope args...>` can be several args, e.g. `--no-ignore -g !Intermediate/ -g *.ini`; the last one is always the file name glob. Use `cmd` as given; do not assume it ends with `-g <glob>` only.
 
 `opts.prompt` holds the prompt or picker title. `desc` holds documentation lines for [Code Macro](#code) items and is `""` otherwise. `Use(nil)` restores the built-in UI.

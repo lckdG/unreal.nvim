@@ -32,6 +32,16 @@ Prompt for the engine path of the current project and save it. See [Engine path]
 
 Open the `.uproject` in the working directory in the Unreal editor (on Windows, with the default handler).
 
+### Project Edit
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                        *:Unreal-Project-Edit*
+```
+-->
+
+Open the `.uproject` in the working directory in a buffer. No engine path needed. `.uproject` and `.uplugin` files open as `json`, indented with tabs (4 wide) like Unreal writes them.
+
 ## Build
 
 ### Build Clangd
@@ -91,7 +101,7 @@ Switch between a header and its source file. Looks in the module's `Public`/`Pri
 ```
 -->
 
-Find header, source, or both kinds of files with `rg`. Asks for the file type first, then:
+Find files with `rg`. Asks for the file type first (scopes are listed below), then:
 
 - built-in UI: asks for part of the file name, runs the search once and fills the quickfix list
 - with an [extension](#extensions) such as Telescope: opens its live file search
@@ -104,10 +114,22 @@ Find header, source, or both kinds of files with `rg`. Asks for the file type fi
 ```
 -->
 
-Grep header, source, or both kinds of files with `rg`. Asks for the file type first, then:
+Grep files with `rg`. Asks for the file type first (scopes are listed below), then:
 
 - built-in UI: asks for the pattern, runs the search once and fills the quickfix list
 - with an [extension](#extensions) such as Telescope: opens its live grep
+
+### Search scopes
+
+| Scope | Files |
+| --- | --- |
+| All | `*.h`, `*.cpp` |
+| Headers | `*.h` |
+| Cpp | `*.cpp` |
+| Ini | `*.ini`, including gitignored ones such as `Saved/Config/`; skips `Intermediate/`, `Binaries/` and `CrashReportClient/` |
+| Build Files | `*.Build.cs`, `*.Target.cs` |
+
+With the built-in UI, the typed name only matches the part before the extension. For Build Files that is the module or target name: `Editor` finds `GameEditor.Target.cs`, `Target` finds nothing.
 
 ## Deprecated names
 
