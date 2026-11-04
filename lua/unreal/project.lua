@@ -7,6 +7,23 @@ local log = require("unreal.log")
 local info = config.info
 local logLevel = vim.log.levels
 
+---@param cb fun(uprojectPath: string)
+local function withUproject(cb)
+    local files = pathUtils.FindUprojects({ nameOnly = false, upward = false })
+    if #files == 0 then
+        log.Notify("No uproject file found!", logLevel.ERROR)
+    elseif #files == 1 then
+        cb(files[1])
+    else
+        local ui = require("unreal.ui")
+        ui.Select(ui.WrapList(files), { prompt = "Multiple uproject found, choose one" }, function(item)
+            if item ~= nil then
+                cb(item.value)
+            end
+        end)
+    end
+end
+
 local M = {}
 
 function M.init() end
@@ -18,7 +35,7 @@ function M.OpenUproject()
         return
     end
 
-    local function OpenUproject_Internal(projectPath)
+    withUproject(function(projectPath)
         local ok, executeCmd = engine.GetExecuteCmd()
         if not ok then
             log.Notify("Engine executable not found!", logLevel.ERROR)
@@ -26,21 +43,7 @@ function M.OpenUproject()
             table.insert(executeCmd, projectPath)
             vim.fn.jobstart(executeCmd, { detach = true })
         end
-    end
-
-    local uprojectFiles = pathUtils.FindUprojects({ nameOnly = false, upward = false })
-    if #uprojectFiles == 0 then
-        log.Notify("No uproject file found!", logLevel.ERROR)
-    elseif #uprojectFiles == 1 then
-        OpenUproject_Internal(uprojectFiles[1])
-    else
-        local ui = require("unreal.ui")
-        ui.Select(ui.WrapList(uprojectFiles), { prompt = "Multiple uproject found, choose one" }, function(item)
-            if item ~= nil then
-                OpenUproject_Internal(item.value)
-            end
-        end)
-    end
+    end)
 end
 
 ---Regenerate `compile_commands.json` via UnrealBuildTool and copy it into the working directory.
@@ -58,7 +61,7 @@ function M.RebuildClangd()
         return
     end
 
-    local function RebuildClangd_Internal(uprojectPath)
+    withUproject(function(uprojectPath)
         local projectName = vim.fn.fnamemodify(uprojectPath, ":t:r")
         local projectEditor = projectName .. "Editor"
 
@@ -103,21 +106,7 @@ function M.RebuildClangd()
                 end
             end,
         })
-    end
-
-    local uprojectFiles = pathUtils.FindUprojects({ nameOnly = false, upward = false })
-    if #uprojectFiles == 0 then
-        log.Notify("No uproject file found!", logLevel.ERROR)
-    elseif #uprojectFiles == 1 then
-        RebuildClangd_Internal(uprojectFiles[1])
-    else
-        local ui = require("unreal.ui")
-        ui.Select(ui.WrapList(uprojectFiles), { prompt = "Multiple uproject found, choose one" }, function(item)
-            if item ~= nil then
-                RebuildClangd_Internal(item.value)
-            end
-        end)
-    end
+    end)
 end
 
 return M
