@@ -32,7 +32,7 @@ function M.config(opts)
         vim.deprecate(
             "telescope_extended_ignores",
             "extensions = { telescope = { ignores = ... } }",
-            "0.2.0",
+            "0.3.0",
             M.info.PluginName,
             false
         )

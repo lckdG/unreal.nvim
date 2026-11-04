@@ -47,6 +47,6 @@ extensions = {
 
 ## telescope_extended_ignores
 
-Deprecated, removed in 0.2.0. Use `extensions = { telescope = { ignores = ... } }` instead.
+Deprecated, removed in 0.3.0. Use `extensions = { telescope = { ignores = ... } }` instead.
 
 Still accepted for now: it shows a deprecation warning and becomes `extensions.telescope.ignores`, which enables the extension. It is ignored if `ignores` is already set there, or if the extension is set to `false`.

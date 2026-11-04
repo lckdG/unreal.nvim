@@ -104,7 +104,7 @@ require('unreal').setup({
 })
 ```
 
-`telescope_extended_ignores` is deprecated and will be removed in 0.2.0; use `extensions.telescope.ignores` instead.
+`telescope_extended_ignores` is deprecated and will be removed in 0.3.0; use `extensions.telescope.ignores` instead.
 
 ## Extensions
 
@@ -145,7 +145,7 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 
 If multiple `.uproject` files are found in the working directory tree, commands that need one (`Project Open`, `Build Clangd`) will prompt you to choose.
 
-The old one-word names (`OpenProject`, `RebuildClangd`, ...) still work until 0.2.0, with a deprecation warning.
+The old one-word names (`OpenProject`, `RebuildClangd`, ...) still work until 0.3.0, with a deprecation warning.
 
 Each project remembers its own engine path in `stdpath('data')/unreal.nvim/lock.dat`. The project folder is the closest one above the working directory that has a `.uproject`; if there is none, the closest one with `.git` or `.p4ignore`, and finally the working directory itself. An engine path is accepted when it has `Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll` and a usable `dotnet`; otherwise you are asked again.
 
