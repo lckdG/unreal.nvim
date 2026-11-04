@@ -119,6 +119,14 @@ describe("extensions.telescope", function()
             assert.are.same({ { prompt_title = "Grep", additional_args = { "-g", "*.h" } } }, greps)
         end)
 
+        it("multi-arg scope reaches telescope.builtin in full", function()
+            local scope = { "--no-ignore", "-g", "!Intermediate/", "-g", "*.ini" }
+            ui.FileSearch(vim.list_extend({ "rg", "--files" }, scope), { prompt = "Find" })
+            ui.GrepSearch(vim.list_extend({ "rg", "--vimgrep", "-S" }, scope), { prompt = "Grep" })
+            assert.are.same(vim.list_extend({ "rg", "--files" }, scope), finds[1].find_command)
+            assert.are.same(scope, greps[1].additional_args)
+        end)
+
         it("Input stays on vim.ui.input", function()
             local calls = h.spy(vim.ui, "input")
             ui.Input({ prompt = "Path: " }, function() end)

@@ -84,6 +84,44 @@ describe("search", function()
             end)
         end
 
+        local multiArgCases = {
+            {
+                "Ini",
+                {
+                    "--no-ignore",
+                    "-g",
+                    "!Intermediate/",
+                    "-g",
+                    "!Binaries/",
+                    "-g",
+                    "!CrashReportClient/",
+                    "-g",
+                    "*.ini",
+                },
+            },
+            { "Build Files", { "-g", "*.{Build,Target}.cs" } },
+        }
+        for _, case in ipairs(multiArgCases) do
+            it("choice " .. case[1] .. " -> every scope arg in order", function()
+                choose(case[1])
+                search.FindSource()
+                search.GrepSource()
+                assert.are.same(vim.list_extend({ "rg", "--files" }, case[2]), finds[1][1])
+                assert.are.same(vim.list_extend({ "rg", "--vimgrep", "-S" }, case[2]), greps[1][1])
+            end)
+        end
+
+        it("prompt lists every scope", function()
+            local names = {}
+            h.stub(ui, "Select", function(items)
+                names = vim.tbl_map(function(item)
+                    return item.name
+                end, items)
+            end)
+            search.FindSource()
+            assert.are.same({ "All", "Headers", "Cpp", "Ini", "Build Files" }, names)
+        end)
+
         it("cancelled -> no search", function()
             choose(nil)
             search.FindSource()
@@ -91,4 +129,104 @@ describe("search", function()
             assert.are.equal(0, #finds + #greps)
         end)
     end)
+
+    if vim.fn.executable("rg") == 1 then
+        describe("real rg, native provider", function()
+            local ui = require("unreal.ui")
+            local qf
+
+            before_each(function()
+                qf = nil
+                ui.Use(nil)
+                h.stub(vim.fn, "setqflist", function(_, _, what)
+                    qf = what
+                end)
+                h.stub(vim.cmd, "copen", function() end)
+            end)
+
+            local function run(fn, scope, typed)
+                h.stub(ui, "Select", function(items, _, cb)
+                    for _, item in ipairs(items) do
+                        if item.name == scope then
+                            return cb(item)
+                        end
+                    end
+                end)
+                h.stub(vim.ui, "input", function(_, cb)
+                    cb(typed)
+                end)
+                fn()
+                vim.wait(5000, function()
+                    return qf ~= nil
+                end)
+                local lines = qf and qf.lines or {}
+                table.sort(lines)
+                return lines
+            end
+
+            local iniTree = {
+                [".ignore"] = { "Saved/" },
+                ["Config/DefaultEngine.ini"] = { "[/Script/Engine]" },
+                ["Saved/Config/Linux/Game.ini"] = { "[/Script/Engine]" },
+                ["Plugins/P/Config/DefaultP.ini"] = { "[/Script/Engine]" },
+                ["Intermediate/Config/CoalescedSourceConfigs/E.ini"] = { "[/Script/Engine]" },
+                ["Binaries/Linux/x.ini"] = { "[/Script/Engine]" },
+                ["Plugins/P/Intermediate/a.ini"] = { "[/Script/Engine]" },
+                ["Saved/CrashReportClient/c.ini"] = { "[/Script/Engine]" },
+                ["Source/Game/Game.h"] = { "[/Script/Engine]" },
+            }
+
+            it("Ini files: ignored Saved/ included, generated dirs excluded", function()
+                h.project(iniTree)
+                assert.are.same({
+                    "Config/DefaultEngine.ini",
+                    "Plugins/P/Config/DefaultP.ini",
+                    "Saved/Config/Linux/Game.ini",
+                }, run(search.FindSource, "Ini", ""))
+            end)
+
+            it("Ini files: typed text narrows by name", function()
+                h.project(iniTree)
+                assert.are.same({ "Saved/Config/Linux/Game.ini" }, run(search.FindSource, "Ini", "Game"))
+            end)
+
+            it("Ini grep: same files, matches carry line and column", function()
+                h.project(iniTree)
+                assert.are.same({
+                    "Config/DefaultEngine.ini:1:2:[/Script/Engine]",
+                    "Plugins/P/Config/DefaultP.ini:1:2:[/Script/Engine]",
+                    "Saved/Config/Linux/Game.ini:1:2:[/Script/Engine]",
+                }, run(search.GrepSource, "Ini", "/Script"))
+            end)
+
+            local buildTree = {
+                ["Source/Game/Game.Build.cs"] = {},
+                ["Source/Game.Target.cs"] = {},
+                ["Source/GameEditor.Target.cs"] = {},
+                ["Plugins/P/Source/P/P.Build.cs"] = {},
+                ["Source/Game/Foo.cs"] = {},
+                ["Source/Game/Game.h"] = {},
+            }
+
+            it("Build Files: every Build.cs and Target.cs, nothing else", function()
+                h.project(buildTree)
+                assert.are.same({
+                    "Plugins/P/Source/P/P.Build.cs",
+                    "Source/Game.Target.cs",
+                    "Source/Game/Game.Build.cs",
+                    "Source/GameEditor.Target.cs",
+                }, run(search.FindSource, "Build Files", ""))
+            end)
+
+            it("Build Files: typed text narrows across both suffixes", function()
+                h.project(buildTree)
+                assert.are.same({ "Source/GameEditor.Target.cs" }, run(search.FindSource, "Build Files", "Editor"))
+                qf = nil
+                assert.are.same(
+                    { "Source/Game.Target.cs", "Source/Game/Game.Build.cs", "Source/GameEditor.Target.cs" },
+                    run(search.FindSource, "Build Files", "Game")
+                )
+            end)
+        end)
+    end
 end)
