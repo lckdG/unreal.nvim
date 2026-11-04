@@ -4,6 +4,8 @@ local engine = require("unreal.engine")
 local project = require("unreal.project")
 local system = require("unreal.system")
 local realGetExecuteCmd = engine.GetExecuteCmd
+local realGetUbtDll = engine.GetUbtDll
+local realGetDotNetCmd = engine.GetDotNetCmd
 
 local ERROR = vim.log.levels.ERROR
 
@@ -32,7 +34,12 @@ describe("project", function()
             return true
         end)
         h.stub(engine, "EnginePath", "/ue")
-        h.stub(engine, "BuildTool", "/ue/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll")
+        h.stub(engine, "GetUbtDll", function()
+            return "/ue/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
+        end)
+        h.stub(engine, "GetDotNetCmd", function()
+            return "/ue/dotnet"
+        end)
         h.stub(engine, "GetExecuteCmd", function()
             return true, { "editor" }
         end)
@@ -131,19 +138,70 @@ describe("project", function()
             assert.are.equal(0, #state.calls)
         end)
 
-        it("BuildTool nil -> warn, UBT not called", function()
-            h.project({ ["Game.uproject"] = {} })
-            h.stub(engine, "BuildTool", nil)
-            local state = run(0)
-            assert.are.equal(0, #state.calls)
-            assert.is_true(h.notified(notes, vim.log.levels.WARN))
-        end)
+        for _, getter in ipairs({ "GetUbtDll", "GetDotNetCmd" }) do
+            it(getter .. " nil -> warn, UBT not called", function()
+                h.project({ ["Game.uproject"] = {} })
+                h.stub(engine, getter, function()
+                    return nil
+                end)
+                local state = run(0)
+                assert.are.equal(0, #state.calls)
+                assert.is_true(h.notified(notes, vim.log.levels.WARN))
+            end)
+        end
 
         it("0 uprojects -> error, UBT not called", function()
             h.project({})
             local state = run(0)
             assert.are.equal(0, #state.calls)
             assert.is_true(h.notified(notes, ERROR))
+        end)
+
+        describe("dotnet resolved from a real engine tree", function()
+            local root, bundled
+
+            before_each(function()
+                h.project({ ["Game.uproject"] = {} })
+                h.stub(engine, "GetUbtDll", realGetUbtDll)
+                h.stub(engine, "GetDotNetCmd", realGetDotNetCmd)
+                root = h.tmpdir()
+                h.write(root, "Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll")
+                local plat = ({ Win64 = "win", Linux = "linux", Mac = "mac" })[system.GetPlatform()]
+                local exe = system.GetPlatform() == "Win64" and "dotnet.exe" or "dotnet"
+                bundled = h.write(
+                    root,
+                    vim.fs.joinpath("Engine/Binaries/ThirdParty/DotNet/8.0.300", plat .. "-" .. system.GetArch(), exe)
+                )
+                h.stub(engine, "EnginePath", root)
+                h.stub(engine, "EnginePathSet", true)
+            end)
+
+            local function path_dotnet(path)
+                h.stub(vim.fn, "exepath", function()
+                    return path
+                end)
+            end
+
+            it("bundled dotnet wins over PATH", function()
+                path_dotnet("/usr/bin/dotnet")
+                local state = run(0)
+                assert.are.equal(bundled, state.calls[1].cmd[1])
+            end)
+
+            it("no bundled dotnet -> falls back to PATH", function()
+                path_dotnet("/usr/bin/dotnet")
+                vim.fn.delete(bundled)
+                local state = run(0)
+                assert.are.equal("/usr/bin/dotnet", state.calls[1].cmd[1])
+            end)
+
+            it("neither -> warn, UBT not called", function()
+                path_dotnet("")
+                vim.fn.delete(bundled)
+                local state = run(0)
+                assert.are.equal(0, #state.calls)
+                assert.is_true(h.notified(notes, vim.log.levels.WARN))
+            end)
         end)
 
         it("2 uprojects, cancel -> UBT not called", function()
@@ -175,8 +233,8 @@ describe("project", function()
             config.opts.clangd_build_args = { "-NoExecCodeGenActions" }
             local state = run(0)
             assert.are.same({
-                "dotnet",
-                engine.BuildTool,
+                engine.GetDotNetCmd(),
+                engine.GetUbtDll(),
                 "-mode=GenerateClangDatabase",
                 "-NoExecCodeGenActions",
                 "-project=" .. root .. "/Game.uproject",
@@ -218,13 +276,12 @@ describe("project", function()
 
         it("engine path with spaces stays one argument", function()
             h.project({ ["Game.uproject"] = {} })
-            h.stub(
-                engine,
-                "BuildTool",
-                "C:/Program Files/Epic Games/UE_5.4/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
-            )
+            local dll = "C:/Program Files/Epic Games/UE_5.4/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
+            h.stub(engine, "GetUbtDll", function()
+                return dll
+            end)
             local state = run(0)
-            assert.is_true(vim.tbl_contains(state.calls[1].cmd, engine.BuildTool))
+            assert.is_true(vim.tbl_contains(state.calls[1].cmd, dll))
         end)
 
         it("each clangd_build_args entry is a separate argument", function()
