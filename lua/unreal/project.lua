@@ -51,8 +51,10 @@ function M.RebuildClangd()
         return
     end
 
-    if engine.BuildTool == nil then
-        log.Notify("No valid engine path found, aborting ", logLevel.WARN)
+    local dotnet = engine.GetDotNetCmd()
+    local buildTool = engine.GetUbtDll()
+    if dotnet == nil or buildTool == nil then
+        log.Notify("Unable to locate dotnet or UnrealBuildTool.dll", logLevel.WARN)
         return
     end
 
@@ -60,9 +62,8 @@ function M.RebuildClangd()
         local projectName = vim.fn.fnamemodify(uprojectPath, ":t:r")
         local projectEditor = projectName .. "Editor"
 
-        local buildTool = engine.BuildTool
         local commandParts = {
-            "dotnet",
+            dotnet,
             buildTool,
             "-mode=GenerateClangDatabase",
         }
