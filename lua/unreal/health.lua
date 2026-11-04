@@ -65,7 +65,7 @@ local function check_engine_path()
     if enginePath ~= nil then
         health.ok("Engine path found:\n" .. enginePath)
     else
-        health.warn("Engine path not set", "Run :Unreal SetEnginePath")
+        health.warn("Engine path not set", "Run :Unreal Engine SetPath")
     end
 
     local platform = require("unreal.system").GetPlatform()
@@ -111,7 +111,7 @@ function M.check()
         check_plugin("telescope", "telescope.nvim", "required for search commands")
     end
 
-    check_plugin("plenary", "plenary.nvim", "required for CompleteMacro")
+    check_plugin("plenary", "plenary.nvim", "required for LSP async calls")
     check_lsp()
 
     health.start("Plugin core")
