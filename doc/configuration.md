@@ -21,19 +21,19 @@ Grammar registered as nvim-treesitter's `cpp` parser. Override `url` and `revisi
 
 ## command_lead
 
-Name of the user command. With `command_lead = "UE"` the commands become `:UE OpenProject`, `:UE RebuildClangd`, ...
+Name of the user command. With `command_lead = "UE"` the commands become `:UE Project Open`, `:UE Build Clangd`, ...
 
 ## cmd_abbreviations
 
 Command-line abbreviations, expanded to `<command_lead> <value>`:
 
 ```lua
-cmd_abbreviations = { uo = "OpenProject", uc = "RebuildClangd" }
+cmd_abbreviations = { uo = "Project Open", uc = "Build Clangd" }
 ```
 
 ## clangd_build_args
 
-Extra arguments for the UnrealBuildTool `-mode=GenerateClangDatabase` call made by [RebuildClangd](#rebuildclangd). Each entry is one argument.
+Extra arguments for the UnrealBuildTool `-mode=GenerateClangDatabase` call made by [Build Clangd](#build). Each entry is one argument.
 
 ## extensions
 

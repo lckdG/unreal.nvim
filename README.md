@@ -55,7 +55,7 @@ vim.lsp.enable("clangd")
 
 After installing, run `:TSUpdate cpp` once so nvim-treesitter builds the Unreal C++ grammar.
 
-> **Note:** the plugin replaces nvim-treesitter's `cpp` parser with [tree-sitter-unreal-cpp](https://github.com/taku25/tree-sitter-unreal-cpp). This applies to every C++ file, not only Unreal projects, and there is no opt-out: `CreateImpl` and `CompleteMacro` depend on it.
+> **Note:** the plugin replaces nvim-treesitter's `cpp` parser with [tree-sitter-unreal-cpp](https://github.com/taku25/tree-sitter-unreal-cpp). This applies to every C++ file, not only Unreal projects, and there is no opt-out: `Code Impl` and `Code Macro` depend on it.
 
 Or call `setup()` explicitly:
 
@@ -79,19 +79,19 @@ require('unreal').setup({
         revision = '2d2d5c19a9a83e432e43c041252106995614b29a',
     },
 
-    -- Name of the user command, e.g. "UE" gives :UE OpenProject.
+    -- Name of the user command, e.g. "UE" gives :UE Project Open.
     command_lead = "Unreal",
 
     -- Command-line abbreviations, expanded to "<command_lead> <value>".
     -- Empty by default -- add your own, e.g.:
     cmd_abbreviations = {
-        uo  = "OpenProject",
-        uc  = "RebuildClangd",
-        uss = "SwitchSourceHeader",
-        uci = "CreateImpl",
-        ucm = "CompleteMacro",
-        ufs = "FindSource",
-        ugs = "GrepSource",
+        uo  = "Project Open",
+        uc  = "Build Clangd",
+        uss = "Code SwitchSourceHeader",
+        uci = "Code Impl",
+        ucm = "Code Macro",
+        ufs = "Search Files",
+        ugs = "Search Grep",
     },
 
     -- Extra arguments appended to the UnrealBuildTool GenerateClangDatabase invocation.
@@ -112,7 +112,7 @@ Extensions are optional integrations with other plugins, enabled through the `ex
 
 ### Telescope
 
-Makes `FindSource` / `GrepSource` live telescope pickers, and opens uproject and macro choices in telescope (with macro documentation preview):
+Makes `Search Files` / `Search Grep` live telescope pickers, and opens uproject and macro choices in telescope (with macro documentation preview):
 
 ```lua
 require('unreal').setup({
@@ -130,20 +130,22 @@ require('unreal').setup({
 
 ## Commands
 
-All functionality is exposed through a single command (`:Unreal` by default, see `command_lead`) with subcommand completion:
+All functionality is exposed through a single command (`:Unreal` by default, see `command_lead`) as `:Unreal <Group> <Action>`, with completion for both words:
 
 | Command | Description |
 |---|---|
-| `:Unreal SetEnginePath` | Prompt for and store the engine path for the current project |
-| `:Unreal OpenProject` | Open the `.uproject` in the working directory with the OS default handler |
-| `:Unreal RebuildClangd` | Regenerate `compile_commands.json` via `UnrealBuildTool` and copy it into the working directory |
-| `:Unreal SwitchSourceHeader` | Switch between the current header and its matching source file (falls back to clangd) |
-| `:Unreal CreateImpl` | Generate a `.cpp` implementation stub for the function under the cursor (in a header) |
-| `:Unreal CompleteMacro` | Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` attribute under the cursor |
-| `:Unreal FindSource` | Find header/cpp/both files (quickfix list, or live with an extension) |
-| `:Unreal GrepSource` | Grep header/cpp/both files (quickfix list, or live with an extension) |
+| `:Unreal Engine SetPath` | Prompt for and store the engine path for the current project |
+| `:Unreal Project Open` | Open the `.uproject` in the working directory with the OS default handler |
+| `:Unreal Build Clangd` | Regenerate `compile_commands.json` via `UnrealBuildTool` and copy it into the working directory |
+| `:Unreal Code SwitchSourceHeader` | Switch between the current header and its matching source file (falls back to clangd) |
+| `:Unreal Code Impl` | Generate a `.cpp` implementation stub for the function under the cursor (in a header) |
+| `:Unreal Code Macro` | Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` attribute under the cursor |
+| `:Unreal Search Files` | Find header/cpp/both files (quickfix list, or live with an extension) |
+| `:Unreal Search Grep` | Grep header/cpp/both files (quickfix list, or live with an extension) |
 
-If multiple `.uproject` files are found in the working directory tree, commands that need one (`OpenProject`, `RebuildClangd`) will prompt you to choose.
+If multiple `.uproject` files are found in the working directory tree, commands that need one (`Project Open`, `Build Clangd`) will prompt you to choose.
+
+The old one-word names (`OpenProject`, `RebuildClangd`, ...) still work until 0.2.0, with a deprecation warning.
 
 Each project remembers its own engine path in `stdpath('data')/unreal.nvim/lock.dat`. The project folder is the closest one above the working directory that has a `.uproject`; if there is none, the closest one with `.git` or `.p4ignore`, and finally the working directory itself. An engine path is accepted when it has `Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll` and a usable `dotnet`; otherwise you are asked again.
 

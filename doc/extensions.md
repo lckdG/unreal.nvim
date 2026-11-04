@@ -6,8 +6,8 @@ Extensions are optional integrations, enabled through the `extensions` option in
 
 Runs pickers and searches through [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim):
 
-- [FindSource](#findsource) and [GrepSource](#grepsource) become live telescope pickers
-- uproject and macro choices open in a telescope picker; [CompleteMacro](#completemacro) previews the macro documentation
+- [Search Files](#search) and [Search Grep](#search) become live telescope pickers
+- uproject and macro choices open in a telescope picker; [Code Macro](#code) previews the macro documentation
 
 ```lua
 require('unreal').setup({
@@ -21,7 +21,7 @@ require('unreal').setup({
 
 `telescope = true` enables it with no options.
 
-`ignores` are Lua patterns appended to telescope's global `file_ignore_patterns`, so they apply to every telescope picker, not only FindSource / GrepSource. There are no default patterns.
+`ignores` are Lua patterns appended to telescope's global `file_ignore_patterns`, so they apply to every telescope picker, not only Search Files / Search Grep. There are no default patterns.
 
 If telescope.nvim is not installed, an error is shown and the built-in UI is kept.
 
@@ -45,4 +45,4 @@ require('unreal.ui').Use({
 })
 ```
 
-`opts.prompt` holds the prompt or picker title. `desc` holds documentation lines for [CompleteMacro](#completemacro) items and is `""` otherwise. `Use(nil)` restores the built-in UI.
+`opts.prompt` holds the prompt or picker title. `desc` holds documentation lines for [Code Macro](#code) items and is `""` otherwise. `Use(nil)` restores the built-in UI.
