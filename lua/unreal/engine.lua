@@ -137,9 +137,23 @@ function M.ParseDotnetPath(engineDir)
     local globPattern = vim.fs.joinpath(dotnetDir, "*", parentDir, map[platform].fileName)
 
     local found = vim.fn.glob(globPattern, false, true)
-    table.sort(found)
+    table.sort(found, function(a, b)
+        local function parseVersion(path)
+            local archDir = vim.fs.dirname(path)
+            local versionDir = vim.fs.dirname(archDir)
 
-    local path = found[#found]
+            return vim.version.parse(vim.fs.basename(versionDir))
+        end
+
+        local va, vb = parseVersion(a), parseVersion(b)
+        if va and vb then
+            return vim.version.gt(va, vb)
+        end
+
+        return a > b
+    end)
+
+    local path = found[1]
     if path and path ~= "" then
         return true, path
     end
