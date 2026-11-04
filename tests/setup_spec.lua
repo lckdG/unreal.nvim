@@ -170,7 +170,7 @@ describe("setup() extensions", function()
     after_each(function()
         h.reset()
         pcall(vim.api.nvim_del_user_command, "Unreal")
-        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim")
+        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim.treesitter")
         package.loaded["telescope"] = nil
         package.loaded["telescope.config"] = nil
     end)
@@ -222,7 +222,7 @@ describe("treesitter.Hijack", function()
 
     after_each(function()
         h.reset()
-        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim")
+        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim.treesitter")
         package.loaded["nvim-treesitter.parsers"] = nil
     end)
 

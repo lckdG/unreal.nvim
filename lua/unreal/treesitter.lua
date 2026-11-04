@@ -43,7 +43,7 @@ function M.Hijack(custom_treesitter_opts)
         return
     end
 
-    local augroup = vim.api.nvim_create_augroup("unreal.nvim", { clear = true })
+    local augroup = vim.api.nvim_create_augroup("unreal.nvim.treesitter", { clear = true })
     vim.api.nvim_create_autocmd("User", {
         group = augroup,
         pattern = "TSUpdate",
