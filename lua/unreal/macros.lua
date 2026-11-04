@@ -3,9 +3,10 @@ local treesitter = require("unreal.treesitter")
 
 local logLevel = vim.log.levels
 
----
+---Insert a specifier into the macro at the position from `GetNextMacroPosition`,
+---adding `, ` separators and a `meta = (...)` wrapper when needed, then move the cursor after it.
 ---@param macroNode TSNode
----@param value table
+---@param value {text: string, isMeta: boolean}
 local function addMacro(macroNode, value)
     local text = value.text
     local isMeta = value.isMeta
@@ -36,12 +37,14 @@ end
 
 local M = {}
 
----Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` attribute under the cursor via telescope.
----Requires an attached clangd client; silently no-ops without one or if no macro is under the cursor.
----Completions are pulled from the IntelliSense-only specifier namespaces declared in
----`UObject/ObjectMacros.h`; this header can be missing/stripped in some engine builds, in
----which case results are empty. Treat the specifier list there as a reference, not exhaustive --
----see unreal-garden (https://unreal-garden.com) for the complete set of specifiers per macro.
+---`:Unreal Code Macro`: with the cursor inside `UCLASS(...)`, `USTRUCT(...)`, `UFUNCTION(...)`
+---or `UPROPERTY(...)`, pick a specifier (such as `EditAnywhere` or `BlueprintCallable`) and insert it.
+---Specifiers already in the macro are not offered again. The picker uses the active UI
+---(Telescope also previews each specifier's documentation).
+---Needs clangd attached to the buffer; shows an error without it or outside a macro.
+---The list comes from clangd reading the engine's `UObject/ObjectMacros.h`; some engine builds
+---strip it, which gives an empty list. It is a helpful subset, not complete:
+---see https://unreal-garden.com for every specifier.
 function M.CompleteMacro()
     if require("unreal.system").HasClangdEnabled() == false then
         log.Notify("Clangd is not enabled for current buffer!", logLevel.ERROR)

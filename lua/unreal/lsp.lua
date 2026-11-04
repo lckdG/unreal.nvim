@@ -29,16 +29,19 @@ end
 
 local M = {}
 
----@return vim.lsp.Client client
+---@return vim.lsp.Client? client nil when clangd is not attached to the current buffer
 local function GetClangdClient()
-    ---@type vim.lsp.Client
+    ---@type vim.lsp.Client?
     local lspClient = vim.lsp.get_clients({ name = "clangd", bufnr = 0 })[1]
     return lspClient
 end
 
----
----@param request MacroCompletionRequest
----@return table
+---Ask clangd which specifiers exist for a macro. The engine declares them as fake C++ names
+---(e.g. `UP::EditAnywhere` for UPROPERTY), so this types `UP::` in a hidden buffer and
+---reads clangd's completions.
+---Must run inside a plenary async function. Shows an error and returns `{}` on failure.
+---@param request MacroCompletionRequest which macro, and specifiers to leave out
+---@return unreal.UiEntry[] entries one per specifier, with its documentation
 function M.GetMacroCompletions(request)
     local lspClient = GetClangdClient()
     if lspClient == nil then

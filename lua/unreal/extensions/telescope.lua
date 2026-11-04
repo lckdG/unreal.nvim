@@ -1,6 +1,9 @@
 local TelescopeUiProvider = {}
 
----@param opts table
+---Turn on the Telescope extension (`extensions = { telescope = true }` or a table of options):
+---pickers and searches then use telescope.nvim. Shows an error and keeps the built-in UI
+---if telescope.nvim is not installed.
+---@param opts {ignores?: string[]}
 function TelescopeUiProvider.setup(opts)
     local success, _ = pcall(require, "telescope")
     if success == false then
@@ -48,7 +51,7 @@ function TelescopeUiProvider.Input(...)
     return vim.ui.input(...)
 end
 
----
+---Telescope picker over `items`; previews `desc` when the first item has one (macro docs).
 ---@param items unreal.UiEntry[]
 ---@param opts {prompt?: string}
 ---@param cb fun(value?: unreal.UiEntry)
@@ -98,8 +101,8 @@ function TelescopeUiProvider.Select(items, opts, cb)
         :find()
 end
 
----
----@param searchArgs string[]
+---`find_files` with the whole rg command as `find_command`.
+---@param searchArgs string[] `{ "rg", "--files", <scope args...> }`
 ---@param opts {prompt?: string}
 function TelescopeUiProvider.FileSearch(searchArgs, opts)
     require("telescope.builtin").find_files({
@@ -108,11 +111,11 @@ function TelescopeUiProvider.FileSearch(searchArgs, opts)
     })
 end
 
----
----@param searchArgs string[]
+---`live_grep` with the scope args as `additional_args`; telescope adds its own rg base args.
+---@param searchArgs string[] `{ "rg", "--vimgrep", "-S", <scope args...> }`
 ---@param opts {prompt?: string}
 function TelescopeUiProvider.GrepSearch(searchArgs, opts)
-    --- Search args always starts with rg --vimgrep -S, so we'll take from #4
+    -- skip the `rg --vimgrep -S` base, telescope supplies its own
     local args = vim.list_slice(searchArgs, 4, #searchArgs)
     require("telescope.builtin").live_grep({
         prompt_title = opts.prompt,
