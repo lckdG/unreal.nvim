@@ -33,7 +33,6 @@ describe("engine", function()
     before_each(function()
         config.config()
         notes = h.notifications()
-        -- host-independent: tests wanting a PATH dotnet stub exepath themselves
         h.stub(vim.fn, "exepath", function()
             return ""
         end)
@@ -191,7 +190,6 @@ describe("engine", function()
         end)
 
         it("unknown arch -> false, nil", function()
-            -- engine resolves unreal.system at call time; earlier h.unload() may have replaced the module
             h.stub(require("unreal.system"), "GetArch", function()
                 return nil
             end)
