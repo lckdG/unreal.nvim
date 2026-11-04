@@ -34,7 +34,6 @@
 
 ---@class (exact) MacroCompletionRequest
 ---@field identifier string
----@field lspClient vim.lsp.Client
 ---@field exclusions string[]
 
 ---@class DeclarationTemplate

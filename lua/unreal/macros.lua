@@ -3,78 +3,6 @@ local treesitter = require("unreal.treesitter")
 
 local logLevel = vim.log.levels
 
-local function createCompletionEntry(rawEntry, namespace, exclusions)
-    local label = vim.trim(rawEntry.label)
-    if vim.tbl_contains(exclusions, label) then
-        return nil
-    end
-
-    local desc = ""
-    if rawEntry["documentation"] then
-        if type(rawEntry.documentation) == "string" then
-            desc = rawEntry.documentation
-        else
-            desc = rawEntry.documentation.value
-        end
-    end
-
-    local descLines = vim.split(desc, "\n")
-
-    return {
-        name = namespace .. "::" .. label,
-        value = { text = label, isMeta = namespace == "UM" },
-        desc = descLines,
-    }
-end
-
----
----@param request MacroCompletionRequest
-local function getMacroCompletions(request)
-    local tempBufnr = require("unreal.system").CreateTempBuffer()
-
-    local namespace = string.sub(request.identifier, 1, 2)
-    local insertTerm = namespace .. "::"
-
-    vim.api.nvim_buf_set_lines(tempBufnr, 0, 0, false, { insertTerm })
-    vim.lsp.buf_attach_client(tempBufnr, request.lspClient.id)
-
-    local params = {
-        textDocument = vim.lsp.util.make_text_document_params(tempBufnr),
-        position = {
-            line = 0,
-            character = #insertTerm,
-        },
-        context = {
-            triggerKind = 1, -- Invoked trigger
-        },
-    }
-
-    local async = require("plenary.async")
-    local requestLsp = async.wrap(function(bufnr, method, param, callback)
-        vim.lsp.buf_request(bufnr, method, param, callback)
-    end, 4)
-
-    local err, result = requestLsp(tempBufnr, "textDocument/completion", params)
-    vim.api.nvim_buf_delete(tempBufnr, { force = true })
-
-    if err ~= nil then
-        log.Notify("Completion request error: " .. (err.message or vim.inspect(err)), logLevel.ERROR)
-        return {}
-    end
-
-    local exclusions = vim.list_extend({ namespace }, request.exclusions)
-    local entries = {}
-
-    for _, item in ipairs(result and (result.items or result) or {}) do
-        local entry = createCompletionEntry(item, namespace, exclusions)
-        if entry ~= nil then
-            table.insert(entries, entry)
-        end
-    end
-
-    return entries
-end
-
 ---
 ---@param macroNode TSNode
 ---@param value table
@@ -128,21 +56,21 @@ function M.CompleteMacro()
         return
     end
 
-    ---@type vim.lsp.Client
-    local lspClient = vim.lsp.get_clients({ name = "clangd", bufnr = 0 })[1]
+    local lsp = require("unreal.lsp")
 
     local async = require("plenary.async")
     async.run(function()
-        local namespaceCompletions = getMacroCompletions({
+        local namespaceCompletions = lsp.GetMacroCompletions{
             identifier = identifier,
-            lspClient = lspClient,
             exclusions = existedVariables.arguments,
-        })
+        }
 
         -- We need the UM:: here
         -- The rest are just for human readability
-        local metaCompletions =
-            getMacroCompletions({ identifier = "UMETA", lspClient = lspClient, exclusions = existedVariables.metas })
+        local metaCompletions = lsp.GetMacroCompletions{
+            identifier = "UMETA",
+            exclusions = existedVariables.metas
+        }
 
         if #namespaceCompletions + #metaCompletions == 0 then
             return
