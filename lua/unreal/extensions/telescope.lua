@@ -112,7 +112,8 @@ end
 ---@param searchArgs string[]
 ---@param opts {prompt?: string}
 function TelescopeUiProvider.GrepSearch(searchArgs, opts)
-    local args = vim.list_slice(searchArgs, #searchArgs - 1, #searchArgs)
+    --- Search args always starts with rg --vimgrep -S, so we'll take from #4
+    local args = vim.list_slice(searchArgs, 4, #searchArgs)
     require("telescope.builtin").live_grep({
         prompt_title = opts.prompt,
         additional_args = args,

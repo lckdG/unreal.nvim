@@ -34,15 +34,33 @@ local function getInputSourceTypes(callback)
     local choices = {
         {
             name = "All",
-            value = "*.{h,cpp}",
+            value = { "-g", "*.{h,cpp}" },
         },
         {
             name = "Headers",
-            value = "*.h",
+            value = { "-g", "*.h" },
         },
         {
             name = "Cpp",
-            value = "*.cpp",
+            value = { "-g", "*.cpp" },
+        },
+        {
+            name = "Ini",
+            value = {
+                "--no-ignore",
+                "-g",
+                "!Intermediate/",
+                "-g",
+                "!Binaries/",
+                "-g",
+                "!CrashReportClient/",
+                "-g",
+                "*.ini",
+            },
+        },
+        {
+            name = "Build Files",
+            value = { "-g", "*.{Build,Target}.cs" },
         },
     }
 
@@ -69,7 +87,7 @@ function M.FindSource()
             return
         end
 
-        local args = { "rg", "--files", "-g", globPattern }
+        local args = vim.list_extend({ "rg", "--files" }, globPattern)
         require("unreal.ui").FileSearch(args, { prompt = "Find source file: " })
     end)
 end
@@ -86,7 +104,7 @@ function M.GrepSource()
             return
         end
 
-        local args = { "rg", "--vimgrep", "-S", "-g", globPattern }
+        local args = vim.list_extend({ "rg", "--vimgrep", "-S" }, globPattern)
         require("unreal.ui").GrepSearch(args, { prompt = "Grep source file: " })
     end)
 end
