@@ -13,7 +13,7 @@ end
 function M.GetArch()
     local map = {
         x86_64 = "x64",
-        aarch64 = "aarch64",
+        aarch64 = "arm64",
         arm64 = "arm64",
     }
 
