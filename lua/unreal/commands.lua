@@ -20,6 +20,7 @@ local function createCommands(config)
         },
         Project = {
             Open = require("unreal.project").OpenUproject,
+            Edit = require("unreal.project").EditUproject,
         },
         Build = {
             Clangd = require("unreal.project").RebuildClangd,

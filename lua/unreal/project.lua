@@ -109,4 +109,10 @@ function M.RebuildClangd()
     end)
 end
 
+function M.EditUproject()
+    withUproject(function(path)
+        vim.cmd.edit(vim.fn.fnameescape(path))
+    end)
+end
+
 return M

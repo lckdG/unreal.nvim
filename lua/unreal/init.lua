@@ -11,6 +11,26 @@ local function enableExtensions(extensions)
     end
 end
 
+local function hookFileTypes()
+    vim.filetype.add({
+        extension = {
+            uproject = "json",
+            uplugin = "json",
+        },
+    })
+
+    local augroup = vim.api.nvim_create_augroup("unreal.nvim.ft", { clear = true })
+    vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
+        group = augroup,
+        pattern = { "*.uproject", "*.uplugin" },
+        callback = function()
+            vim.bo.shiftwidth = 4
+            vim.bo.tabstop = 4
+            vim.bo.expandtab = false
+        end,
+    })
+end
+
 local M = {}
 
 M.inited = false
@@ -33,6 +53,7 @@ function M.setup(opts)
     require("unreal.commands").init(configOpts)
 
     enableExtensions(configOpts.extensions)
+    hookFileTypes()
 
     M.inited = true
 end
