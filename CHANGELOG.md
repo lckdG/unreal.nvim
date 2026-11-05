@@ -4,15 +4,9 @@ All notable changes to unreal.nvim are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
-### Added
+### Fixed
 
-- `:Unreal Project Edit` opens the `.uproject` in a buffer. No engine path needed.
-- `.uproject` and `.uplugin` files open as `json`, indented with tabs (4 wide).
-- `Search Files` / `Search Grep` scopes `Ini` (`*.ini`, including gitignored `Saved/Config/`) and `Build Files` (`*.Build.cs`, `*.Target.cs`).
-
-### Changed
-
-- Custom UI providers: `FileSearch` / `GrepSearch` now get `{ "rg", ..., <scope args...> }`, which can hold several args (e.g. `--no-ignore -g !Intermediate/ -g *.ini`). Do not assume the cmd ends with a single `-g <glob>`.
+- `:Unreal Build Clangd` copies `compile_commands.json` next to the `.uproject`, not to the working directory. Opening Neovim above the project (e.g. repo root with `Game/Game.uproject`) no longer leaves the file where clangd can't pair it with the project.
 
 ## [0.2.0] - 2026-11-04
 
