@@ -322,6 +322,13 @@ describe("project", function()
             assert.is_true(h.notified(notes, vim.log.levels.INFO))
         end)
 
+        it("uproject in a subdir of cwd -> copies compile_commands.json next to it", function()
+            local root = h.project({ [".git/HEAD"] = {}, ["Game/Game.uproject"] = {} })
+            local state = run(0)
+            assert.is_nil(state.callback_error)
+            assert.are.same({ "/ue/compile_commands.json", root .. "/Game/compile_commands.json" }, copies[1])
+        end)
+
         it("copy fails -> error with reason", function()
             h.project({ ["Game.uproject"] = {} })
             h.stub(vim.uv, "fs_copyfile", function()
