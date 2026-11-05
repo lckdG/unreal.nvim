@@ -102,7 +102,7 @@ function M.RebuildClangd()
                 end
 
                 local sourceCC = vim.fs.joinpath(engine.EnginePath, info.CCFile)
-                local destCC = vim.fs.joinpath(vim.fn.getcwd(), info.CCFile)
+                local destCC = vim.fs.joinpath(vim.fs.dirname(uprojectPath), info.CCFile)
 
                 local ok, err = vim.uv.fs_copyfile(sourceCC, destCC)
                 if ok then
