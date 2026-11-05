@@ -43,6 +43,92 @@ local function writeLockfile(filePath, data)
     return false, "Unable to write to lock file"
 end
 
+---@param path string
+local function readInstalledJson(path)
+    local result = {}
+
+    if pathUtils.Exists(path) then
+        local file = io.open(path, "r")
+        if file then
+            local content = file:read("*a")
+            file:close()
+
+            local ok, data =
+                pcall(vim.json.decode, content, { luanil = { object = true, array = true }, skip_comments = true })
+
+            if not ok then
+                return result
+            end
+
+            local list = data["InstallationList"]
+            if list then
+                for _, item in ipairs(list) do
+                    local name = item["AppName"]
+                    local location = item["InstallLocation"]
+
+                    table.insert(result, { id = name, path = location })
+                end
+            end
+        end
+    end
+
+    return result
+end
+
+---@param path string
+local function readInstalledIni(path)
+    local result = {}
+
+    if pathUtils.Exists(path) then
+        local startRead = false
+
+        for line in io.lines(path) do
+            line = vim.trim(line)
+            if line ~= "" and not line:match("^[#^;]") then
+                local section = line:match("^%[(.+)%]$")
+
+                if section then
+                    startRead = section == "Installations"
+                elseif startRead then
+                    local key, val = line:match("^([^=]+)=(.*)$")
+                    if key and val then
+                        table.insert(result, { id = key, path = val })
+                    end
+                end
+            end
+        end
+    end
+
+    return result
+end
+
+local function readInstalledReg(path, cb)
+    local result = {}
+
+    vim.system({ "reg", "query", path }, { text = true }, function(exitInfo)
+        vim.schedule(function()
+            if exitInfo.code ~= 0 then
+                log.Notify(
+                    "Error when reading Unreal's Registry(" .. exitInfo.code .. "): " .. exitInfo.stderr,
+                    vim.log.levels.ERROR
+                )
+            else
+                local lines = vim.split(exitInfo.stdout, "\r?\n")
+                for _, line in ipairs(lines) do
+                    line = vim.trim(line)
+                    -- Line format: <BUILD_ID> REG_SZ <LOCATION>
+                    local id, location = line:match("^(%S+)%s+REG_SZ%s+(.*)$")
+                    if id then
+                        table.insert(result, { id = id, path = location })
+                    end
+                end
+            end
+
+            cb(result)
+        end)
+    end)
+end
+
 --#endregion
 
 local M = {}
@@ -68,6 +154,46 @@ function M.init()
     if enginePath ~= nil and M.IsRootEngineDirValid(enginePath) then
         M.SetEnginePath({ path = enginePath, silent = true, savePath = false })
     end
+
+    local files = pathUtils.FindEngineInstalledFiles()
+    M.FindInstalled(files)
+end
+
+---Find installed engine directories from config/registry files
+---@param files table
+function M.FindInstalled(files)
+    M.InstalledEngines = {}
+
+    for _, item in ipairs(files) do
+        local list
+        if item.type == "json" then
+            list = readInstalledJson(item.path)
+            M.AppendEngines(list)
+        elseif item.type == "ini" then
+            list = readInstalledIni(item.path)
+            M.AppendEngines(list)
+        elseif item.type == "reg" then
+            readInstalledReg(item.path, M.AppendEngines)
+        end
+    end
+end
+
+function M.AppendEngines(items)
+    for _, item in ipairs(items) do
+        local id = item.id
+        local path = item.path
+        if M.FindEngine(id) == nil and M.IsRootEngineDirValid(path) then
+            table.insert(M.InstalledEngines, item)
+        end
+    end
+end
+
+function M.FindEngine(id)
+    local match = vim.iter(M.InstalledEngines):find(function(item)
+        return item.id == id
+    end)
+
+    return match
 end
 
 ---@private

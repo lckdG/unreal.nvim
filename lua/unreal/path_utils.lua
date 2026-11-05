@@ -110,4 +110,48 @@ function M.GetSourceHeader()
     return #switchingFiles > 0 and switchingFiles[1] or nil
 end
 
+function M.FindEngineInstalledFiles()
+    ---@param segments string[]
+    ---@return string
+    local joinpath = function(segments)
+        local slash = package.config:sub(1, 1)
+        return table.concat(segments, slash)
+    end
+
+    local map = {
+        Win64 = {
+            {
+                path = joinpath({ vim.env.ProgramData or "", "Epic", "UnrealEngineLauncher", "LauncherInstalled.dat" }),
+                type = "json",
+            },
+            {
+                path = joinpath({ "HKCU", "Software", "Epic Games", "Unreal Engine", "Builds" }),
+                type = "reg",
+            },
+        },
+        Mac = {
+            {
+                path = joinpath({
+                    vim.env.HOME or "",
+                    "Library",
+                    "Application Support",
+                    "Epic",
+                    "UnrealEngineLauncher",
+                    "LauncherInstalled.dat",
+                }),
+                type = "json",
+            },
+        },
+        Linux = {
+            {
+                path = joinpath({ vim.env.HOME or "", ".config", "Epic", "UnrealEngine", "Install.ini" }),
+                type = "ini",
+            },
+        },
+    }
+
+    local platform = require("unreal.system").GetPlatform()
+    return map[platform]
+end
+
 return M
