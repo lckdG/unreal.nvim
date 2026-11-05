@@ -6,6 +6,7 @@ vim.env.XDG_DATA_HOME = dataHome
 local config = require("unreal.config")
 local engine = require("unreal.engine")
 local system = require("unreal.system")
+local pathUtils = require("unreal.path_utils")
 
 local UBT = "Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
 local DOTNET_DIR = "Engine/Binaries/ThirdParty/DotNet"
@@ -591,6 +592,198 @@ describe("engine", function()
             withSystemdRun()
             local _, cmd = engine.GetExecuteCmd()
             assert.are.equal("open", cmd[1])
+        end)
+    end)
+
+    describe("InstalledEngines", function()
+        local function use_sources(sources)
+            h.stub(pathUtils, "FindEngineInstalledFiles", function()
+                return sources
+            end)
+        end
+
+        local function launcher_json(installs)
+            local list = {}
+            for name, location in pairs(installs) do
+                table.insert(list, { AppName = name, InstallLocation = location, AppVersion = name })
+            end
+            local path = vim.fs.joinpath(h.tmpdir(), "LauncherInstalled.dat")
+            vim.fn.writefile({ vim.json.encode({ InstallationList = list }) }, path)
+            return { path = path, type = "json" }
+        end
+
+        local function install_ini(installs)
+            local lines = { "[Installations]" }
+            for id, location in pairs(installs) do
+                table.insert(lines, id .. "=" .. location)
+            end
+            local path = vim.fs.joinpath(h.tmpdir(), "Install.ini")
+            vim.fn.writefile(lines, path)
+            return { path = path, type = "ini" }
+        end
+
+        local function installed_paths()
+            local paths = {}
+            for _, e in ipairs(engine.InstalledEngines) do
+                table.insert(paths, e.path)
+            end
+            table.sort(paths)
+            return paths
+        end
+
+        local function sorted(list)
+            table.sort(list)
+            return list
+        end
+
+        before_each(function()
+            fresh_lockfile()
+            h.project({})
+        end)
+
+        it("no source files -> empty", function()
+            use_sources({})
+            engine.init()
+            assert.are.same({}, engine.InstalledEngines)
+        end)
+
+        it("source file missing on disk -> empty, no notify", function()
+            use_sources({ { path = vim.fs.joinpath(h.tmpdir(), "LauncherInstalled.dat"), type = "json" } })
+            engine.init()
+            assert.are.same({}, engine.InstalledEngines)
+            assert.are.equal(0, #notes)
+        end)
+
+        it("LauncherInstalled.dat with 2 valid installs -> both paths", function()
+            local a, b = fake_engine(), fake_engine()
+            use_sources({ launcher_json({ ["UE_5.3"] = a, ["UE_5.4"] = b }) })
+            engine.init()
+            assert.are.equal(2, #engine.InstalledEngines)
+            assert.are.same(sorted({ a, b }), installed_paths())
+        end)
+
+        it("LauncherInstalled.dat entries keep AppName as id", function()
+            local a = fake_engine()
+            use_sources({ launcher_json({ ["UE_5.4"] = a }) })
+            engine.init()
+            assert.are.same({ { id = "UE_5.4", path = a } }, engine.InstalledEngines)
+        end)
+
+        it("Install.ini with 2 valid installs -> both paths", function()
+            local a, b = fake_engine(), fake_engine()
+            use_sources({ install_ini({ ["UE_5.4"] = a, ["{6F3B1A2C-0000-0000-0000-000000000000}"] = b }) })
+            engine.init()
+            assert.are.equal(2, #engine.InstalledEngines)
+            assert.are.same(sorted({ a, b }), installed_paths())
+        end)
+
+        it("invalid engine dir -> hidden, valid one kept", function()
+            local valid, invalid = fake_engine(), h.tmpdir()
+            use_sources({ launcher_json({ ["UE_5.3"] = invalid, ["UE_5.4"] = valid }) })
+            engine.init()
+            assert.are.same({ valid }, installed_paths())
+        end)
+
+        it("same path in two sources -> listed once", function()
+            local a, b = fake_engine(), fake_engine()
+            use_sources({ launcher_json({ ["UE_5.4"] = a }), install_ini({ ["UE_5.4"] = a, ["UE_5.3"] = b }) })
+            engine.init()
+            assert.are.same(sorted({ a, b }), installed_paths())
+        end)
+
+        it("malformed LauncherInstalled.dat -> skipped, other sources kept", function()
+            local a = fake_engine()
+            local bad = vim.fs.joinpath(h.tmpdir(), "LauncherInstalled.dat")
+            vim.fn.writefile({ "{ not json" }, bad)
+            use_sources({ { path = bad, type = "json" }, install_ini({ ["UE_5.4"] = a }) })
+            engine.init()
+            assert.are.same({ a }, installed_paths())
+        end)
+
+        describe("registry", function()
+            local KEY = "HKCU\\Software\\Epic Games\\Unreal Engine\\Builds"
+
+            local function reg_query(code, builds)
+                local lines = { "", KEY }
+                for id, location in pairs(builds or {}) do
+                    table.insert(lines, "    " .. id .. "    REG_SZ    " .. location)
+                end
+                table.insert(lines, "")
+                local stdout = table.concat(lines, "\r\n")
+                return h.spy(vim, "system", function(_, _, on_exit)
+                    on_exit({ code = code, stdout = code == 0 and stdout or "", stderr = code == 0 and "" or "ERROR" })
+                    return {}
+                end)
+            end
+
+            local function wait_for(count)
+                vim.wait(1000, function()
+                    return #engine.InstalledEngines >= count
+                end)
+            end
+
+            before_each(function()
+                use_sources({ { path = KEY, type = "reg" } })
+            end)
+
+            it("runs reg query on the Builds key", function()
+                local calls = reg_query(0, {})
+                engine.init()
+                assert.are.same({ "reg", "query", KEY }, calls[1][1])
+            end)
+
+            it("2 valid builds -> both paths, GUID as id", function()
+                local a, b = fake_engine(), fake_engine()
+                local guidA = "{11111111-1111-1111-1111-111111111111}"
+                local guidB = "{22222222-2222-2222-2222-222222222222}"
+                reg_query(0, { [guidA] = a, [guidB] = b })
+                engine.init()
+                wait_for(2)
+                assert.are.same(sorted({ a, b }), installed_paths())
+                assert.are.equal(a, engine.FindEngine(guidA).path)
+            end)
+
+            it("build path with spaces -> kept whole", function()
+                local root = vim.fs.joinpath(h.tmpdir(), "Epic Games", "UE Source")
+                h.write(root, UBT)
+                h.write(root, bundled_dotnet("8.0.300"))
+                reg_query(0, { ["{33333333-3333-3333-3333-333333333333}"] = root })
+                engine.init()
+                wait_for(1)
+                assert.are.same({ root }, installed_paths())
+            end)
+
+            it("invalid build dir -> hidden", function()
+                reg_query(0, { ["{44444444-4444-4444-4444-444444444444}"] = h.tmpdir() })
+                engine.init()
+                vim.wait(50)
+                assert.are.same({}, engine.InstalledEngines)
+            end)
+
+            it("key missing (reg exit 1) -> empty, no notify", function()
+                reg_query(1)
+                engine.init()
+                vim.wait(50)
+                assert.are.same({}, engine.InstalledEngines)
+                assert.are.equal(1, #notes)
+            end)
+
+            it("registry and LauncherInstalled.dat -> both listed", function()
+                local a, b = fake_engine(), fake_engine()
+                use_sources({ launcher_json({ ["UE_5.4"] = a }), { path = KEY, type = "reg" } })
+                reg_query(0, { ["{55555555-5555-5555-5555-555555555555}"] = b })
+                engine.init()
+                wait_for(2)
+                assert.are.same(sorted({ a, b }), installed_paths())
+            end)
+        end)
+
+        it("init twice -> not accumulated", function()
+            local a = fake_engine()
+            use_sources({ launcher_json({ ["UE_5.4"] = a }) })
+            engine.init()
+            engine.init()
+            assert.are.same({ a }, installed_paths())
         end)
     end)
 end)
