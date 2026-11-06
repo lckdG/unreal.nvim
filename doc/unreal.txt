@@ -31,6 +31,7 @@ Table of Contents                                   *unreal-table-of-contents*
   - Search                                            |unreal-commands-search|
   - Deprecated names                        |unreal-commands-deprecated-names|
 6. Engine path                                            |unreal-engine-path|
+  - Project folder                         |unreal-engine-path-project-folder|
 7. Health                                                      |unreal-health|
 
 ==============================================================================
@@ -169,10 +170,8 @@ Project Open`, `:UE Build Clangd`, …
 
 UPROJECT_LIMITS                                *unreal-config-uproject_limits*
 
-Most `.uproject` files to look for under the project folder (see
-|unreal-engine-path|). The search stops once it finds this many, so opening
-Neovim in a big folder such as your home directory stays fast. Raise it if the
-picker misses projects in a folder with many of them.
+Most `.uproject` files a command looks for below the project folder. Raise it
+if the picker misses projects.
 
 
 CMD_ABBREVIATIONS                            *unreal-config-cmd_abbreviations*
@@ -286,9 +285,8 @@ lines for Code Macro |unreal-commands-code| items and is `""` otherwise.
                                                                      *:Unreal*
 
 All commands are `:Unreal <Group> <Action>` (see |unreal-config-command_lead|),
-with `<Tab>` completion for both words. If several `.uproject` files are found,
-the first command that needs one asks you to choose, and the choice is kept for
-the session (see |unreal-engine-path|).
+with `<Tab>` completion for both words. See |unreal-engine-path| for how the
+`.uproject` and engine are chosen.
 
 
 ENGINE                                                *unreal-commands-engine*
@@ -298,18 +296,15 @@ ENGINE SETPATH ~
 
                                                       *:Unreal-Engine-SetPath*
 
-Prompt for an engine folder and use it for every command instead of the engine
-the `.uproject` asks for. It is kept until `Engine ClearPath`, a `:cd` to
-another project, or Neovim closes; it is not saved to disk. See
-|unreal-engine-path|.
+Use an engine folder you type instead of the one the `.uproject` asks for.
+Lasts until `Engine ClearPath`, `:cd` to another project, or Neovim closes.
 
 
 ENGINE CLEARPATH ~
 
                                                     *:Unreal-Engine-ClearPath*
 
-Forget the folder set with `Engine SetPath`, so commands go back to the engine
-the `.uproject` asks for.
+Forget the `Engine SetPath` folder.
 
 
 PROJECT                                              *unreal-commands-project*
@@ -319,26 +314,24 @@ PROJECT OPEN ~
 
                                                         *:Unreal-Project-Open*
 
-Open the project’s `.uproject` in the Unreal editor, using the engine the
-`.uproject` asks for. The editor runs in the background and keeps running if
-Neovim closes.
+Open the project in the Unreal editor. The editor keeps running if Neovim
+closes.
 
 
 PROJECT EDIT ~
 
                                                         *:Unreal-Project-Edit*
 
-Open the project’s `.uproject` in a buffer. No engine needed. `.uproject` and
-`.uplugin` files open as `json`, indented with tabs (4 wide) like Unreal writes
-them.
+Open the `.uproject` in a buffer. `.uproject` and `.uplugin` files open as
+`json` with 4-wide tabs.
 
 
 PROJECT SELECT ~
 
                                                       *:Unreal-Project-Select*
 
-Choose which `.uproject` the other commands use. Only needed when the project
-folder has several; with one, it is picked automatically.
+Choose which `.uproject` the other commands use, e.g. when the project folder
+has several.
 
 
 BUILD                                                  *unreal-commands-build*
@@ -349,11 +342,31 @@ BUILD CLANGD ~
                                                         *:Unreal-Build-Clangd*
 
 Regenerate `compile_commands.json` with UnrealBuildTool and copy it next to the
-`.uproject`. Only `dotnet` and UnrealBuildTool are needed, not the editor, so
-it also works on a source build before the editor is compiled. UnrealBuildTool
-runs with the engine’s bundled `dotnet` when there is one, otherwise with the
-one from `$PATH` (see |unreal-engine-path|). Output is shown in a terminal
-split; press any key to close it when the build is done.
+`.uproject`. Does not need the editor. Output shows in a terminal split; press
+any key to close it when done.
+
+
+BUILD CONFIG ~
+
+                                                        *:Unreal-Build-Config*
+
+Pick a `BuildConfiguration.xml` (UnrealBuildTool settings) and open it:
+
+  ----------------------------------------------------------------------------------------------------
+  Entry                               File
+  ----------------------------------- ----------------------------------------------------------------
+  Project Config                      <project>/Saved/UnrealBuildTool/BuildConfiguration.xml
+
+  User Config                         ~/.config/Unreal Engine/UnrealBuildTool/BuildConfiguration.xml
+                                      (Linux, Mac)
+
+  User AppData / Document Config      %APPDATA%\Unreal Engine\UnrealBuildTool\… and
+                                      Documents\Unreal Engine\UnrealBuildTool\… (Windows)
+
+  Engine Config                       <engine>/Engine/Saved/UnrealBuildTool/BuildConfiguration.xml
+  ----------------------------------------------------------------------------------------------------
+Project and Engine entries need a chosen `.uproject`. A missing file is created
+from a template after you confirm, and written when you save.
 
 
 CODE                                                    *unreal-commands-code*
@@ -454,42 +467,44 @@ The old one-word commands still work until 0.3.0, with a deprecation warning:
 ==============================================================================
 6. Engine path                                            *unreal-engine-path*
 
-When Neovim starts, the plugin reads which Unreal Engine versions are
-installed:
+Installed engines are read when Neovim starts:
 
   -------------------------------------------------------------------------------------------------------------------
   OS                                  Source
   ----------------------------------- -------------------------------------------------------------------------------
-  Windows                             %ProgramData%\Epic\UnrealEngineLauncher\LauncherInstalled.dat (launcher) and
-                                      the registry key HKCU\Software\Epic Games\Unreal Engine\Builds (source builds)
+  Windows                             %ProgramData%\Epic\UnrealEngineLauncher\LauncherInstalled.dat and registry
+                                      HKCU\Software\Epic Games\Unreal Engine\Builds (source builds)
 
   Mac                                 ~/Library/Application Support/Epic/UnrealEngineLauncher/LauncherInstalled.dat
 
   Linux                               ~/.config/Epic/UnrealEngine/Install.ini
   -------------------------------------------------------------------------------------------------------------------
-An engine folder is only used when it has
-`Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll` and a usable
-`dotnet`.
+An engine folder needs
+`Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll` and a `dotnet`:
+the engine’s bundled one (`Engine/Binaries/ThirdParty/DotNet/`, newest
+first), else the one on `$PATH`.
 
-`dotnet` prioritizes the bundled executable from the engine
-(`Engine/Binaries/ThirdParty/DotNet/<version>/<os>-<arch>/`, newest version
-first), then the one from `$PATH`.
+Commands use, in order:
 
-Commands that need the engine pick it in this order:
+1. the folder from `:Unreal Engine SetPath`
+2. the engine named by the `.uproject`’s `EngineAssociation` (e.g. `"5.4"` or a source build ID)
+3. a prompt for the engine folder (not remembered)
 
-1. the folder set with `:Unreal Engine SetPath`
-2. the installed engine named by the `.uproject`’s `EngineAssociation` field: a version such as `"5.4"` (the launcher lists it as `UE_5.4`) or the ID of a source build
-3. otherwise they ask for the engine folder; the answer is used once and not remembered
+`Project Open` also needs the editor; `Build Clangd` does not.
 
-`Project Open` also needs the engine’s `UnrealEditor` program. `Build Clangd`
-only needs `dotnet` and UnrealBuildTool.
 
-The project folder is the closest one above the working directory that has a
-`.uproject`. If there is none, the closest one with `.git` or `.p4ignore` is
-used, and finally the working directory itself. `.uproject` files are searched
-under it (at most |unreal-config-uproject_limits|, 5 by default). The chosen
-`.uproject` and the `Engine SetPath` folder are kept until Neovim closes or the
-working directory moves to another project folder. Nothing is saved to disk.
+PROJECT FOLDER                             *unreal-engine-path-project-folder*
+
+The closest folder above the working directory with a `.uproject`, else with
+`.git` or `.p4ignore`, else the working directory.
+
+At startup and after `:cd` to another project, a `.uproject` directly in that
+folder is chosen (one is picked if there are several). If there is none, the
+first command that needs one searches subfolders (up to
+|unreal-config-uproject_limits|) and asks if it finds several.
+
+The chosen `.uproject` and the `SetPath` folder last until Neovim closes or you
+`:cd` to another project. Nothing is saved to disk.
 
 
 ==============================================================================
@@ -502,10 +517,9 @@ Run `:checkhealth unreal` to check:
 - telescope.nvim is available, only when the telescope extension |unreal-extensions-telescope| is enabled
 - clangd is enabled with `vim.lsp.enable("clangd")`
 - `setup()` was called
-- a `.uproject` is chosen for this session (run any project command, or `:Unreal Project Select`)
-- the engine for it is found: the folder from `Engine SetPath` (shown as a warning, since it overrides the `.uproject`), or the installed engine named by its `EngineAssociation`
-- the engine’s version, read from `Engine/Build/Build.version` (e.g. `5.4.2`); a warning when the file is missing or unreadable
-- the engine’s editor, `dotnet` and UnrealBuildTool are found, with the path of each; for `dotnet` it also tells whether it is the engine’s bundled one or the one from `$PATH`
+- the chosen `.uproject`
+- its engine (a `SetPath` folder shows as a warning) and the engine version
+- the engine’s editor, `dotnet` (bundled or `$PATH`) and UnrealBuildTool
 
 Generated by panvimdoc <https://github.com/kdheepak/panvimdoc>
 

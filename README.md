@@ -138,27 +138,24 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 
 | Command | Description |
 |---|---|
-| `:Unreal Engine SetPath` | Prompt for an engine folder to use instead of the one the `.uproject` asks for (this session only) |
-| `:Unreal Engine ClearPath` | Forget the folder from `Engine SetPath` |
-| `:Unreal Project Open` | Open the project's `.uproject` in the Unreal editor |
-| `:Unreal Project Edit` | Open the project's `.uproject` in a buffer |
+| `:Unreal Engine SetPath` | Use a typed engine folder for this session |
+| `:Unreal Engine ClearPath` | Forget the `SetPath` folder |
+| `:Unreal Project Open` | Open the project in the Unreal editor |
+| `:Unreal Project Edit` | Open the `.uproject` in a buffer |
 | `:Unreal Project Select` | Choose which `.uproject` the other commands use |
-| `:Unreal Build Clangd` | Regenerate `compile_commands.json` via `UnrealBuildTool` and copy it next to the `.uproject` |
+| `:Unreal Build Clangd` | Regenerate `compile_commands.json` next to the `.uproject` |
+| `:Unreal Build Config` | Open a project, user or engine `BuildConfiguration.xml` |
 | `:Unreal Code SwitchSourceHeader` | Switch between the current header and its matching source file (falls back to clangd) |
 | `:Unreal Code Impl` | Generate a `.cpp` implementation stub for the function under the cursor (in a header) |
 | `:Unreal Code Macro` | Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` attribute under the cursor |
 | `:Unreal Search Files` | Find header/cpp, `.ini` or `Build.cs`/`Target.cs` files (quickfix list, or live with an extension) |
 | `:Unreal Search Grep` | Grep header/cpp, `.ini` or `Build.cs`/`Target.cs` files (quickfix list, or live with an extension) |
 
-`.uproject` files are searched under the project folder: the closest one above the working directory that has a `.uproject`; if there is none, the closest one with `.git` or `.p4ignore`, and finally the working directory itself. If several are found, the first command that needs one (`Project Open`, `Project Edit`, `Build Clangd`) asks you to choose, and the choice is kept until you `:cd` to another project or run `Project Select`.
+The `.uproject` and engine are found automatically: the engine comes from the `.uproject`'s `EngineAssociation` and your installed engines. If something is not found, the command asks. Nothing is saved to disk; see `:help unreal-engine-path`.
 
 The old one-word names (`OpenProject`, `RebuildClangd`, ...) still work until 0.3.0, with a deprecation warning.
 
-The engine is found automatically: installed engines are read from the Epic launcher list (Windows, Mac), the registry (Windows source builds) or `~/.config/Epic/UnrealEngine/Install.ini` (Linux), and the one named by the `.uproject`'s `EngineAssociation` is used. If it is not found, commands ask for the engine folder. An engine folder is accepted when it has `Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll` and a usable `dotnet`. Nothing is saved to disk.
-
-`dotnet` prioritizes the bundled executable from the engine (`Engine/Binaries/ThirdParty/DotNet/<version>/<os>-<arch>/`, newest version first), then the one from `$PATH`.
-
-Run `:checkhealth unreal` to check dependencies, the chosen `.uproject`, its engine and the engine version. See `:help unreal.nvim` or the [doc](doc/) directory for the full reference.
+Run `:checkhealth unreal` to check dependencies, the `.uproject` and its engine. See `:help unreal.nvim` or the [doc](doc/) directory for the full reference.
 
 ## Acknowledgements
 
