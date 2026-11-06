@@ -19,7 +19,7 @@
 - Find/grep source, `.ini` and `Build.cs`/`Target.cs` files
 - Open the `.uproject` in the Unreal editor
 - Edit the `.uproject` in a buffer
-- Per-project engine path, cached across sessions
+- Finds installed engines and picks the one each `.uproject` asks for
 - Optional extensions, e.g. telescope integration
 - Unreal-aware treesitter grammar
 

@@ -54,43 +54,70 @@ local function check_plugin(module, name, hint)
     end
 end
 
-local function check_engine_path()
+local function check_project_path()
+    local health = vim.health
+    local project = require("unreal.project")
+
+    local projectPath = project.UprojectPath
+    if projectPath ~= nil then
+        health.ok(".uproject file set:\n" .. projectPath)
+        return true, projectPath
+    else
+        health.warn("No .uproject set for this session", "Run :Unreal Project Select")
+        return false, nil
+    end
+end
+
+local function check_engine_path(uprojectPath)
     local health = vim.health
     local engine = require("unreal.engine")
 
-    engine.initDefaults()
+    local enginePath = nil
+    local overridenPath = engine.OverrideEnginePath
 
-    local enginePath = engine.ReadEnginePath()
-
-    if enginePath ~= nil then
-        health.ok("Engine path found:\n" .. enginePath)
+    if overridenPath ~= nil then
+        enginePath = overridenPath
+        health.warn("Overridden engine: found\n" .. "Path: " .. enginePath)
     else
-        health.warn("Engine path not set", "Run :Unreal Engine SetPath")
+        local engineId = engine.GetAssociatedEngine(uprojectPath)
+        local engineInfo = engine.FindEngine(engineId)
+        local enginePathExist = engineInfo ~= nil
+        enginePath = engineInfo and engineInfo.path or nil
+
+        if enginePathExist then
+            health.ok("Associated engine: found\n" .. "ID: " .. engineId .. "\nPath: " .. enginePath)
+        else
+            health.error("Associated engine: not found", "Check the .uproject file\nOr run :Unreal Engine SetPath")
+        end
     end
 
-    local platform = require("unreal.system").GetPlatform()
-    local executablePath = enginePath ~= nil and engine.GetEngineExecutable(platform, enginePath) or nil
-    local executablePathValid = require("unreal.path_utils").Exists(executablePath)
-
-    if executablePathValid then
-        health.ok("Executable path found:\n" .. executablePath)
+    local engineVersion = engine.GetEngineVersion(enginePath)
+    if engineVersion ~= "0.0.0" then
+        health.ok("Engine version: " .. engineVersion)
     else
-        health.warn("Executable path not found")
+        health.warn("Engine version: unable to determine")
+    end
+
+    local exeExists, exePath = engine.GetEngineExecutable(enginePath)
+    if exeExists then
+        health.ok("Engine executable:\n" .. exePath)
+    else
+        health.warn("Engine executable: not found")
     end
 
     local dotNetBundled, dotnetPath = engine.ParseDotnetPath(enginePath)
     if dotnetPath ~= nil then
-        local text = (dotNetBundled and "Bundled DotNet found:\n" or "System DotNet found:\n") .. dotnetPath
+        local text = (dotNetBundled and "Bundled .NET found:\n" or "System .NET found:\n") .. dotnetPath
         health.ok(text)
     else
-        health.warn("DotNet path not found")
+        health.warn(".NET: not found")
     end
 
     local UbtOk, ubtPath = engine.ParseUbtPath(enginePath)
     if UbtOk then
-        health.ok("UBT path found:\n" .. ubtPath)
+        health.ok("UnrealBuildTool found:\n" .. ubtPath)
     else
-        health.warn("UBT path not found")
+        health.warn("UnrealBuildTool: not found")
     end
 end
 
@@ -117,7 +144,11 @@ function M.check()
 
     health.start("Plugin core")
     check_setup()
-    check_engine_path()
+
+    local isProjectSet, projectPath = check_project_path()
+    if isProjectSet then
+        check_engine_path(projectPath)
+    end
 end
 
 return M

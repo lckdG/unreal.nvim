@@ -1,13 +1,8 @@
 --- Module options
 
 ---@class (exact) UprojectFindOpts
----@field nameOnly boolean
----@field upward boolean
-
----@class (exact) ParseEnginePathOpts
 ---@field path string
----@field silent boolean
----@field savePath boolean
+---@field nameOnly boolean
 
 ---@class (exact) QueryInfo
 ---@field bufnr number
@@ -22,6 +17,7 @@
 ---@class (exact) ConfigOpts
 ---@field custom_treesitter CustomTreesitterOpts?
 ---@field command_lead string
+---@field uproject_limits number
 ---@field cmd_abbreviations table?
 ---@field clangd_build_args table?
 ---@field extensions table<string, table|boolean>
@@ -41,6 +37,14 @@
 ---@field Skip boolean
 ---@field paramIdentifiers string[]
 ---@field ufunctionSpecifiers string[]
+
+--- Engine Classes
+---@class unreal.EngineTools
+---@field RootDir string
+---@field Version string?
+---@field EngineExe string[]?
+---@field DotNetExe string?
+---@field UnrealBuildTool string?
 
 --- Ui Classes
 ---@class unreal.UiEntry

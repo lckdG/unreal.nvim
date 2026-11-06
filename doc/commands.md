@@ -6,7 +6,7 @@
 ```
 -->
 
-All commands are `:Unreal <Group> <Action>` (see [command_lead](#command_lead)), with `<Tab>` completion for both words. If several `.uproject` files are found, commands that need one prompt you to choose.
+All commands are `:Unreal <Group> <Action>` (see [command_lead](#command_lead)), with `<Tab>` completion for both words. If several `.uproject` files are found, the first command that needs one asks you to choose, and the choice is kept for the session (see [Engine path](#engine-path)).
 
 ## Engine
 
@@ -18,7 +18,17 @@ All commands are `:Unreal <Group> <Action>` (see [command_lead](#command_lead)),
 ```
 -->
 
-Prompt for the engine path of the current project and save it. See [Engine path](#engine-path).
+Prompt for an engine folder and use it for every command instead of the engine the `.uproject` asks for. It is kept until `Engine ClearPath`, a `:cd` to another project, or Neovim closes; it is not saved to disk. See [Engine path](#engine-path).
+
+### Engine ClearPath
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                    *:Unreal-Engine-ClearPath*
+```
+-->
+
+Forget the folder set with `Engine SetPath`, so commands go back to the engine the `.uproject` asks for.
 
 ## Project
 
@@ -30,7 +40,7 @@ Prompt for the engine path of the current project and save it. See [Engine path]
 ```
 -->
 
-Open the `.uproject` in the working directory in the Unreal editor (on Windows, with the default handler).
+Open the project's `.uproject` in the Unreal editor, using the engine the `.uproject` asks for. The editor runs in the background and keeps running if Neovim closes.
 
 ### Project Edit
 
@@ -40,7 +50,17 @@ Open the `.uproject` in the working directory in the Unreal editor (on Windows, 
 ```
 -->
 
-Open the `.uproject` in the working directory in a buffer. No engine path needed. `.uproject` and `.uplugin` files open as `json`, indented with tabs (4 wide) like Unreal writes them.
+Open the project's `.uproject` in a buffer. No engine needed. `.uproject` and `.uplugin` files open as `json`, indented with tabs (4 wide) like Unreal writes them.
+
+### Project Select
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                      *:Unreal-Project-Select*
+```
+-->
+
+Choose which `.uproject` the other commands use. Only needed when the project folder has several; with one, it is picked automatically.
 
 ## Build
 
@@ -52,7 +72,7 @@ Open the `.uproject` in the working directory in a buffer. No engine path needed
 ```
 -->
 
-Regenerate `compile_commands.json` with UnrealBuildTool and copy it into the working directory. UnrealBuildTool runs with the engine's bundled `dotnet` when there is one, otherwise with the one from `$PATH` (see [Engine path](#engine-path)). Output is shown in a terminal split; press any key to close it when the build is done.
+Regenerate `compile_commands.json` with UnrealBuildTool and copy it next to the `.uproject`. Only `dotnet` and UnrealBuildTool are needed, not the editor, so it also works on a source build before the editor is compiled. UnrealBuildTool runs with the engine's bundled `dotnet` when there is one, otherwise with the one from `$PATH` (see [Engine path](#engine-path)). Output is shown in a terminal split; press any key to close it when the build is done.
 
 ## Code
 

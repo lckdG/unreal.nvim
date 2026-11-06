@@ -4,15 +4,26 @@ All notable changes to unreal.nvim are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Breaking
+
+- **The engine path is no longer saved.** `stdpath('data')/unreal.nvim/lock.dat` is not read or written anymore; you can delete it. Installed engines are found automatically, and each `.uproject`'s `EngineAssociation` picks the engine.
+- **`:Unreal Engine SetPath` only lasts for the session.** It overrides the engine for every command until `:Unreal Engine ClearPath`, a `:cd` to another project, or Neovim closes.
+
 ### Added
 
-- `:Unreal Project Edit` opens the `.uproject` in a buffer. No engine path needed.
-- `.uproject` and `.uplugin` files open as `json`, indented with tabs (4 wide).
-- `Search Files` / `Search Grep` scopes `Ini` (`*.ini`, including gitignored `Saved/Config/`) and `Build Files` (`*.Build.cs`, `*.Target.cs`).
+- `:Unreal Engine ClearPath` forgets the folder set with `Engine SetPath`.
+- `:Unreal Project Select` chooses which `.uproject` the other commands use. The choice is kept for the session.
+- `:checkhealth unreal` shows the chosen `.uproject`, the engine it uses and the engine's version.
+- `uproject_limits` option: most `.uproject` files to look for under the project folder (default 5).
 
 ### Changed
 
-- Custom UI providers: `FileSearch` / `GrepSearch` now get `{ "rg", ..., <scope args...> }`, which can hold several args (e.g. `--no-ignore -g !Intermediate/ -g *.ini`). Do not assume the cmd ends with a single `-g <glob>`.
+- `:Unreal Project Open` starts `UnrealEditor.exe` directly on Windows instead of the `.uproject`'s default program.
+- `:Unreal Build Clangd` no longer needs the editor program, only `dotnet` and UnrealBuildTool.
+
+### Fixed
+
+- `:Unreal Build Clangd` copies `compile_commands.json` next to the `.uproject`, not to the working directory. Opening Neovim above the project (e.g. repo root with `Game/Game.uproject`) no longer leaves the file where clangd can't pair it with the project.
 
 ## [0.2.0] - 2026-11-04
 

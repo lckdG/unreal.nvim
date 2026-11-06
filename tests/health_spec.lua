@@ -1,5 +1,4 @@
 local h = dofile("tests/helpers.lua")
-vim.env.XDG_DATA_HOME = h.tmpdir()
 
 describe("health", function()
     local report
@@ -47,12 +46,16 @@ describe("health", function()
     end)
 
     describe("after setup()", function()
+        local engine, project
+
         before_each(function()
             h.project({})
             require("unreal.config").config()
-            local engine = require("unreal.engine")
-            engine.init()
-            h.stub(engine, "LockFilePath", vim.fs.joinpath(h.tmpdir(), "lock.dat"))
+            engine = require("unreal.engine")
+            project = require("unreal.project")
+            h.stub(engine, "InstalledEngines", {})
+            h.stub(engine, "OverrideEnginePath", nil)
+            h.stub(project, "UprojectPath", nil)
             h.stub(vim.fn, "exepath", function()
                 return ""
             end)
@@ -67,12 +70,11 @@ describe("health", function()
             .. require("unreal.system").GetArch()
             .. "/dotnet"
 
-        local function save_engine_path(path)
-            local engine = require("unreal.engine")
-            vim.fn.writefile({ vim.json.encode({ [vim.fn.getcwd()] = path }) }, engine.LockFilePath)
+        local function choose_uproject(association)
+            local data = association and { EngineAssociation = association } or {}
+            project.UprojectPath = h.write(h.tmpdir(), "Game.uproject", { vim.json.encode(data) })
         end
 
-        ---@param files string[] files to create under a fresh engine dir
         local function engine_with(files)
             h.stub(require("unreal.system"), "GetPlatform", function()
                 return "Linux"
@@ -81,7 +83,19 @@ describe("health", function()
             for _, f in ipairs(files) do
                 h.write(root, f)
             end
-            save_engine_path(root)
+            return root
+        end
+
+        local function with_version(root)
+            h.write(root, "Engine/Build/Build.version", {
+                vim.json.encode({ MajorVersion = 5, MinorVersion = 4, PatchVersion = 2 }),
+            })
+        end
+
+        local function installed(files)
+            local root = engine_with(files)
+            h.stub(engine, "InstalledEngines", { { id = "UE_5.4", path = root } })
+            choose_uproject("5.4")
             return root
         end
 
@@ -91,45 +105,88 @@ describe("health", function()
             assert.are.equal("ok", core_kinds()[1])
         end)
 
-        it("no engine path -> warn with Engine SetPath hint, rest warned", function()
+        it("no uproject chosen -> warn with Project Select hint, engine not checked", function()
             require("unreal.health").check()
-            assert.are.same({ "warn", "warn", "warn", "warn", "warn" }, core_kinds())
-            assert.are.equal("Run :Unreal Engine SetPath", section(CORE)[2].hint)
+            assert.are.same({ "warn", "warn" }, core_kinds())
+            assert.are.equal("Run :Unreal Project Select", section(CORE)[2].hint)
+        end)
+
+        it("uproject chosen -> ok with its path", function()
+            installed({ UBT, EDITOR, DOTNET })
+            require("unreal.health").check()
+            assert.are.equal("ok", core_kinds()[2])
+            assert.is_not_nil(section(CORE)[2].msg:find(project.UprojectPath, 1, true))
         end)
 
         it("UBT, editor and bundled dotnet present -> all ok, dotnet reported as bundled", function()
-            engine_with({ UBT, EDITOR, DOTNET })
+            local root = installed({ UBT, EDITOR, DOTNET })
+            with_version(root)
             require("unreal.health").check()
-            assert.are.same({ "warn", "ok", "ok", "ok", "ok" }, core_kinds())
-            assert.is_not_nil(section(CORE)[4].msg:find("Bundled DotNet", 1, true))
+            assert.are.same({ "warn", "ok", "ok", "ok", "ok", "ok", "ok" }, core_kinds())
+            assert.is_not_nil(section(CORE)[3].msg:find(root, 1, true))
+            assert.is_not_nil(section(CORE)[6].msg:find("Bundled .NET", 1, true))
         end)
 
-        it("saved path with nothing in it -> path ok, rest warned", function()
-            engine_with({})
+        it("Build.version present -> ok with the version", function()
+            with_version(installed({ UBT }))
             require("unreal.health").check()
-            assert.are.same({ "warn", "ok", "warn", "warn", "warn" }, core_kinds())
+            assert.are.equal("ok", core_kinds()[4])
+            assert.is_not_nil(section(CORE)[4].msg:find("5.4.2", 1, true))
+        end)
+
+        it("Build.version missing -> version warned", function()
+            installed({ UBT })
+            require("unreal.health").check()
+            assert.are.equal("warn", core_kinds()[4])
+            assert.is_not_nil(section(CORE)[4].msg:find("version", 1, true))
+        end)
+
+        it("associated engine not installed -> error with Engine SetPath hint, rest warned", function()
+            choose_uproject("5.4")
+            require("unreal.health").check()
+            assert.are.same({ "warn", "ok", "error", "warn", "warn", "warn", "warn" }, core_kinds())
+            assert.is_not_nil(section(CORE)[3].hint:find("Engine SetPath", 1, true))
+        end)
+
+        it("uproject without EngineAssociation -> error, no crash", function()
+            choose_uproject(nil)
+            local ok = pcall(require("unreal.health").check)
+            assert.is_true(ok)
+            assert.are.equal("error", core_kinds()[3])
+        end)
+
+        it("override set -> warned as overridden, its tools checked", function()
+            local root = engine_with({ UBT, EDITOR, DOTNET })
+            engine.OverrideEnginePath = root
+            choose_uproject("5.4")
+            require("unreal.health").check()
+            assert.are.same({ "warn", "ok", "warn", "warn", "ok", "ok", "ok" }, core_kinds())
+            assert.is_not_nil(section(CORE)[3].msg:find("Overridden", 1, true))
+            assert.is_not_nil(section(CORE)[3].msg:find(root, 1, true))
         end)
 
         it("UBT only -> editor and dotnet warned", function()
-            engine_with({ UBT })
+            installed({ UBT })
             require("unreal.health").check()
-            assert.are.same({ "warn", "ok", "warn", "warn", "ok" }, core_kinds())
+            assert.are.same({ "warn", "ok", "ok", "warn", "warn", "warn", "ok" }, core_kinds())
         end)
 
         it("editor only -> dotnet and UBT warned", function()
-            engine_with({ EDITOR })
+            local root = engine_with({ EDITOR })
+            engine.OverrideEnginePath = root
+            choose_uproject("5.4")
             require("unreal.health").check()
-            assert.are.same({ "warn", "ok", "ok", "warn", "warn" }, core_kinds())
+            assert.are.same({ "warn", "ok", "warn", "warn", "ok", "warn", "warn" }, core_kinds())
         end)
 
         it("no bundled dotnet, system dotnet on PATH -> ok, reported as system", function()
             h.stub(vim.fn, "exepath", function()
                 return "/usr/bin/dotnet"
             end)
-            engine_with({ UBT, EDITOR })
+            installed({ UBT, EDITOR })
             require("unreal.health").check()
-            assert.are.same({ "warn", "ok", "ok", "ok", "ok" }, core_kinds())
-            assert.is_not_nil(section(CORE)[4].msg:find("System DotNet", 1, true))
+            assert.are.same({ "warn", "ok", "ok", "warn", "ok", "ok", "ok" }, core_kinds())
+            assert.is_not_nil(section(CORE)[6].msg:find("System .NET", 1, true))
         end)
 
         for i, exe in ipairs({ "rg", "clangd" }) do

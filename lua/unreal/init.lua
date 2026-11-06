@@ -36,7 +36,7 @@ local M = {}
 M.inited = false
 
 ---Start the plugin. Call this once from your config: `require("unreal").setup({ ... })`.
----It merges your options with the defaults, loads the engine path saved for this project,
+---It merges your options with the defaults, reads which Unreal Engine versions are installed,
 ---registers the `:Unreal` command (and your abbreviations), turns on extensions,
 ---and sets up `.uproject`/`.uplugin` file types.
 ---@param opts ConfigOpts? your options; omitted means all defaults

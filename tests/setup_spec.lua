@@ -87,8 +87,11 @@ end)
 
 describe("commands", function()
     local subcommands = {
-        ["Engine SetPath"] = { "unreal.engine", "InputEnginePath" },
+        ["Engine SetPath"] = { "unreal.engine", "SetEnginePath_User" },
+        ["Engine ClearPath"] = { "unreal.engine", "ClearEnginePath_User" },
         ["Project Open"] = { "unreal.project", "OpenUproject" },
+        ["Project Edit"] = { "unreal.project", "EditUproject" },
+        ["Project Select"] = { "unreal.project", "SelectUproject_User" },
         ["Build Clangd"] = { "unreal.project", "RebuildClangd" },
         ["Code Impl"] = { "unreal.impl", "ImplementFunction" },
         ["Code Macro"] = { "unreal.macros", "CompleteMacro" },
@@ -250,7 +253,6 @@ describe("treesitter.Hijack", function()
     end)
 
     it("setup() twice -> one TSUpdate autocmd", function()
-        -- engine/project init touch the lock file and prompt; not under test here
         h.stub(require("unreal.engine"), "init", function() end)
         h.stub(require("unreal.project"), "init", function() end)
         local unreal = require("unreal")

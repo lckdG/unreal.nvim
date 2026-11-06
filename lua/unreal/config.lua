@@ -2,7 +2,6 @@ local M = {}
 
 M.info = {
     PluginName = "unreal.nvim",
-    LockFile = "lock.dat",
 
     CppExt = "cpp",
     HeaderExt = "h",
@@ -17,6 +16,7 @@ M.defaults = {
         revision = "2d2d5c19a9a83e432e43c041252106995614b29a",
     },
     command_lead = "Unreal",
+    uproject_limits = 5,
     clangd_build_args = {
         "-NoExecCodeGenActions",
     },
