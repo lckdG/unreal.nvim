@@ -15,17 +15,13 @@ describe("config", function()
         assert.are.equal(config.defaults.custom_treesitter.url, config.opts.custom_treesitter.url)
     end)
 
-    it("GetClangdBuildArgs returns the configured list", function()
-        config.config({ clangd_build_args = { "-a", "-b" } })
-        local args = config.GetClangdBuildArgs()
-        assert.are.same({ "-a", "-b" }, args)
-    end)
-
-    it("GetClangdBuildArgs with nil -> {}", function()
-        config.config()
-        config.opts.clangd_build_args = nil
-        assert.are.same({}, config.GetClangdBuildArgs())
-    end)
+    for _, case in ipairs({ { { "-a", "-b" }, { "-a", "-b" } }, { vim.NIL, {} } }) do
+        it("GetClangdBuildArgs with " .. vim.inspect(case[1]) .. " -> " .. vim.inspect(case[2]), function()
+            config.config()
+            config.opts.clangd_build_args = case[1] ~= vim.NIL and case[1] or nil
+            assert.are.same(case[2], config.GetClangdBuildArgs())
+        end)
+    end
 
     describe("IsExtensionEnabled", function()
         for _, case in ipairs({ { true, true }, { {}, true }, { false, false } }) do
@@ -53,30 +49,19 @@ describe("config", function()
             deprecations = h.spy(vim, "deprecate")
         end)
 
-        it("warns and moves ignores into extensions.telescope", function()
-            config.config({ telescope_extended_ignores = { "%.exe" } })
-            assert.are.equal(1, #deprecations)
-            assert.are.equal("telescope_extended_ignores", deprecations[1][1])
-            assert.are.same({ ignores = { "%.exe" } }, config.opts.extensions.telescope)
-        end)
-
-        it("telescope = true -> replaced by table with ignores", function()
-            config.config({ telescope_extended_ignores = { "%.exe" }, extensions = { telescope = true } })
-            assert.are.same({ ignores = { "%.exe" } }, config.opts.extensions.telescope)
-        end)
-
-        it("new ignores win over the old option", function()
-            config.config({
-                telescope_extended_ignores = { "%.exe" },
-                extensions = { telescope = { ignores = { "%.dll" } } },
-            })
-            assert.are.same({ "%.dll" }, config.opts.extensions.telescope.ignores)
-        end)
-
-        it("telescope = false -> stays disabled", function()
-            config.config({ telescope_extended_ignores = { "%.exe" }, extensions = { telescope = false } })
-            assert.is_false(config.opts.extensions.telescope)
-        end)
+        for _, case in ipairs({
+            { "not listed -> moved into extensions.telescope", nil, { ignores = { "%.exe" } } },
+            { "telescope = true -> replaced by table with ignores", true, { ignores = { "%.exe" } } },
+            { "new ignores win over the old option", { ignores = { "%.dll" } }, { ignores = { "%.dll" } } },
+            { "telescope = false -> stays disabled", false, false },
+        }) do
+            it(case[1] .. ", one deprecation warning", function()
+                config.config({ telescope_extended_ignores = { "%.exe" }, extensions = { telescope = case[2] } })
+                assert.are.same(case[3], config.opts.extensions.telescope)
+                assert.are.equal(1, #deprecations)
+                assert.are.equal("telescope_extended_ignores", deprecations[1][1])
+            end)
+        end
 
         it("old option unset -> no warning", function()
             config.config()
@@ -183,17 +168,13 @@ describe("setup() extensions", function()
         package.loaded["telescope.config"] = nil
     end)
 
-    it("telescope = true -> extension set up with {}", function()
-        local got = h.spy(require("unreal.extensions.telescope"), "setup")
-        require("unreal").setup({ extensions = { telescope = true } })
-        assert.are.same({ { {} } }, got)
-    end)
-
-    it("telescope = false -> extension not set up", function()
-        local got = h.spy(require("unreal.extensions.telescope"), "setup")
-        require("unreal").setup({ extensions = { telescope = false } })
-        assert.are.equal(0, #got)
-    end)
+    for _, case in ipairs({ { true, { { {} } } }, { false, {} } }) do
+        it("telescope = " .. tostring(case[1]) .. " -> setup calls " .. vim.inspect(case[2]), function()
+            local got = h.spy(require("unreal.extensions.telescope"), "setup")
+            require("unreal").setup({ extensions = { telescope = case[1] } })
+            assert.are.same(case[2], got)
+        end)
+    end
 
     it("setup() twice -> telescope ignores applied once, still the provider", function()
         local calls = {}

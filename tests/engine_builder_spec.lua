@@ -25,9 +25,9 @@ local function get_tags()
     system.GetUnrealTags(function(tags)
         result = tags
     end)
-    vim.wait(1000, function()
+    assert.is_true(vim.wait(1000, function()
         return result ~= nil
-    end)
+    end))
     return result
 end
 
@@ -102,9 +102,9 @@ describe("system.GetUnrealTags", function()
         system.GetUnrealTags(function()
             called = true
         end)
-        vim.wait(1000, function()
+        assert.is_true(vim.wait(1000, function()
             return #notes > 0
-        end)
+        end))
         assert.is_false(called)
         assert.is_true(h.notified(notes, ERROR, "Repository not found"))
     end)
@@ -145,9 +145,11 @@ describe("engine_builder.Checkout", function()
     local function run()
         local state = stub_jobstart()
         builder.Checkout()
-        vim.wait(1000, function()
-            return state.exited or #state.calls == 0
-        end)
+        if #state.calls > 0 then
+            assert.is_true(vim.wait(1000, function()
+                return state.exited
+            end))
+        end
         return state
     end
 
@@ -164,24 +166,30 @@ describe("engine_builder.Checkout", function()
         h.reset()
     end)
 
-    it("clone_dir not set -> error, tags not listed, no clone", function()
-        config.config()
-        use_select(1)
-        local state = run()
-        assert.is_true(h.notified(notes, vim.log.levels.ERROR))
-        assert.are.equal(0, #tagCalls)
-        assert.are.equal(0, #selects)
-        assert.are.equal(0, #state.calls)
-    end)
-
-    it("clone_dir missing on disk -> error, tags not listed, no clone", function()
-        config.config({ engine_source = { clone_dir = vim.fs.joinpath(cloneDir, "missing") } })
-        use_select(1)
-        local state = run()
-        assert.is_true(h.notified(notes, vim.log.levels.ERROR))
-        assert.are.equal(0, #tagCalls)
-        assert.are.equal(0, #state.calls)
-    end)
+    for _, case in ipairs({
+        {
+            "not set",
+            function()
+                return nil
+            end,
+        },
+        {
+            "missing on disk",
+            function()
+                return vim.fs.joinpath(cloneDir, "missing")
+            end,
+        },
+    }) do
+        it("clone_dir " .. case[1] .. " -> error, tags not listed, no clone", function()
+            config.config({ engine_source = { clone_dir = case[2]() } })
+            use_select(1)
+            local state = run()
+            assert.is_true(h.notified(notes, vim.log.levels.ERROR))
+            assert.are.equal(0, #tagCalls)
+            assert.are.equal(0, #selects)
+            assert.are.equal(0, #state.calls)
+        end)
+    end
 
     it("lists the tags in the order GetUnrealTags returns", function()
         use_select(nil)
@@ -242,7 +250,9 @@ describe("engine_builder.Checkout", function()
 
     it("terminal window closed before exit -> no error", function()
         use_select(1)
+        local jobs = 0
         h.stub(vim.fn, "jobstart", function(_, opts)
+            jobs = jobs + 1
             vim.api.nvim_win_close(vim.api.nvim_get_current_win(), true)
             assert.has_no.errors(function()
                 opts.on_exit(1, 0, "exit")
@@ -250,5 +260,6 @@ describe("engine_builder.Checkout", function()
             return 1
         end)
         builder.Checkout()
+        assert.are.equal(1, jobs)
     end)
 end)

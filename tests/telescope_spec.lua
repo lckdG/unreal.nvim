@@ -24,7 +24,6 @@ local function fake_telescope(existing)
     }
     package.loaded["telescope.config"] = {
         values = values,
-        -- like telescope, applied defaults show up in `values`
         set_defaults = function(...)
             table.insert(calls, { ... })
             values.file_ignore_patterns = (...).file_ignore_patterns
