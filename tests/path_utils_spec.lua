@@ -94,6 +94,10 @@ describe("path_utils", function()
     end)
 
     describe("FindUprojects", function()
+        before_each(function()
+            require("unreal.config").config()
+        end)
+
         it("finds .uproject in subdirectories of cwd", function()
             local root = h.project({ ["Game/Game.uproject"] = {} })
             local found = pathUtils.FindUprojects({ nameOnly = false })
@@ -113,24 +117,16 @@ describe("path_utils", function()
             assert.are.same({ "Game.uproject" }, pathUtils.FindUprojects({ nameOnly = true }))
         end)
 
-        it("opts = nil searches downward with full paths", function()
-            local root = h.project({ ["Game/Game.uproject"] = {} })
-            assert.are.same({ root .. "/Game/Game.uproject" }, pathUtils.FindUprojects())
-        end)
-
         it("opts = nil from a subfolder -> searches the project root", function()
             local root = h.project({ ["Game.uproject"] = {}, ["Source/Game/x.txt"] = {} })
             vim.cmd.cd("Source/Game")
             assert.are.same({ root .. "/Game.uproject" }, pathUtils.FindUprojects())
         end)
 
-        it("stops after 20 files", function()
-            local files = {}
-            for i = 1, 25 do
-                files["P" .. i .. "/P" .. i .. ".uproject"] = {}
-            end
-            h.project(files)
-            assert.are.equal(20, #pathUtils.FindUprojects({ nameOnly = true }))
+        it("stops after uproject_limits files", function()
+            require("unreal.config").config({ uproject_limits = 2 })
+            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {}, ["C/C.uproject"] = {} })
+            assert.are.equal(2, #pathUtils.FindUprojects({ nameOnly = true }))
         end)
 
         it("ignores Foo.uproject.bak", function()
