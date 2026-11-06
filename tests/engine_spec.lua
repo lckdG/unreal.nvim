@@ -308,6 +308,7 @@ describe("engine", function()
             local tools = engine.RetrieveTools(root)
             assert.are.same({
                 RootDir = root,
+                Version = "0.0.0",
                 EngineExe = { "setsid", "-f", vim.fs.joinpath(root, EDITOR) },
                 DotNetExe = vim.fs.joinpath(root, bundled_dotnet("8.0.300")),
                 UnrealBuildTool = vim.fs.joinpath(root, UBT),
@@ -324,7 +325,36 @@ describe("engine", function()
 
         it("empty folder, no system dotnet -> only RootDir", function()
             local root = h.tmpdir()
-            assert.are.same({ RootDir = root }, engine.RetrieveTools(root))
+            assert.are.same({ RootDir = root, Version = "0.0.0" }, engine.RetrieveTools(root))
+        end)
+    end)
+
+    describe("GetEngineVersion", function()
+        it("Build.version present -> major.minor.patch", function()
+            local root = h.tmpdir()
+            h.write(root, "Engine/Build/Build.version", {
+                vim.json.encode({ MajorVersion = 5, MinorVersion = 4, PatchVersion = 2, Changelist = 0 }),
+            })
+            assert.are.equal("5.4.2", engine.GetEngineVersion(root))
+        end)
+
+        it("Build.version missing -> 0.0.0", function()
+            assert.are.equal("0.0.0", engine.GetEngineVersion(h.tmpdir()))
+        end)
+
+        it("read-only Build.version -> still read", function()
+            local root = h.tmpdir()
+            local file = h.write(root, "Engine/Build/Build.version", {
+                vim.json.encode({ MajorVersion = 5, MinorVersion = 4, PatchVersion = 2 }),
+            })
+            vim.uv.fs_chmod(file, tonumber("444", 8))
+            assert.are.equal("5.4.2", engine.GetEngineVersion(root))
+        end)
+
+        it("Build.version with JSON null -> 0.0.0, no error", function()
+            local root = h.tmpdir()
+            h.write(root, "Engine/Build/Build.version", { "null" })
+            assert.are.equal("0.0.0", engine.GetEngineVersion(root))
         end)
     end)
 
