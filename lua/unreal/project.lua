@@ -13,6 +13,7 @@ M.UprojectPath = nil
 
 function M.init()
     M.ProjectRoot = pathUtils.GetProjectRoot()
+    M.FindDefaultUproject()
 
     local augroup = vim.api.nvim_create_augroup("unreal.nvim.project", { clear = true })
     vim.api.nvim_create_autocmd("DirChanged", {
@@ -24,9 +25,24 @@ function M.init()
             if M.ProjectRoot ~= lastRoot then
                 M.UprojectPath = nil
                 engine.ClearEnginePath_User()
+                M.FindDefaultUproject()
             end
         end,
     })
+end
+
+function M.FindDefaultUproject()
+    local found = {}
+    for name, kind in vim.fs.dir(M.ProjectRoot) do
+        if kind == "file" and vim.fs.ext(name) == "uproject" then
+            table.insert(found, vim.fs.joinpath(M.ProjectRoot, name))
+        end
+    end
+
+    if #found >= 1 then
+        table.sort(found)
+        M.UprojectPath = found[1]
+    end
 end
 
 ---Find `.uproject` files under the project folder (see `path_utils.GetProjectRoot`)
