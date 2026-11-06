@@ -145,4 +145,59 @@ describe("path_utils", function()
             assert.is_false(pathUtils.Exists(h.tmpdir() .. "/nope"))
         end)
     end)
+
+    describe("BuildConfiguration paths", function()
+        local saved
+
+        before_each(function()
+            saved = { HOME = vim.env.HOME, APPDATA = vim.env.APPDATA, USERPROFILE = vim.env.USERPROFILE }
+            vim.env.HOME = "/home/u"
+            vim.env.APPDATA = "C:/Users/u/AppData/Roaming"
+            vim.env.USERPROFILE = "C:/Users/u"
+        end)
+
+        after_each(function()
+            for key, value in pairs(saved) do
+                vim.env[key] = value
+            end
+        end)
+
+        local function on(platform)
+            h.stub(require("unreal.system"), "GetPlatform", function()
+                return platform
+            end)
+        end
+
+        local TAIL = "Unreal Engine/UnrealBuildTool/BuildConfiguration.xml"
+
+        it("project file sits next to the uproject", function()
+            assert.are.same({
+                name = "Project Config",
+                value = "/p/Game/Saved/UnrealBuildTool/BuildConfiguration.xml",
+            }, pathUtils.GetProjectBuildConfig("/p/Game/Game.uproject"))
+        end)
+
+        for _, platform in ipairs({ "Linux", "Mac" }) do
+            it(platform .. " -> ~/.config user file", function()
+                on(platform)
+                assert.are.same(
+                    { { name = "User Config", value = "/home/u/.config/" .. TAIL } },
+                    pathUtils.GetUserBuildConfig()
+                )
+            end)
+        end
+
+        it("Win64 -> AppData and Documents user files", function()
+            on("Win64")
+            assert.are.same({
+                { name = "User AppData Config", value = "C:/Users/u/AppData/Roaming/" .. TAIL },
+                { name = "User Document Config", value = "C:/Users/u/Documents/" .. TAIL },
+            }, pathUtils.GetUserBuildConfig())
+        end)
+
+        it("unknown platform -> nil", function()
+            on("Unknown")
+            assert.is_nil(pathUtils.GetUserBuildConfig())
+        end)
+    end)
 end)

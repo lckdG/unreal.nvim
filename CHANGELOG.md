@@ -15,6 +15,7 @@ All notable changes to unreal.nvim are listed here. The format follows [Keep a C
 - `:Unreal Project Select` chooses which `.uproject` the other commands use. The choice is kept for the session.
 - `:checkhealth unreal` shows the chosen `.uproject`, the engine it uses and the engine's version.
 - `uproject_limits` option: most `.uproject` files to look for under the project folder (default 5).
+- `:Unreal Build Config` opens a project, user or engine `BuildConfiguration.xml` (UnrealBuildTool settings), creating a missing one from a template after a confirm.
 
 ### Changed
 

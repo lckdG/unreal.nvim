@@ -554,4 +554,116 @@ describe("project", function()
             assert.are.equal(1, #vim.api.nvim_get_autocmds({ group = "unreal.nvim.project" }))
         end)
     end)
+
+    describe("EditBuildConfiguration", function()
+        local userFile, confirms
+        local ENGINE_CONFIG = "/ue/Engine/Saved/UnrealBuildTool/BuildConfiguration.xml"
+
+        local function current_file()
+            return vim.api.nvim_buf_get_name(0)
+        end
+
+        local function names(items)
+            return vim.tbl_map(function(item)
+                return item.name
+            end, items)
+        end
+
+        local function answer(choice)
+            confirms = h.spy(vim.fn, "confirm", choice)
+        end
+
+        before_each(function()
+            userFile = vim.fs.joinpath(h.tmpdir(), "Unreal Engine", "UnrealBuildTool", "BuildConfiguration.xml")
+            h.stub(require("unreal.path_utils"), "GetUserBuildConfig", function()
+                return { { name = "User Config", value = userFile } }
+            end)
+            answer(1)
+        end)
+
+        it("no uproject chosen -> only user entries, engine not looked up", function()
+            h.project({})
+            local finds = use_tools()
+            local selects = use_select(nil)
+            project.EditBuildConfiguration()
+            assert.are.same({ "User Config" }, names(selects[1].items))
+            assert.are.equal(0, #finds)
+        end)
+
+        it("uproject chosen -> project, user and engine entries", function()
+            local root = h.project({ [".git/HEAD"] = {}, ["Game/Game.uproject"] = {} })
+            project.UprojectPath = root .. "/Game/Game.uproject"
+            use_tools({ BuildConfig = ENGINE_CONFIG })
+            local selects = use_select(nil)
+            project.EditBuildConfiguration()
+            local items = selects[1].items
+            assert.are.same({ "Project Config", "User Config", "Engine Config" }, names(items))
+            assert.are.equal(root .. "/Game/Saved/UnrealBuildTool/BuildConfiguration.xml", items[1].value)
+            assert.are.equal(ENGINE_CONFIG, items[3].value)
+        end)
+
+        it("engine not found -> no engine entry", function()
+            local root = h.project({ ["Game.uproject"] = {} })
+            project.UprojectPath = root .. "/Game.uproject"
+            use_tools(false)
+            local selects = use_select(nil)
+            project.EditBuildConfiguration()
+            assert.are.same({ "Project Config", "User Config" }, names(selects[1].items))
+        end)
+
+        it("existing file -> opened as is, no confirm", function()
+            h.project({})
+            h.write(vim.fs.dirname(userFile), "BuildConfiguration.xml", { "<Configuration/>" })
+            use_select(1)
+            project.EditBuildConfiguration()
+            assert.are.equal(userFile, current_file())
+            assert.are.same({ "<Configuration/>" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+            assert.are.equal(0, #confirms)
+        end)
+
+        it("missing file, Yes -> template in buffer, folders created, file written on save", function()
+            h.project({})
+            use_select(1)
+            project.EditBuildConfiguration()
+            local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            assert.are.equal(userFile, current_file())
+            assert.are.equal(1, #confirms)
+            assert.are.equal(3, #lines)
+            assert.is_truthy(lines[1]:find("<?xml", 1, true))
+            assert.are.equal("</Configuration>", lines[3])
+            assert.are.equal(1, vim.fn.isdirectory(vim.fs.dirname(userFile)))
+            assert.are.equal(0, vim.fn.filereadable(userFile))
+        end)
+
+        it("missing file picked again before saving -> same buffer, template not duplicated", function()
+            h.project({})
+            use_select(1)
+            project.EditBuildConfiguration()
+            local buf = vim.api.nvim_get_current_buf()
+            project.EditBuildConfiguration()
+            vim.cmd.enew()
+            project.EditBuildConfiguration()
+            assert.are.equal(buf, vim.api.nvim_get_current_buf())
+            assert.are.equal(3, #vim.api.nvim_buf_get_lines(0, 0, -1, false))
+        end)
+
+        it("missing file, No -> nothing opened, no folder created", function()
+            h.project({})
+            answer(2)
+            use_select(1)
+            local before = current_file()
+            project.EditBuildConfiguration()
+            assert.are.equal(before, current_file())
+            assert.are.equal(0, vim.fn.isdirectory(vim.fs.dirname(userFile)))
+        end)
+
+        it("list dismissed -> nothing opened, no confirm", function()
+            h.project({})
+            use_select(nil)
+            local before = current_file()
+            project.EditBuildConfiguration()
+            assert.are.equal(before, current_file())
+            assert.are.equal(0, #confirms)
+        end)
+    end)
 end)

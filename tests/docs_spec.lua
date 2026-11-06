@@ -19,6 +19,7 @@ describe("help file", function()
         "*:Unreal-Project-Edit*",
         "*:Unreal-Project-Select*",
         "*:Unreal-Build-Clangd*",
+        "*:Unreal-Build-Config*",
         "*:Unreal-Code-Impl*",
         "*:Unreal-Code-Macro*",
         "*:Unreal-Code-SwitchSourceHeader*",

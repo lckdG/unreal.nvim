@@ -339,6 +339,19 @@ describe("engine", function()
         end)
     end)
 
+    describe("ParseBuildConfiguration", function()
+        it("engine dir -> Engine/Saved/UnrealBuildTool/BuildConfiguration.xml", function()
+            assert.are.equal(
+                vim.fs.joinpath("/ue", "Engine/Saved/UnrealBuildTool/BuildConfiguration.xml"),
+                engine.ParseBuildConfiguration("/ue")
+            )
+        end)
+
+        it("nil engine dir -> nil", function()
+            assert.is_nil(engine.ParseBuildConfiguration(nil))
+        end)
+    end)
+
     describe("GetEngineVersion", function()
         it("Build.version present -> major.minor.patch", function()
             local root = h.tmpdir()
