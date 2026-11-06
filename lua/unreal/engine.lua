@@ -267,6 +267,19 @@ function M.IsRootEngineDirValid(engineDir)
     return true
 end
 
+---Where the engine's own `BuildConfiguration.xml` (UnrealBuildTool settings for every project
+---built with this engine) lives: `<engine>/Engine/Saved/UnrealBuildTool/BuildConfiguration.xml`.
+---The path is returned even when the file does not exist yet.
+---@param engineDir string? engine root folder
+---@return string? path nil when there is no engine folder
+function M.ParseBuildConfiguration(engineDir)
+    if engineDir == nil then
+        return nil
+    end
+
+    return vim.fs.joinpath(engineDir, "Engine", "Saved", "UnrealBuildTool", "BuildConfiguration.xml")
+end
+
 ---@param callback fun(path: string?)
 function M.InputEnginePath(callback)
     require("unreal.ui").Input({ prompt = "Enter Unreal Engine path: ", completion = "dir" }, function(input)
@@ -420,6 +433,7 @@ function M.RetrieveTools(enginePath)
     local result = {
         RootDir = enginePath,
         Version = M.GetEngineVersion(enginePath),
+        BuildConfig = M.ParseBuildConfiguration(enginePath),
     }
 
     local _, dotNetExe = M.ParseDotnetPath(enginePath)

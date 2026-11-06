@@ -158,4 +158,60 @@ function M.FindEngineInstalledFiles()
     return map[platform]
 end
 
+---The project's `BuildConfiguration.xml` (UnrealBuildTool settings for this project only):
+---`Saved/UnrealBuildTool/BuildConfiguration.xml` next to the `.uproject`.
+---The path is returned even when the file does not exist yet.
+---@param uprojectFile string full path of the `.uproject`
+---@return unreal.UiEntry entry `{ name = "Project Config", value = path }`
+function M.GetProjectBuildConfig(uprojectFile)
+    local dirName = vim.fs.dirname(uprojectFile)
+    return {
+        name = "Project Config",
+        value = vim.fs.joinpath(dirName, "Saved", "UnrealBuildTool", "BuildConfiguration.xml"),
+    }
+end
+
+---Your personal `BuildConfiguration.xml` files (UnrealBuildTool settings for every project you build):
+---Windows checks `%APPDATA%\Unreal Engine\...` and `Documents\Unreal Engine\...`,
+---Linux and Mac `~/.config/Unreal Engine/UnrealBuildTool/BuildConfiguration.xml`.
+---Paths are returned even when the files do not exist yet.
+---@return unreal.UiEntry[]? entries `{ name, value = path }`; nil on an unknown platform
+function M.GetUserBuildConfig()
+    local joinpath = vim.fs.joinpath
+
+    local filesMap = {
+        Win64 = {
+            {
+                name = "User AppData Config",
+                value = joinpath(vim.env.APPDATA, "Unreal Engine", "UnrealBuildTool", "BuildConfiguration.xml"),
+            },
+            {
+                name = "User Document Config",
+                value = joinpath(
+                    vim.env.USERPROFILE,
+                    "Documents",
+                    "Unreal Engine",
+                    "UnrealBuildTool",
+                    "BuildConfiguration.xml"
+                ),
+            },
+        },
+        Linux = {
+            {
+                name = "User Config",
+                value = joinpath(vim.env.HOME, ".config", "Unreal Engine", "UnrealBuildTool", "BuildConfiguration.xml"),
+            },
+        },
+        Mac = {
+            {
+                name = "User Config",
+                value = joinpath(vim.env.HOME, ".config", "Unreal Engine", "UnrealBuildTool", "BuildConfiguration.xml"),
+            },
+        },
+    }
+
+    local platform = require("unreal.system").GetPlatform()
+    return filesMap[platform]
+end
+
 return M

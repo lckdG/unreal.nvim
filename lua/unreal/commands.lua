@@ -26,6 +26,7 @@ local function createCommands(config)
         },
         Build = {
             Clangd = require("unreal.project").RebuildClangd,
+            Config = require("unreal.project").EditBuildConfiguration,
         },
         Code = {
             Impl = require("unreal.impl").ImplementFunction,
