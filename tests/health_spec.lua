@@ -86,6 +86,12 @@ describe("health", function()
             return root
         end
 
+        local function with_version(root)
+            h.write(root, "Engine/Build/Build.version", {
+                vim.json.encode({ MajorVersion = 5, MinorVersion = 4, PatchVersion = 2 }),
+            })
+        end
+
         local function installed(files)
             local root = engine_with(files)
             h.stub(engine, "InstalledEngines", { { id = "UE_5.4", path = root } })
@@ -114,16 +120,31 @@ describe("health", function()
 
         it("UBT, editor and bundled dotnet present -> all ok, dotnet reported as bundled", function()
             local root = installed({ UBT, EDITOR, DOTNET })
+            with_version(root)
             require("unreal.health").check()
-            assert.are.same({ "warn", "ok", "ok", "ok", "ok", "ok" }, core_kinds())
+            assert.are.same({ "warn", "ok", "ok", "ok", "ok", "ok", "ok" }, core_kinds())
             assert.is_not_nil(section(CORE)[3].msg:find(root, 1, true))
-            assert.is_not_nil(section(CORE)[5].msg:find("Bundled .NET", 1, true))
+            assert.is_not_nil(section(CORE)[6].msg:find("Bundled .NET", 1, true))
+        end)
+
+        it("Build.version present -> ok with the version", function()
+            with_version(installed({ UBT }))
+            require("unreal.health").check()
+            assert.are.equal("ok", core_kinds()[4])
+            assert.is_not_nil(section(CORE)[4].msg:find("5.4.2", 1, true))
+        end)
+
+        it("Build.version missing -> version warned", function()
+            installed({ UBT })
+            require("unreal.health").check()
+            assert.are.equal("warn", core_kinds()[4])
+            assert.is_not_nil(section(CORE)[4].msg:find("version", 1, true))
         end)
 
         it("associated engine not installed -> error with Engine SetPath hint, rest warned", function()
             choose_uproject("5.4")
             require("unreal.health").check()
-            assert.are.same({ "warn", "ok", "error", "warn", "warn", "warn" }, core_kinds())
+            assert.are.same({ "warn", "ok", "error", "warn", "warn", "warn", "warn" }, core_kinds())
             assert.is_not_nil(section(CORE)[3].hint:find("Engine SetPath", 1, true))
         end)
 
@@ -139,7 +160,7 @@ describe("health", function()
             engine.OverrideEnginePath = root
             choose_uproject("5.4")
             require("unreal.health").check()
-            assert.are.same({ "warn", "ok", "warn", "ok", "ok", "ok" }, core_kinds())
+            assert.are.same({ "warn", "ok", "warn", "warn", "ok", "ok", "ok" }, core_kinds())
             assert.is_not_nil(section(CORE)[3].msg:find("Overridden", 1, true))
             assert.is_not_nil(section(CORE)[3].msg:find(root, 1, true))
         end)
@@ -147,7 +168,7 @@ describe("health", function()
         it("UBT only -> editor and dotnet warned", function()
             installed({ UBT })
             require("unreal.health").check()
-            assert.are.same({ "warn", "ok", "ok", "warn", "warn", "ok" }, core_kinds())
+            assert.are.same({ "warn", "ok", "ok", "warn", "warn", "warn", "ok" }, core_kinds())
         end)
 
         it("editor only -> dotnet and UBT warned", function()
@@ -155,7 +176,7 @@ describe("health", function()
             engine.OverrideEnginePath = root
             choose_uproject("5.4")
             require("unreal.health").check()
-            assert.are.same({ "warn", "ok", "warn", "ok", "warn", "warn" }, core_kinds())
+            assert.are.same({ "warn", "ok", "warn", "warn", "ok", "warn", "warn" }, core_kinds())
         end)
 
         it("no bundled dotnet, system dotnet on PATH -> ok, reported as system", function()
@@ -164,8 +185,8 @@ describe("health", function()
             end)
             installed({ UBT, EDITOR })
             require("unreal.health").check()
-            assert.are.same({ "warn", "ok", "ok", "ok", "ok", "ok" }, core_kinds())
-            assert.is_not_nil(section(CORE)[5].msg:find("System .NET", 1, true))
+            assert.are.same({ "warn", "ok", "ok", "warn", "ok", "ok", "ok" }, core_kinds())
+            assert.is_not_nil(section(CORE)[6].msg:find("System .NET", 1, true))
         end)
 
         for i, exe in ipairs({ "rg", "clangd" }) do

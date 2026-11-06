@@ -338,6 +338,10 @@ describe("engine", function()
             assert.are.equal("5.4.2", engine.GetEngineVersion(root))
         end)
 
+        it("nil engine path -> 0.0.0", function()
+            assert.are.equal("0.0.0", engine.GetEngineVersion(nil))
+        end)
+
         it("Build.version missing -> 0.0.0", function()
             assert.are.equal("0.0.0", engine.GetEngineVersion(h.tmpdir()))
         end)
