@@ -14,8 +14,13 @@
 ---@field url string
 ---@field revision string
 
+---@class (exact) unreal.EngineSource
+---@field git_url string
+---@field clone_dir string?
+
 ---@class (exact) ConfigOpts
 ---@field custom_treesitter CustomTreesitterOpts?
+---@field engine_source unreal.EngineSource
 ---@field command_lead string
 ---@field uproject_limits number
 ---@field cmd_abbreviations table?

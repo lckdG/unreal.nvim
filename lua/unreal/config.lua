@@ -15,6 +15,10 @@ M.defaults = {
         url = "https://github.com/taku25/tree-sitter-unreal-cpp",
         revision = "2d2d5c19a9a83e432e43c041252106995614b29a",
     },
+    engine_source = {
+        git_url = "https://github.com/EpicGames/UnrealEngine",
+        clone_dir = nil,
+    },
     command_lead = "Unreal",
     uproject_limits = 5,
     clangd_build_args = {
