@@ -89,6 +89,7 @@ describe("commands", function()
     local subcommands = {
         ["Engine SetPath"] = { "unreal.engine", "SetEnginePath_User" },
         ["Engine ClearPath"] = { "unreal.engine", "ClearEnginePath_User" },
+        ["Engine Checkout"] = { "unreal.engine_builder", "Checkout" },
         ["Project Open"] = { "unreal.project", "OpenUproject" },
         ["Project Edit"] = { "unreal.project", "EditUproject" },
         ["Project Select"] = { "unreal.project", "SelectUproject_User" },
@@ -142,7 +143,7 @@ describe("commands", function()
         { "Unreal Build ", { "Clangd", "Config" } },
         { "Unreal Code ", { "Impl", "Macro", "SwitchSourceHeader" } },
         { "Unreal Code M", { "Macro" } },
-        { "Unreal Engine ", { "ClearPath", "SetPath" } },
+        { "Unreal Engine ", { "Checkout", "ClearPath", "SetPath" } },
         { "Unreal Project ", { "Edit", "Open", "Select" } },
         { "Unreal Search ", { "Files", "Grep" } },
         { "Unreal Foo ", {} },
