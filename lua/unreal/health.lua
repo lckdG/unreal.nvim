@@ -91,6 +91,13 @@ local function check_engine_path(uprojectPath)
         end
     end
 
+    local engineVersion = engine.GetEngineVersion(enginePath)
+    if engineVersion ~= "0.0.0" then
+        health.ok("Engine version: " .. engineVersion)
+    else
+        health.warn("Engine version: unable to determine")
+    end
+
     local exeExists, exePath = engine.GetEngineExecutable(enginePath)
     if exeExists then
         health.ok("Engine executable:\n" .. exePath)

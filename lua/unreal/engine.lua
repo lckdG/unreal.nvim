@@ -327,10 +327,21 @@ function M.GetExecuteCmd(enginePath)
     return false, {}
 end
 
+---Read the engine's version, e.g. `"5.4.2"`, from `Engine/Build/Build.version`
+---(a small JSON file every engine ships, launcher installs and source checkouts alike).
+---Shown by `:checkhealth unreal`.
+---@param enginePath string? engine root folder
+---@return string version `"0.0.0"` when there is no engine path, or the file is missing or unreadable
 function M.GetEngineVersion(enginePath)
+    local default = "0.0.0"
+
+    if not enginePath then
+        return default
+    end
+
     local versionFile = vim.fs.joinpath(enginePath, "Engine", "Build", "Build.version")
     if not pathUtils.Exists(versionFile) then
-        return "0.0.0"
+        return default
     end
 
     local file = io.open(versionFile, "r")
@@ -349,7 +360,7 @@ function M.GetEngineVersion(enginePath)
         end
     end
 
-    return "0.0.0"
+    return default
 end
 
 -----------------------------------
