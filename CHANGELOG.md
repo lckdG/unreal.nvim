@@ -6,24 +6,26 @@ All notable changes to unreal.nvim are listed here. The format follows [Keep a C
 
 ### Breaking
 
-- **The engine path is no longer saved.** `stdpath('data')/unreal.nvim/lock.dat` is not read or written anymore; you can delete it. Installed engines are found automatically, and each `.uproject`'s `EngineAssociation` picks the engine.
-- **`:Unreal Engine SetPath` only lasts for the session.** It overrides the engine for every command until `:Unreal Engine ClearPath`, a `:cd` to another project, or Neovim closes.
+- **Engine path no longer saved.** `lock.dat` is ignored and can be deleted; the engine comes from the `.uproject`'s `EngineAssociation`.
+- **`:Unreal Engine SetPath` lasts for the session only.**
 
 ### Added
 
-- `:Unreal Engine ClearPath` forgets the folder set with `Engine SetPath`.
-- `:Unreal Project Select` chooses which `.uproject` the other commands use. The choice is kept for the session.
-- `:checkhealth unreal` shows the chosen `.uproject`, the engine it uses and the engine's version.
-- `uproject_limits` option: most `.uproject` files to look for under the project folder (default 5).
+- `:Unreal Engine ClearPath`: forget the `SetPath` folder.
+- `:Unreal Project Select`: choose the `.uproject` for other commands.
+- `:Unreal Build Config`: open a project, user or engine `BuildConfiguration.xml`.
+- A `.uproject` in the project folder is chosen at startup.
+- `:checkhealth unreal` shows the `.uproject`, its engine and the engine version.
+- `uproject_limits` option (default 5).
 
 ### Changed
 
-- `:Unreal Project Open` starts `UnrealEditor.exe` directly on Windows instead of the `.uproject`'s default program.
-- `:Unreal Build Clangd` no longer needs the editor program, only `dotnet` and UnrealBuildTool.
+- `:Unreal Project Open` starts `UnrealEditor.exe` directly on Windows.
+- `:Unreal Build Clangd` no longer needs the editor.
 
 ### Fixed
 
-- `:Unreal Build Clangd` copies `compile_commands.json` next to the `.uproject`, not to the working directory. Opening Neovim above the project (e.g. repo root with `Game/Game.uproject`) no longer leaves the file where clangd can't pair it with the project.
+- `:Unreal Build Clangd` copies `compile_commands.json` next to the `.uproject`, not to the working directory.
 
 ## [0.2.0] - 2026-11-04
 

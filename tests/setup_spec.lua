@@ -93,6 +93,7 @@ describe("commands", function()
         ["Project Edit"] = { "unreal.project", "EditUproject" },
         ["Project Select"] = { "unreal.project", "SelectUproject_User" },
         ["Build Clangd"] = { "unreal.project", "RebuildClangd" },
+        ["Build Config"] = { "unreal.project", "EditBuildConfiguration" },
         ["Code Impl"] = { "unreal.impl", "ImplementFunction" },
         ["Code Macro"] = { "unreal.macros", "CompleteMacro" },
         ["Code SwitchSourceHeader"] = { "unreal.search", "SwitchSourceHeader" },
@@ -138,6 +139,7 @@ describe("commands", function()
     for _, case in ipairs({
         { "Unreal ", { "Build", "Code", "Engine", "Project", "Search" } },
         { "Unreal Bu", { "Build" } },
+        { "Unreal Build ", { "Clangd", "Config" } },
         { "Unreal Code ", { "Impl", "Macro", "SwitchSourceHeader" } },
         { "Unreal Code M", { "Macro" } },
         { "Unreal Engine ", { "ClearPath", "SetPath" } },

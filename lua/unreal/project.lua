@@ -13,6 +13,7 @@ M.UprojectPath = nil
 
 function M.init()
     M.ProjectRoot = pathUtils.GetProjectRoot()
+    M.FindDefaultUproject()
 
     local augroup = vim.api.nvim_create_augroup("unreal.nvim.project", { clear = true })
     vim.api.nvim_create_autocmd("DirChanged", {
@@ -24,9 +25,26 @@ function M.init()
             if M.ProjectRoot ~= lastRoot then
                 M.UprojectPath = nil
                 engine.ClearEnginePath_User()
+                M.FindDefaultUproject()
             end
         end,
     })
+end
+
+---Pick a `.uproject` from the project folder without asking (subfolders are not searched).
+---With several, one is picked; with none, the first project command searches instead.
+function M.FindDefaultUproject()
+    local found = {}
+    for name, kind in vim.fs.dir(M.ProjectRoot) do
+        if kind == "file" and vim.fs.ext(name) == "uproject" then
+            table.insert(found, vim.fs.joinpath(M.ProjectRoot, name))
+        end
+    end
+
+    if #found >= 1 then
+        table.sort(found)
+        M.UprojectPath = found[1]
+    end
 end
 
 ---Find `.uproject` files under the project folder (see `path_utils.GetProjectRoot`)
@@ -176,6 +194,76 @@ function M.EditUproject()
         local editPath = vim.fn.fnameescape(M.UprojectPath)
         vim.cmd.edit(editPath)
     end)
+end
+
+---`:Unreal Build Config`: pick a `BuildConfiguration.xml` (UnrealBuildTool settings) to open:
+---the project's and engine's (when a `.uproject` is chosen) and your user ones.
+---If the engine is not found, it asks for the engine folder first.
+function M.EditBuildConfiguration()
+    if M.UprojectPath then
+        M.EnsureUproject(function()
+            engine.FindEngineTools(M.UprojectPath, function(tools)
+                M.ChooseBuildConfigFile(tools)
+            end)
+        end)
+    else
+        M.ChooseBuildConfigFile(nil)
+    end
+end
+
+---List the `BuildConfiguration.xml` locations and open the one picked; a missing one is created after a confirm.
+---@param engineTools unreal.EngineTools? adds the engine's file when given
+function M.ChooseBuildConfigFile(engineTools)
+    local availablePaths = {}
+
+    if M.UprojectPath then
+        local item = pathUtils.GetProjectBuildConfig(M.UprojectPath)
+        table.insert(availablePaths, item)
+    end
+
+    local userBuildConfigs = pathUtils.GetUserBuildConfig()
+    if userBuildConfigs then
+        vim.list_extend(availablePaths, userBuildConfigs)
+    end
+
+    if engineTools and engineTools.BuildConfig ~= nil then
+        table.insert(availablePaths, { name = "Engine Config", value = engineTools.BuildConfig })
+    end
+
+    local ui = require("unreal.ui")
+    ui.Select(availablePaths, { prompt = "Choose configuration file to edit: " }, function(item)
+        if item then
+            local path = item.value
+            if pathUtils.Exists(path) then
+                vim.cmd.edit(vim.fn.fnameescape(path))
+            else
+                local choice = vim.fn.confirm("File does not exist, do you want to create one?", "Yes\nNo", 1)
+                if choice == 1 then
+                    M.CreateBuildConfiguration(path)
+                end
+            end
+        end
+    end)
+end
+
+---Open a new `BuildConfiguration.xml` with a minimal template (UnrealBuildTool rejects an empty file).
+---Written when you save. Already open in a buffer: switches to it.
+---@param path string full path of the file to create
+function M.CreateBuildConfiguration(path)
+    local editPath = vim.fn.fnameescape(path)
+    local bufnr = vim.fn.bufnr(editPath)
+    if bufnr ~= -1 then
+        vim.cmd.buffer(bufnr)
+    else
+        vim.fn.mkdir(vim.fs.dirname(path), "p")
+
+        vim.cmd.edit(editPath)
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+            '<?xml version="1.0" encoding="utf-8" ?>',
+            '<Configuration xmlns="https://www.unrealengine.com/BuildConfiguration">',
+            "</Configuration>",
+        })
+    end
 end
 
 return M

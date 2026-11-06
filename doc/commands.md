@@ -6,7 +6,7 @@
 ```
 -->
 
-All commands are `:Unreal <Group> <Action>` (see [command_lead](#command_lead)), with `<Tab>` completion for both words. If several `.uproject` files are found, the first command that needs one asks you to choose, and the choice is kept for the session (see [Engine path](#engine-path)).
+All commands are `:Unreal <Group> <Action>` (see [command_lead](#command_lead)), with `<Tab>` completion for both words. See [Engine path](#engine-path) for how the `.uproject` and engine are chosen.
 
 ## Engine
 
@@ -18,7 +18,7 @@ All commands are `:Unreal <Group> <Action>` (see [command_lead](#command_lead)),
 ```
 -->
 
-Prompt for an engine folder and use it for every command instead of the engine the `.uproject` asks for. It is kept until `Engine ClearPath`, a `:cd` to another project, or Neovim closes; it is not saved to disk. See [Engine path](#engine-path).
+Use an engine folder you type instead of the one the `.uproject` asks for. Lasts until `Engine ClearPath`, `:cd` to another project, or Neovim closes.
 
 ### Engine ClearPath
 
@@ -28,7 +28,7 @@ Prompt for an engine folder and use it for every command instead of the engine t
 ```
 -->
 
-Forget the folder set with `Engine SetPath`, so commands go back to the engine the `.uproject` asks for.
+Forget the `Engine SetPath` folder.
 
 ## Project
 
@@ -40,7 +40,7 @@ Forget the folder set with `Engine SetPath`, so commands go back to the engine t
 ```
 -->
 
-Open the project's `.uproject` in the Unreal editor, using the engine the `.uproject` asks for. The editor runs in the background and keeps running if Neovim closes.
+Open the project in the Unreal editor. The editor keeps running if Neovim closes.
 
 ### Project Edit
 
@@ -50,7 +50,7 @@ Open the project's `.uproject` in the Unreal editor, using the engine the `.upro
 ```
 -->
 
-Open the project's `.uproject` in a buffer. No engine needed. `.uproject` and `.uplugin` files open as `json`, indented with tabs (4 wide) like Unreal writes them.
+Open the `.uproject` in a buffer. `.uproject` and `.uplugin` files open as `json` with 4-wide tabs.
 
 ### Project Select
 
@@ -60,7 +60,7 @@ Open the project's `.uproject` in a buffer. No engine needed. `.uproject` and `.
 ```
 -->
 
-Choose which `.uproject` the other commands use. Only needed when the project folder has several; with one, it is picked automatically.
+Choose which `.uproject` the other commands use, e.g. when the project folder has several.
 
 ## Build
 
@@ -72,7 +72,26 @@ Choose which `.uproject` the other commands use. Only needed when the project fo
 ```
 -->
 
-Regenerate `compile_commands.json` with UnrealBuildTool and copy it next to the `.uproject`. Only `dotnet` and UnrealBuildTool are needed, not the editor, so it also works on a source build before the editor is compiled. UnrealBuildTool runs with the engine's bundled `dotnet` when there is one, otherwise with the one from `$PATH` (see [Engine path](#engine-path)). Output is shown in a terminal split; press any key to close it when the build is done.
+Regenerate `compile_commands.json` with UnrealBuildTool and copy it next to the `.uproject`. Does not need the editor. Output shows in a terminal split; press any key to close it when done.
+
+### Build Config
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                        *:Unreal-Build-Config*
+```
+-->
+
+Pick a `BuildConfiguration.xml` (UnrealBuildTool settings) and open it:
+
+| Entry | File |
+| --- | --- |
+| Project Config | `<project>/Saved/UnrealBuildTool/BuildConfiguration.xml` |
+| User Config | `~/.config/Unreal Engine/UnrealBuildTool/BuildConfiguration.xml` (Linux, Mac) |
+| User AppData / Document Config | `%APPDATA%\Unreal Engine\UnrealBuildTool\…` and `Documents\Unreal Engine\UnrealBuildTool\…` (Windows) |
+| Engine Config | `<engine>/Engine/Saved/UnrealBuildTool/BuildConfiguration.xml` |
+
+Project and Engine entries need a chosen `.uproject`. A missing file is created from a template after you confirm, and written when you save.
 
 ## Code
 

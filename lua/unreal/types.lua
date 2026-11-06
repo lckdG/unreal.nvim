@@ -42,6 +42,7 @@
 ---@class unreal.EngineTools
 ---@field RootDir string
 ---@field Version string?
+---@field BuildConfig string?
 ---@field EngineExe string[]?
 ---@field DotNetExe string?
 ---@field UnrealBuildTool string?

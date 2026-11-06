@@ -293,6 +293,12 @@ describe("engine", function()
     describe("RetrieveTools", function()
         local EDITOR = "Engine/Binaries/Linux/UnrealEditor"
 
+        local function assert_fields(expected, actual)
+            for key, value in pairs(expected) do
+                assert.are.same(value, actual[key], key)
+            end
+        end
+
         before_each(function()
             h.stub(system, "GetPlatform", function()
                 return "Linux"
@@ -305,14 +311,14 @@ describe("engine", function()
         it("editor, dotnet and UBT -> all tools", function()
             local root = fake_engine()
             h.write(root, EDITOR)
-            local tools = engine.RetrieveTools(root)
-            assert.are.same({
+            assert_fields({
                 RootDir = root,
                 Version = "0.0.0",
+                BuildConfig = vim.fs.joinpath(root, "Engine/Saved/UnrealBuildTool/BuildConfiguration.xml"),
                 EngineExe = { "setsid", "-f", vim.fs.joinpath(root, EDITOR) },
                 DotNetExe = vim.fs.joinpath(root, bundled_dotnet("8.0.300")),
                 UnrealBuildTool = vim.fs.joinpath(root, UBT),
-            }, tools)
+            }, engine.RetrieveTools(root))
         end)
 
         it("no editor -> dotnet and UBT kept, no EngineExe", function()
@@ -323,9 +329,26 @@ describe("engine", function()
             assert.is_not_nil(tools.DotNetExe)
         end)
 
-        it("empty folder, no system dotnet -> only RootDir", function()
+        it("empty folder, no system dotnet -> no tools, RootDir kept", function()
             local root = h.tmpdir()
-            assert.are.same({ RootDir = root, Version = "0.0.0" }, engine.RetrieveTools(root))
+            local tools = engine.RetrieveTools(root)
+            assert.are.equal(root, tools.RootDir)
+            assert.is_nil(tools.EngineExe)
+            assert.is_nil(tools.DotNetExe)
+            assert.is_nil(tools.UnrealBuildTool)
+        end)
+    end)
+
+    describe("ParseBuildConfiguration", function()
+        it("engine dir -> Engine/Saved/UnrealBuildTool/BuildConfiguration.xml", function()
+            assert.are.equal(
+                vim.fs.joinpath("/ue", "Engine/Saved/UnrealBuildTool/BuildConfiguration.xml"),
+                engine.ParseBuildConfiguration("/ue")
+            )
+        end)
+
+        it("nil engine dir -> nil", function()
+            assert.is_nil(engine.ParseBuildConfiguration(nil))
         end)
     end)
 

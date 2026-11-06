@@ -26,7 +26,7 @@ Name of the user command. With `command_lead = "UE"` the commands become `:UE Pr
 
 ## uproject_limits
 
-Most `.uproject` files to look for under the project folder (see [Engine path](#engine-path)). The search stops once it finds this many, so opening Neovim in a big folder such as your home directory stays fast. Raise it if the picker misses projects in a folder with many of them.
+Most `.uproject` files a command looks for below the project folder. Raise it if the picker misses projects.
 
 ## cmd_abbreviations
 
