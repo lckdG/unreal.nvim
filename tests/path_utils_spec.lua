@@ -94,22 +94,23 @@ describe("path_utils", function()
     end)
 
     describe("FindUprojects", function()
-        it("upward = false finds .uproject in subdirectories", function()
+        it("finds .uproject in subdirectories of cwd", function()
             local root = h.project({ ["Game/Game.uproject"] = {} })
-            local found = pathUtils.FindUprojects({ upward = false, nameOnly = false })
+            local found = pathUtils.FindUprojects({ nameOnly = false })
             assert.are.same({ root .. "/Game/Game.uproject" }, found)
         end)
 
-        it("upward = true finds .uproject in parent directories", function()
-            local root = h.project({ ["Game.uproject"] = {}, ["Source/Game/x.txt"] = {} })
-            vim.cmd.cd("Source/Game")
-            local found = pathUtils.FindUprojects({ upward = true, nameOnly = false })
-            assert.are.same({ root .. "/Game.uproject" }, found)
+        it("opts.path -> searches that folder, not cwd", function()
+            local other = h.tmpdir()
+            h.write(other, "Other/Other.uproject")
+            h.project({ ["Game/Game.uproject"] = {} })
+            local found = pathUtils.FindUprojects({ path = other, nameOnly = false })
+            assert.are.same({ other .. "/Other/Other.uproject" }, found)
         end)
 
         it("nameOnly = true returns basenames", function()
             h.project({ ["Game/Game.uproject"] = {} })
-            assert.are.same({ "Game.uproject" }, pathUtils.FindUprojects({ upward = false, nameOnly = true }))
+            assert.are.same({ "Game.uproject" }, pathUtils.FindUprojects({ nameOnly = true }))
         end)
 
         it("opts = nil searches downward with full paths", function()
@@ -117,9 +118,24 @@ describe("path_utils", function()
             assert.are.same({ root .. "/Game/Game.uproject" }, pathUtils.FindUprojects())
         end)
 
+        it("opts = nil from a subfolder -> searches the project root", function()
+            local root = h.project({ ["Game.uproject"] = {}, ["Source/Game/x.txt"] = {} })
+            vim.cmd.cd("Source/Game")
+            assert.are.same({ root .. "/Game.uproject" }, pathUtils.FindUprojects())
+        end)
+
+        it("stops after 20 files", function()
+            local files = {}
+            for i = 1, 25 do
+                files["P" .. i .. "/P" .. i .. ".uproject"] = {}
+            end
+            h.project(files)
+            assert.are.equal(20, #pathUtils.FindUprojects({ nameOnly = true }))
+        end)
+
         it("ignores Foo.uproject.bak", function()
             h.project({ ["Foo.uproject.bak"] = {} })
-            assert.are.same({}, pathUtils.FindUprojects({ upward = false, nameOnly = true }))
+            assert.are.same({}, pathUtils.FindUprojects({ nameOnly = true }))
         end)
     end)
 
