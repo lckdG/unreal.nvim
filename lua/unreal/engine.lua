@@ -1,47 +1,7 @@
-local config = require("unreal.config")
 local pathUtils = require("unreal.path_utils")
 local log = require("unreal.log")
 
-local dataRoot = vim.fn.stdpath("data")
-
 --#region Utility functions
-
-local function readLockfile(filePath)
-    if filePath == nil or filePath == "" then
-        return nil
-    end
-
-    local file = io.open(filePath, "r")
-    if file == nil then
-        return nil
-    end
-
-    local content = file:read("a")
-    file:close()
-
-    local ok, data = pcall(vim.json.decode, content)
-    if not ok or type(data) ~= "table" then
-        return nil
-    end
-
-    return data
-end
-
-local function writeLockfile(filePath, data)
-    if type(data) ~= "table" then
-        return false, "Incorrect data format"
-    end
-
-    local file = io.open(filePath, "w")
-    if file then
-        file:write(vim.json.encode(data))
-        file:close()
-
-        return true, ""
-    end
-
-    return false, "Unable to write to lock file"
-end
 
 ---@param path string
 local function readInstalledJson(path)
@@ -133,28 +93,7 @@ end
 
 local M = {}
 
-M.ConfigDir = vim.fs.joinpath(dataRoot, config.info.PluginName)
-M.LockFilePath = vim.fs.joinpath(M.ConfigDir, config.info.LockFile)
-
 function M.init()
-    if pathUtils.Exists(M.ConfigDir) == false then
-        vim.fn.mkdir(M.ConfigDir, "p")
-    end
-
-    if pathUtils.Exists(M.LockFilePath) == false then
-        local file = io.open(M.LockFilePath, "w")
-        if file then
-            file:close()
-        end
-    end
-
-    M.initDefaults()
-
-    local enginePath = M.ReadEnginePath()
-    if enginePath ~= nil and M.IsRootEngineDirValid(enginePath) then
-        M.SetEnginePath({ path = enginePath, silent = true, savePath = false })
-    end
-
     local files = pathUtils.FindEngineInstalledFiles()
     M.FindInstalled(files)
 end
@@ -196,13 +135,6 @@ function M.FindEngine(id)
     return match
 end
 
----@private
-function M.initDefaults()
-    M.EnginePathSet = false
-    M.EnginePath = nil
-    M.WorkingDir = nil
-end
-
 ---Use `opts.path` as the Unreal Engine folder for this project, if it is valid
 ---(it must contain UnrealBuildTool and a usable dotnet, see `IsRootEngineDirValid`).
 ---With `savePath = true` it is also remembered for next time.
@@ -233,12 +165,21 @@ end
 ---and falls back to `dotnet` installed on your system ($PATH).
 ---With several bundled versions it takes the newest one, comparing folder names as versions
 ---(`10.0.100` beats `8.0.300`).
----@param engineDir string? engine root folder
+---@param engineDir string engine root folder
 ---@return boolean bundled true only when the engine's own copy is used
 ---@return string? path nil when neither is found
 function M.ParseDotnetPath(engineDir)
+    local function ParseFromEnv()
+        local path = vim.fn.exepath("dotnet")
+        if path and path ~= "" then
+            return false, path
+        else
+            return false, nil
+        end
+    end
+
     if engineDir == nil then
-        return false, nil
+        return ParseFromEnv()
     end
 
     local map = {
@@ -261,7 +202,7 @@ function M.ParseDotnetPath(engineDir)
     local arch = sys.GetArch()
 
     if arch == nil or map[platform] == nil then
-        return false, nil
+        return ParseFromEnv()
     end
 
     local dotnetDir = parseFromBinaryDir(engineDir, "ThirdParty", "DotNet")
@@ -290,19 +231,18 @@ function M.ParseDotnetPath(engineDir)
         return true, path
     end
 
-    path = vim.fn.exepath("dotnet")
-    if path and path ~= "" then
-        return false, path
-    end
-
-    return false, nil
+    return ParseFromEnv()
 end
 
 ---Build the `UnrealBuildTool.dll` path inside an engine root.
 ---@param engineDir string
 ---@return boolean ok the dll exists
----@return string path built even when the dll is missing
+---@return string? path built even when the dll is missing
 function M.ParseUbtPath(engineDir)
+    if engineDir == nil then
+        return false, nil
+    end
+
     local path = vim.fs.joinpath(engineDir, "Engine", "Binaries", "DotNET", "UnrealBuildTool", "UnrealBuildTool.dll")
     return pathUtils.Exists(path), path
 end
@@ -321,57 +261,15 @@ function M.IsRootEngineDirValid(engineDir)
     return true
 end
 
----@private
-function M.saveEnginePath(path)
-    local lockData = readLockfile(M.LockFilePath) or {}
-    lockData[pathUtils.GetProjectRoot()] = path
-
-    local success, msg = writeLockfile(M.LockFilePath, lockData)
-    if success then
-        log.Notify("Engine path updated successfully", vim.log.levels.INFO)
-    else
-        log.Notify("Save lock file failed: " .. msg, vim.log.levels.ERROR)
-    end
-end
-
-function M.ReadEnginePath()
-    local lockData = readLockfile(M.LockFilePath)
-    if lockData == nil then
-        return nil
-    end
-
-    return lockData[pathUtils.GetProjectRoot()]
-end
-
-function M.InputEnginePath()
+---@param callback fun(path: string?)
+function M.InputEnginePath(callback)
     require("unreal.ui").Input({ prompt = "Enter Unreal Engine path: ", completion = "dir" }, function(input)
         if input == nil or input == "" then
-            return
+            callback(nil)
+        else
+            callback(input)
         end
-        M.SetEnginePath({ path = input, silent = false, savePath = true })
     end)
-end
-
----Make sure an engine path is known before a command that needs it.
----If the working directory moved to another project, its saved path is loaded first.
----Still unknown: asks the user. With a prompt that answers later (e.g. from dressing.nvim),
----this returns false before the user types; they run the command again afterwards.
----@return boolean ok true when an engine path is set right now
-function M.EnsureEnginePath()
-    if M.WorkingDir ~= pathUtils.GetProjectRoot() then
-        M.initDefaults()
-
-        local enginePath = M.ReadEnginePath()
-        if enginePath ~= nil and M.IsRootEngineDirValid(enginePath) then
-            M.SetEnginePath({ path = enginePath, silent = true, savePath = false })
-        end
-    end
-
-    if M.EnginePathSet == false then
-        M.InputEnginePath()
-    end
-
-    return M.EnginePathSet
 end
 
 -----------------------------------
@@ -381,35 +279,43 @@ local engineExecutable = {
     Mac = "UnrealEditor.app",
 }
 
-function M.GetEngineExecutable(platform, enginePath)
+---@return boolean
+---@return string?
+function M.GetEngineExecutable(enginePath)
+    if enginePath == nil then
+        return false, nil
+    end
+
+    local platform = require("unreal.system").GetPlatform()
     local binariesPath = vim.fs.joinpath(enginePath, "Engine", "Binaries")
 
-    local executableName = engineExecutable[platform]
-    return vim.fs.joinpath(binariesPath, platform, executableName)
+    local exeName = engineExecutable[platform]
+    local exePath = vim.fs.joinpath(binariesPath, platform, exeName)
+    local exists = pathUtils.Exists(exePath)
+
+    return exists, exePath
 end
 
 ---The command that starts Unreal Editor in the background; add the `.uproject` path at the end.
----Windows opens the file with its default program (normally Unreal Editor).
----Linux and Mac start the engine's `UnrealEditor` directly, detached so it keeps running
+---Starts the engine's `UnrealEditor` directly, detached so it keeps running
 ---if Neovim closes.
+---@param enginePath string
 ---@return boolean ok whether the editor program exists (always true on Windows)
 ---@return string[] cmd command and arguments, without the `.uproject` path
-function M.GetExecuteCmd()
+function M.GetExecuteCmd(enginePath)
     local platform = require("unreal.system").GetPlatform()
-    local executablePath = M.GetEngineExecutable(platform, M.EnginePath)
-    local executableExist = pathUtils.Exists(executablePath)
+    local exists, executablePath = M.GetEngineExecutable(enginePath)
 
     if platform == "Win64" then
-        -- We can just use cmd to open the project on Windows
-        return true, { "cmd", "/c", "start", "" }
+        return exists, { executablePath }
     elseif platform == "Linux" then
         if vim.fn.executable("systemd-run") == 1 then
-            return executableExist, { "systemd-run", "--user", "--collect", "--quiet", "--", executablePath }
+            return exists, { "systemd-run", "--user", "--collect", "--quiet", "--", executablePath }
         else
-            return executableExist, { "setsid", "-f", executablePath }
+            return exists, { "setsid", "-f", executablePath }
         end
     elseif platform == "Mac" then
-        return executableExist, { "open", "-n", "-a", executablePath, "--args" }
+        return exists, { "open", "-n", "-a", executablePath, "--args" }
     end
 
     return false, {}
@@ -417,22 +323,70 @@ end
 
 -----------------------------------
 
-function M.GetUbtDll()
-    if M.EnginePathSet == false then
-        return nil
+---Find the engine path required by the input .uproject file
+---it looks for the "EngineAssociation" field.
+---If such no path is found, falls back to manual input
+---@param uprojectPath string
+---@param callback fun(tools: unreal.EngineTools?)
+function M.FindEngineTools(uprojectPath, callback)
+    local engineId = M.GetAssociatedEngine(uprojectPath)
+    if engineId ~= nil then
+        local engine = M.FindEngine(engineId)
+        if engine then
+            callback(M.RetrieveTools(engine.path))
+            return
+        end
     end
 
-    local ok, ubtPath = M.ParseUbtPath(M.EnginePath)
-    return ok and ubtPath or nil
+    M.InputEnginePath(function(enginePath)
+        if M.IsRootEngineDirValid(enginePath) then
+            callback(M.RetrieveTools(enginePath))
+        else
+            callback(nil)
+        end
+    end)
 end
 
-function M.GetDotNetCmd()
-    if M.EnginePathSet == false then
-        return nil
+function M.GetAssociatedEngine(uprojectPath)
+    local file = io.open(uprojectPath, "r")
+    if file then
+        local content = file:read("*a")
+        local ok, data =
+            pcall(vim.json.decode, content, { luanil = { object = true, array = true }, skip_comments = true })
+
+        if ok then
+            return data.EngineAssociation
+        end
     end
 
-    local _, dotnetExe = M.ParseDotnetPath(M.EnginePath)
-    return dotnetExe
+    return nil
+end
+
+
+---@private
+---@param enginePath string
+---@return unreal.EngineTools
+function M.RetrieveTools(enginePath)
+    local engineOk, engineExe = M.GetExecuteCmd(enginePath)
+    if not engineOk then
+        return {}
+    end
+
+    local _, dotNetExe = M.ParseDotnetPath(enginePath)
+    if dotNetExe == nil then
+        return {}
+    end
+
+    local ubtOk, ubtPath = M.ParseUbtPath(enginePath)
+    if not ubtOk then
+        return {}
+    end
+
+    return {
+        EngineExe = engineExe,
+        DotNetExe = dotNetExe,
+        UnrealBuildTool = ubtPath,
+    }
 end
 
 return M

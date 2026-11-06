@@ -42,6 +42,12 @@
 ---@field paramIdentifiers string[]
 ---@field ufunctionSpecifiers string[]
 
+--- Engine Classes
+---@class unreal.EngineTools
+---@field EngineExe string[]
+---@field DotNetExe string
+---@field UnrealBuildTool string
+
 --- Ui Classes
 ---@class unreal.UiEntry
 ---@field name string
