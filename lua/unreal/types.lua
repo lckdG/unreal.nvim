@@ -17,6 +17,7 @@
 ---@class (exact) ConfigOpts
 ---@field custom_treesitter CustomTreesitterOpts?
 ---@field command_lead string
+---@field uproject_limits number
 ---@field cmd_abbreviations table?
 ---@field clangd_build_args table?
 ---@field extensions table<string, table|boolean>

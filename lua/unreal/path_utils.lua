@@ -24,7 +24,8 @@ end
 
 ---Find `.uproject` files (Unreal project files) in `opts.path` and all folders below it.
 ---Without `opts` it searches the project folder (see `GetProjectRoot`).
----Stops after 20 files, so a huge folder such as your home directory does not list everything.
+---Stops after `uproject_limits` files (5 by default), so a huge folder such as your home directory
+---does not list everything.
 ---@param opts UprojectFindOpts?
 ---@return string[] files full paths, or basenames when `opts.nameOnly`
 function M.FindUprojects(opts)
@@ -35,12 +36,13 @@ function M.FindUprojects(opts)
         }
     end
 
+    local config = require("unreal.config")
     local files = vim.fs.find(function(name, _)
         return vim.fs.ext(name) == "uproject"
     end, {
         upward = false,
         path = opts.path,
-        limit = 20,
+        limit = config.opts.uproject_limits,
         type = "file",
     })
 
