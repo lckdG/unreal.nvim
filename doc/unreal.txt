@@ -1,5 +1,5 @@
 *unreal.txt*                      Neovim plugin for Unreal Engine C++ projects
-                               For NVIM v0.12    Last change: 2026 November 04
+                               For NVIM v0.12    Last change: 2026 November 06
 
 ==============================================================================
 Table of Contents                                   *unreal-table-of-contents*
@@ -55,7 +55,7 @@ FEATURES                                        *unreal-introduction-features*
 - Find/grep source, `.ini` and `Build.cs`/`Target.cs` files
 - Open the `.uproject` in the Unreal editor
 - Edit the `.uproject` in a buffer
-- Per-project engine path, cached across sessions
+- Finds installed engines and picks the one each `.uproject` asks for
 - Optional extensions, e.g. telescope integration
 - Unreal-aware treesitter grammar
 
@@ -277,7 +277,8 @@ lines for Code Macro |unreal-commands-code| items and is `""` otherwise.
 
 All commands are `:Unreal <Group> <Action>` (see |unreal-config-command_lead|),
 with `<Tab>` completion for both words. If several `.uproject` files are found,
-commands that need one prompt you to choose.
+the first command that needs one asks you to choose, and the choice is kept for
+the session (see |unreal-engine-path|).
 
 
 ENGINE                                                *unreal-commands-engine*
@@ -287,8 +288,18 @@ ENGINE SETPATH ~
 
                                                       *:Unreal-Engine-SetPath*
 
-Prompt for the engine path of the current project and save it. See
+Prompt for an engine folder and use it for every command instead of the engine
+the `.uproject` asks for. It is kept until `Engine ClearPath`, a `:cd` to
+another project, or Neovim closes; it is not saved to disk. See
 |unreal-engine-path|.
+
+
+ENGINE CLEARPATH ~
+
+                                                    *:Unreal-Engine-ClearPath*
+
+Forget the folder set with `Engine SetPath`, so commands go back to the engine
+the `.uproject` asks for.
 
 
 PROJECT                                              *unreal-commands-project*
@@ -298,17 +309,26 @@ PROJECT OPEN ~
 
                                                         *:Unreal-Project-Open*
 
-Open the `.uproject` in the working directory in the Unreal editor (on Windows,
-with the default handler).
+Open the project’s `.uproject` in the Unreal editor, using the engine the
+`.uproject` asks for. The editor runs in the background and keeps running if
+Neovim closes.
 
 
 PROJECT EDIT ~
 
                                                         *:Unreal-Project-Edit*
 
-Open the `.uproject` in the working directory in a buffer. No engine path
-needed. `.uproject` and `.uplugin` files open as `json`, indented with tabs (4
-wide) like Unreal writes them.
+Open the project’s `.uproject` in a buffer. No engine needed. `.uproject` and
+`.uplugin` files open as `json`, indented with tabs (4 wide) like Unreal writes
+them.
+
+
+PROJECT SELECT ~
+
+                                                      *:Unreal-Project-Select*
+
+Choose which `.uproject` the other commands use. Only needed when the project
+folder has several; with one, it is picked automatically.
 
 
 BUILD                                                  *unreal-commands-build*
@@ -318,11 +338,12 @@ BUILD CLANGD ~
 
                                                         *:Unreal-Build-Clangd*
 
-Regenerate `compile_commands.json` with UnrealBuildTool and copy it into the
-working directory. UnrealBuildTool runs with the engine’s bundled `dotnet`
-when there is one, otherwise with the one from `$PATH` (see
-|unreal-engine-path|). Output is shown in a terminal split; press any key to
-close it when the build is done.
+Regenerate `compile_commands.json` with UnrealBuildTool and copy it next to the
+`.uproject`. Only `dotnet` and UnrealBuildTool are needed, not the editor, so
+it also works on a source build before the editor is compiled. UnrealBuildTool
+runs with the engine’s bundled `dotnet` when there is one, otherwise with the
+one from `$PATH` (see |unreal-engine-path|). Output is shown in a terminal
+split; press any key to close it when the build is done.
 
 
 CODE                                                    *unreal-commands-code*
@@ -423,13 +444,20 @@ The old one-word commands still work until 0.3.0, with a deprecation warning:
 ==============================================================================
 6. Engine path                                            *unreal-engine-path*
 
-Each project remembers its own engine path in
-`stdpath('data')/unreal.nvim/lock.dat`. The project folder is the closest one
-above the working directory that has a `.uproject`. If there is none, the
-closest one with `.git` or `.p4ignore` is used, and finally the working
-directory itself.
+When Neovim starts, the plugin reads which Unreal Engine versions are
+installed:
 
-An engine path is accepted when it has
+  -------------------------------------------------------------------------------------------------------------------
+  OS                                  Source
+  ----------------------------------- -------------------------------------------------------------------------------
+  Windows                             %ProgramData%\Epic\UnrealEngineLauncher\LauncherInstalled.dat (launcher) and
+                                      the registry key HKCU\Software\Epic Games\Unreal Engine\Builds (source builds)
+
+  Mac                                 ~/Library/Application Support/Epic/UnrealEngineLauncher/LauncherInstalled.dat
+
+  Linux                               ~/.config/Epic/UnrealEngine/Install.ini
+  -------------------------------------------------------------------------------------------------------------------
+An engine folder is only used when it has
 `Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll` and a usable
 `dotnet`.
 
@@ -437,8 +465,21 @@ An engine path is accepted when it has
 (`Engine/Binaries/ThirdParty/DotNet/<version>/<os>-<arch>/`, newest version
 first), then the one from `$PATH`.
 
-Commands that need the engine prompt for a path when none is saved, the saved
-one is no longer valid, or the working directory moved to another project.
+Commands that need the engine pick it in this order:
+
+1. the folder set with `:Unreal Engine SetPath`
+2. the installed engine named by the `.uproject`’s `EngineAssociation` field: a version such as `"5.4"` (the launcher lists it as `UE_5.4`) or the ID of a source build
+3. otherwise they ask for the engine folder; the answer is used once and not remembered
+
+`Project Open` also needs the engine’s `UnrealEditor` program. `Build Clangd`
+only needs `dotnet` and UnrealBuildTool.
+
+The project folder is the closest one above the working directory that has a
+`.uproject`. If there is none, the closest one with `.git` or `.p4ignore` is
+used, and finally the working directory itself. `.uproject` files are searched
+under it (at most 20). The chosen `.uproject` and the `Engine SetPath` folder
+are kept until Neovim closes or the working directory moves to another project
+folder. Nothing is saved to disk.
 
 
 ==============================================================================
@@ -451,7 +492,9 @@ Run `:checkhealth unreal` to check:
 - telescope.nvim is available, only when the telescope extension |unreal-extensions-telescope| is enabled
 - clangd is enabled with `vim.lsp.enable("clangd")`
 - `setup()` was called
-- the engine path, editor, `dotnet` and UnrealBuildTool are found, with the path of each; for `dotnet` it also tells whether it is the engine’s bundled one or the one from `$PATH`
+- a `.uproject` is chosen for this session (run any project command, or `:Unreal Project Select`)
+- the engine for it is found: the folder from `Engine SetPath` (shown as a warning, since it overrides the `.uproject`), or the installed engine named by its `EngineAssociation`
+- the engine’s editor, `dotnet` and UnrealBuildTool are found, with the path of each; for `dotnet` it also tells whether it is the engine’s bundled one or the one from `$PATH`
 
 Generated by panvimdoc <https://github.com/kdheepak/panvimdoc>
 

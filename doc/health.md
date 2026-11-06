@@ -7,4 +7,6 @@ Run `:checkhealth unreal` to check:
 - telescope.nvim is available, only when the [telescope extension](#telescope) is enabled
 - clangd is enabled with `vim.lsp.enable("clangd")`
 - `setup()` was called
-- the engine path, editor, `dotnet` and UnrealBuildTool are found, with the path of each; for `dotnet` it also tells whether it is the engine's bundled one or the one from `$PATH`
+- a `.uproject` is chosen for this session (run any project command, or `:Unreal Project Select`)
+- the engine for it is found: the folder from `Engine SetPath` (shown as a warning, since it overrides the `.uproject`), or the installed engine named by its `EngineAssociation`
+- the engine's editor, `dotnet` and UnrealBuildTool are found, with the path of each; for `dotnet` it also tells whether it is the engine's bundled one or the one from `$PATH`
