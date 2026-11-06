@@ -2,7 +2,6 @@ local M = {}
 
 M.info = {
     PluginName = "unreal.nvim",
-    LockFile = "lock.dat",
 
     CppExt = "cpp",
     HeaderExt = "h",

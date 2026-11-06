@@ -14,7 +14,7 @@ end
 function M.GetProjectRoot()
     local cwd = vim.fn.getcwd()
     local function isUproject(name)
-        return name:match("%.uproject$") ~= nil
+        return vim.fs.ext(name) == "uproject"
     end
 
     local root = vim.fs.root(cwd, { isUproject, { ".git", ".p4ignore" } })
@@ -28,7 +28,7 @@ end
 function M.FindUprojects(opts)
     if opts == nil then
         opts = {
-            upward = false,
+            path = M.GetProjectRoot(),
             nameOnly = false,
         }
     end
@@ -36,9 +36,9 @@ function M.FindUprojects(opts)
     local files = vim.fs.find(function(name, _)
         return vim.fs.ext(name) == "uproject"
     end, {
-        upward = opts.upward or false,
-        path = opts.upward and vim.fn.getcwd() or nil,
-        limit = math.huge,
+        upward = false,
+        path = opts.path,
+        limit = 20,
         type = "file",
     })
 

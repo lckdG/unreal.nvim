@@ -8,35 +8,43 @@ local info = config.info
 local logLevel = vim.log.levels
 
 local M = {}
+M.ProjectRoot = nil
 M.UprojectPath = nil
 
 function M.init()
-    M.SelectUproject(function(path)
-        if pathUtils.Exists(path) then
-            M.UprojectPath = path
+    M.ProjectRoot = pathUtils.GetProjectRoot()
+
+    local augroup = vim.api.nvim_create_augroup("unreal.nvim.project", { clear = true })
+    vim.api.nvim_create_autocmd("DirChanged", {
+        group = augroup,
+        callback = function ()
+            local lastRoot = M.ProjectRoot
+            M.ProjectRoot = pathUtils.GetProjectRoot()
+
+            if M.ProjectRoot ~= lastRoot then
+                M.UprojectPath = nil
+                engine.ClearEnginePath_User()
+            end
         end
-    end, true)
+    })
 end
 
 ---Find `.uproject` files under the working directory and call `cb` with one of them.
 ---Errors if none, prompts if several, skips `cb` if the prompt is dismissed.
 ---@param cb fun(uprojectPath: string?)
----@param isInit boolean
-function M.SelectUproject(cb, isInit)
-    local files = pathUtils.FindUprojects({ nameOnly = false, upward = false })
+function M.SelectUproject(cb)
+    local files = pathUtils.FindUprojects({ path = M.ProjectRoot, nameOnly = false })
     if #files == 0 then
         log.Notify("No uproject file found!", logLevel.ERROR)
     elseif #files == 1 then
         cb(files[1])
-    elseif not isInit then
+    else
         local ui = require("unreal.ui")
         ui.Select(ui.WrapList(files), { prompt = "Multiple uproject found, choose one" }, function(item)
             if item ~= nil then
                 cb(item.value)
             end
         end)
-    else
-        log.Notify("Unable to determine .uproject file. Please set it manually", logLevel.WARN)
     end
 end
 
@@ -47,7 +55,7 @@ function M.SelectUproject_User()
         else
             log.Notify("Selected path is invalid", logLevel.WARN)
         end
-    end, false)
+    end)
 end
 
 ---Ensure a valid uproject path is set
@@ -61,7 +69,7 @@ function M.EnsureUproject(callback)
             else
                 log.Notify("Unable to determine .uproject file\nSet it manually", logLevel.WARN)
             end
-        end, false)
+        end)
     else
         callback()
     end
@@ -74,7 +82,7 @@ function M.OpenUproject()
     M.EnsureUproject(function()
         local uprojectPath = M.UprojectPath
         engine.FindEngineTools(uprojectPath, function(tools)
-            if tools then
+            if tools and tools.EngineExe then
                 local executeCmd = tools.EngineExe
                 table.insert(executeCmd, uprojectPath)
                 vim.fn.jobstart(executeCmd, { detach = true })
@@ -93,9 +101,8 @@ end
 function M.RebuildClangd()
     M.EnsureUproject(function()
         local uprojectPath = M.UprojectPath
-        print(uprojectPath)
         engine.FindEngineTools(uprojectPath, function(tools)
-            if tools then
+            if tools and tools.DotNetExe and tools.UnrealBuildTool then
                 local projectName = vim.fn.fnamemodify(uprojectPath, ":t:r")
                 local projectEditor = projectName .. "Editor"
 
@@ -139,7 +146,7 @@ function M.RebuildClangd()
                             return
                         end
 
-                        local sourceCC = vim.fs.joinpath(engine.EnginePath, info.CCFile)
+                        local sourceCC = vim.fs.joinpath(tools.RootDir, info.CCFile)
                         local destCC = vim.fs.joinpath(vim.fs.dirname(uprojectPath), info.CCFile)
 
                         local ok, err = vim.uv.fs_copyfile(sourceCC, destCC)

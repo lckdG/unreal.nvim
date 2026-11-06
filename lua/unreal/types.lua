@@ -1,13 +1,8 @@
 --- Module options
 
 ---@class (exact) UprojectFindOpts
----@field nameOnly boolean
----@field upward boolean
-
----@class (exact) ParseEnginePathOpts
 ---@field path string
----@field silent boolean
----@field savePath boolean
+---@field nameOnly boolean
 
 ---@class (exact) QueryInfo
 ---@field bufnr number
@@ -44,9 +39,10 @@
 
 --- Engine Classes
 ---@class unreal.EngineTools
----@field EngineExe string[]
----@field DotNetExe string
----@field UnrealBuildTool string
+---@field RootDir string
+---@field EngineExe string[]?
+---@field DotNetExe string?
+---@field UnrealBuildTool string?
 
 --- Ui Classes
 ---@class unreal.UiEntry

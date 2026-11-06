@@ -16,7 +16,8 @@ end
 local function createCommands(config)
     local subcommands = {
         Engine = {
-            SetPath = require("unreal.engine").InputEnginePath,
+            SetPath = require("unreal.engine").SetEnginePath_User,
+            ClearPath = require("unreal.engine").ClearEnginePath_User,
         },
         Project = {
             Open = require("unreal.project").OpenUproject,
