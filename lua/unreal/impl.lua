@@ -167,7 +167,7 @@ end
 ---(`BlueprintNativeEvent` -> `Foo_Implementation`) or add more (`WithValidation` -> `Foo_Validate`).
 ---@param declaration DeclarationTemplate
 ---@return string[] lines all bodies, ready to append to the `.cpp`
----@return number sigIndex which line to search for to tell if it already exists
+---@return number sigIndex the main signature line: searched to tell if it already exists, and where the cursor lands
 function M.ParseImplementation(declaration)
     local mainImpl = { suffix = nil, type = nil }
     local additionalImpls = {}
@@ -189,10 +189,9 @@ function M.ParseImplementation(declaration)
         local suffix = override.suffix
         local type = override.type
 
-        local blockContent, blockIndex = constructFunctionBlock(declaration, suffix, type)
+        local blockContent = constructFunctionBlock(declaration, suffix, type)
 
         vim.list_extend(content, blockContent)
-        sigIndex = sigIndex + blockIndex
     end
 
     return content, sigIndex
