@@ -327,6 +327,31 @@ function M.GetExecuteCmd(enginePath)
     return false, {}
 end
 
+function M.GetEngineVersion(enginePath)
+    local versionFile = vim.fs.joinpath(enginePath, "Engine", "Build", "Build.version")
+    if not pathUtils.Exists(versionFile) then
+        return "0.0.0"
+    end
+
+    local file = io.open(versionFile, "r")
+    if file then
+        local content = file:read("*a")
+        file:close()
+
+        local ok, jsonData =
+            pcall(vim.json.decode, content, { luanil = { object = true, array = true }, skip_comments = true })
+        if ok and type(jsonData) == "table" then
+            local major = jsonData.MajorVersion or "0"
+            local minor = jsonData.MinorVersion or "0"
+            local patch = jsonData.PatchVersion or "0"
+
+            return table.concat({ major, minor, patch }, ".")
+        end
+    end
+
+    return "0.0.0"
+end
+
 -----------------------------------
 
 ---Find the engine tools (editor, `dotnet`, UnrealBuildTool) for a project and pass them to `callback`.
@@ -383,6 +408,7 @@ end
 function M.RetrieveTools(enginePath)
     local result = {
         RootDir = enginePath,
+        Version = M.GetEngineVersion(enginePath),
     }
 
     local _, dotNetExe = M.ParseDotnetPath(enginePath)
