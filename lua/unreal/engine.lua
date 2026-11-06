@@ -267,9 +267,7 @@ function M.IsRootEngineDirValid(engineDir)
     return true
 end
 
----Where the engine's own `BuildConfiguration.xml` (UnrealBuildTool settings for every project
----built with this engine) lives: `<engine>/Engine/Saved/UnrealBuildTool/BuildConfiguration.xml`.
----The path is returned even when the file does not exist yet.
+---Path of the engine's `BuildConfiguration.xml`, whether it exists or not.
 ---@param engineDir string? engine root folder
 ---@return string? path nil when there is no engine folder
 function M.ParseBuildConfiguration(engineDir)
@@ -340,9 +338,7 @@ function M.GetExecuteCmd(enginePath)
     return false, {}
 end
 
----Read the engine's version, e.g. `"5.4.2"`, from `Engine/Build/Build.version`
----(a small JSON file every engine ships, launcher installs and source checkouts alike).
----Shown by `:checkhealth unreal`.
+---The engine's version, e.g. `"5.4.2"`, read from `Engine/Build/Build.version`.
 ---@param enginePath string? engine root folder
 ---@return string version `"0.0.0"` when there is no engine path, or the file is missing or unreadable
 function M.GetEngineVersion(enginePath)

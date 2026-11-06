@@ -158,9 +158,7 @@ function M.FindEngineInstalledFiles()
     return map[platform]
 end
 
----The project's `BuildConfiguration.xml` (UnrealBuildTool settings for this project only):
----`Saved/UnrealBuildTool/BuildConfiguration.xml` next to the `.uproject`.
----The path is returned even when the file does not exist yet.
+---Path of the project's `BuildConfiguration.xml` (next to the `.uproject`), whether it exists or not.
 ---@param uprojectFile string full path of the `.uproject`
 ---@return unreal.UiEntry entry `{ name = "Project Config", value = path }`
 function M.GetProjectBuildConfig(uprojectFile)
@@ -171,10 +169,7 @@ function M.GetProjectBuildConfig(uprojectFile)
     }
 end
 
----Your personal `BuildConfiguration.xml` files (UnrealBuildTool settings for every project you build):
----Windows checks `%APPDATA%\Unreal Engine\...` and `Documents\Unreal Engine\...`,
----Linux and Mac `~/.config/Unreal Engine/UnrealBuildTool/BuildConfiguration.xml`.
----Paths are returned even when the files do not exist yet.
+---Paths of your user `BuildConfiguration.xml` files for this OS, whether they exist or not.
 ---@return unreal.UiEntry[]? entries `{ name, value = path }`; nil on an unknown platform
 function M.GetUserBuildConfig()
     local joinpath = vim.fs.joinpath
