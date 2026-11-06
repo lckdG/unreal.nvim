@@ -158,7 +158,7 @@ The engine is found automatically: installed engines are read from the Epic laun
 
 `dotnet` prioritizes the bundled executable from the engine (`Engine/Binaries/ThirdParty/DotNet/<version>/<os>-<arch>/`, newest version first), then the one from `$PATH`.
 
-Run `:checkhealth unreal` to check dependencies, the chosen `.uproject` and its engine. See `:help unreal.nvim` or the [doc](doc/) directory for the full reference.
+Run `:checkhealth unreal` to check dependencies, the chosen `.uproject`, its engine and the engine version. See `:help unreal.nvim` or the [doc](doc/) directory for the full reference.
 
 ## Acknowledgements
 
