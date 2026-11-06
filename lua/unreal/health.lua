@@ -72,15 +72,23 @@ local function check_engine_path(uprojectPath)
     local health = vim.health
     local engine = require("unreal.engine")
 
-    local engineId = engine.GetAssociatedEngine(uprojectPath)
-    local engineInfo = engine.FindEngine(engineId)
-    local enginePathExist = engineInfo ~= nil
-    local enginePath = engineInfo.path
+    local enginePath = nil
+    local overridenPath = engine.OverrideEnginePath
 
-    if enginePathExist then
-        health.ok("Associated engine: found\n" .. "ID: " .. engineId .. "\nPath: " .. enginePath)
+    if overridenPath ~= nil then
+        enginePath = overridenPath
+        health.warn("Overridden engine: found\n" .. "Path: " .. enginePath)
     else
-        health.error("Associated engine: not found", "Check the .uproject file\nOr run :Unreal Engine SetPath")
+        local engineId = engine.GetAssociatedEngine(uprojectPath)
+        local engineInfo = engine.FindEngine(engineId)
+        local enginePathExist = engineInfo ~= nil
+        enginePath = engineInfo and engineInfo.path or nil
+
+        if enginePathExist then
+            health.ok("Associated engine: found\n" .. "ID: " .. engineId .. "\nPath: " .. enginePath)
+        else
+            health.error("Associated engine: not found", "Check the .uproject file\nOr run :Unreal Engine SetPath")
+        end
     end
 
     local exeExists, exePath = engine.GetEngineExecutable(enginePath)

@@ -17,7 +17,7 @@ function M.init()
     local augroup = vim.api.nvim_create_augroup("unreal.nvim.project", { clear = true })
     vim.api.nvim_create_autocmd("DirChanged", {
         group = augroup,
-        callback = function ()
+        callback = function()
             local lastRoot = M.ProjectRoot
             M.ProjectRoot = pathUtils.GetProjectRoot()
 
@@ -25,11 +25,12 @@ function M.init()
                 M.UprojectPath = nil
                 engine.ClearEnginePath_User()
             end
-        end
+        end,
     })
 end
 
----Find `.uproject` files under the working directory and call `cb` with one of them.
+---Find `.uproject` files under the project folder (see `path_utils.GetProjectRoot`)
+---and call `cb` with one of them.
 ---Errors if none, prompts if several, skips `cb` if the prompt is dismissed.
 ---@param cb fun(uprojectPath: string?)
 function M.SelectUproject(cb)
@@ -48,6 +49,8 @@ function M.SelectUproject(cb)
     end
 end
 
+---`:Unreal Project Select`: choose which `.uproject` the other commands use.
+---The choice is kept until Neovim closes or the working directory moves to another project.
 function M.SelectUproject_User()
     M.SelectUproject(function(path)
         if pathUtils.Exists(path) then
@@ -58,7 +61,8 @@ function M.SelectUproject_User()
     end)
 end
 
----Ensure a valid uproject path is set
+---Run `callback` once a `.uproject` is chosen for this session.
+---If none is chosen yet, finds one first (asking when there are several).
 ---@param callback fun()
 function M.EnsureUproject(callback)
     if not M.UprojectPath or M.UprojectPath == "" then
@@ -76,8 +80,8 @@ function M.EnsureUproject(callback)
 end
 
 ---`:Unreal Project Open`: open the project in Unreal Editor.
----Needs an uproject path (asks for one if unset).
----Shows an error if no `.uproject` is found or the editor program is missing.
+---Uses the engine the `.uproject` asks for (see `engine.FindEngineTools`).
+---Shows an error if no `.uproject` is found or the engine has no `UnrealEditor` program.
 function M.OpenUproject()
     M.EnsureUproject(function()
         local uprojectPath = M.UprojectPath
@@ -95,9 +99,10 @@ end
 
 ---`:Unreal Build Clangd`: regenerate `compile_commands.json`, the file clangd reads to
 ---understand your code (include paths, defines). Run it after adding modules, plugins or files.
----Runs UnrealBuildTool in a terminal split, then copies the result into the working directory.
+---Runs UnrealBuildTool in a terminal split, then copies the result next to the `.uproject`.
 ---Extra UnrealBuildTool arguments come from the `clangd_build_args` option.
----Needs an engine path (asks for one if unset). Shows an error if the build or copy fails.
+---Needs `dotnet` and UnrealBuildTool from the engine, not the editor, so it also works on an
+---engine built from source before the editor is compiled. Shows an error if the build or copy fails.
 function M.RebuildClangd()
     M.EnsureUproject(function()
         local uprojectPath = M.UprojectPath
@@ -165,7 +170,7 @@ function M.RebuildClangd()
 end
 
 ---`:Unreal Project Edit`: open the `.uproject` file (JSON with modules, plugins, engine version)
----in a buffer to edit it. No engine path needed. Several files: the user picks one.
+---in a buffer to edit it. No engine needed. Several files: the user picks one.
 function M.EditUproject()
     M.EnsureUproject(function()
         local editPath = vim.fn.fnameescape(M.UprojectPath)

@@ -140,8 +140,12 @@ function M.FindEngine(id)
     return match
 end
 
+---`:Unreal Engine SetPath`: ask for an Unreal Engine folder and use it for every command,
+---instead of the engine the `.uproject` asks for. Useful when the engine is not found automatically.
+---Kept until `:Unreal Engine ClearPath`, a move to another project folder, or Neovim closes.
+---Warns and keeps the old value if the folder has no UnrealBuildTool or usable `dotnet`.
 function M.SetEnginePath_User()
-    M.InputEnginePath(function (path)
+    M.InputEnginePath(function(path)
         if path and M.IsRootEngineDirValid(path) then
             M.OverrideEnginePath = path
             log.Notify("Override engine path is set!", vim.log.levels.INFO)
@@ -151,6 +155,8 @@ function M.SetEnginePath_User()
     end)
 end
 
+---`:Unreal Engine ClearPath`: forget the folder set with `:Unreal Engine SetPath`,
+---so commands go back to the engine the `.uproject` asks for.
 function M.ClearEnginePath_User()
     M.OverrideEnginePath = nil
     log.Notify("Override engine path is cleared!", vim.log.levels.INFO)
@@ -323,9 +329,11 @@ end
 
 -----------------------------------
 
----Find the engine path required by the input .uproject file
----it looks for the "EngineAssociation" field.
----If such no path is found, falls back to manual input
+---Find the engine tools (editor, `dotnet`, UnrealBuildTool) for a project and pass them to `callback`.
+---Order: the folder from `:Unreal Engine SetPath`; then the installed engine named by the
+---`.uproject`'s `EngineAssociation` field (e.g. `"5.4"`, matching the launcher's `UE_5.4`);
+---otherwise it asks for a folder. The typed folder is not remembered.
+---`callback(nil)` when the prompt is cancelled or the folder is not a valid engine.
 ---@param uprojectPath string
 ---@param callback fun(tools: unreal.EngineTools?)
 function M.FindEngineTools(uprojectPath, callback)
@@ -368,7 +376,6 @@ function M.GetAssociatedEngine(uprojectPath)
 
     return nil
 end
-
 
 ---@private
 ---@param enginePath string

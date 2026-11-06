@@ -7,7 +7,8 @@ function M.Exists(path)
     return vim.uv.fs_stat(path) ~= nil
 end
 
----The folder that counts as "this project" (used to remember the engine path per project).
+---The folder that counts as "this project": `.uproject` files are searched under it, and moving
+---the working directory to another project folder resets the chosen `.uproject` and engine path.
 ---Walks up from the working directory and picks the first folder with a `.uproject`,
 ---else the first with `.git` or `.p4ignore`, else the working directory itself.
 ---@return string
@@ -21,8 +22,9 @@ function M.GetProjectRoot()
     return root or cwd
 end
 
----Find `.uproject` files. `upward = false` searches the whole tree under cwd;
----`upward = true` searches cwd and its parents.
+---Find `.uproject` files (Unreal project files) in `opts.path` and all folders below it.
+---Without `opts` it searches the project folder (see `GetProjectRoot`).
+---Stops after 20 files, so a huge folder such as your home directory does not list everything.
 ---@param opts UprojectFindOpts?
 ---@return string[] files full paths, or basenames when `opts.nameOnly`
 function M.FindUprojects(opts)
