@@ -30,6 +30,16 @@ Use an engine folder you type instead of the one the `.uproject` asks for. Lasts
 
 Forget the `Engine SetPath` folder.
 
+### Engine Checkout
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                     *:Unreal-Engine-Checkout*
+```
+-->
+
+Pick an engine release tag (newest first) from [engine_source](#engine_source) `git_url` and clone it into `<clone_dir>/<tag>` in a terminal split. Only the tag's latest commit is downloaded (`git clone --depth 1`). Needs `git`, and access to the repository: Epic's repository is private until you link your GitHub account to your Epic Games account. Shows an error if `clone_dir` is not set or does not exist.
+
 ## Project
 
 ### Project Open

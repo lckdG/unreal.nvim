@@ -14,6 +14,7 @@ Table of Contents                                   *unreal-table-of-contents*
   - Tree-sitter grammar              |unreal-installation-tree-sitter-grammar|
 3. Config                                                      |unreal-config|
   - custom_treesitter                        |unreal-config-custom_treesitter|
+  - engine_source                                |unreal-config-engine_source|
   - command_lead                                  |unreal-config-command_lead|
   - uproject_limits                            |unreal-config-uproject_limits|
   - cmd_abbreviations                        |unreal-config-cmd_abbreviations|
@@ -147,6 +148,10 @@ All options are optional. Defaults:
             url = 'https://github.com/taku25/tree-sitter-unreal-cpp',
             revision = '2d2d5c19a9a83e432e43c041252106995614b29a',
         },
+        engine_source = {
+            git_url = 'https://github.com/EpicGames/UnrealEngine',
+            clone_dir = nil,
+        },
         command_lead = "Unreal",
         uproject_limits = 5,
         cmd_abbreviations = {},
@@ -160,6 +165,14 @@ CUSTOM_TREESITTER                            *unreal-config-custom_treesitter*
 
 Grammar registered as nvim-treesitter’s `cpp` parser. Override `url` and
 `revision` to pin another build of the grammar.
+
+
+ENGINE_SOURCE                                    *unreal-config-engine_source*
+
+Where Engine Checkout |unreal-commands-engine| gets engine source code.
+`git_url` is the repository whose tags are listed and cloned. `clone_dir` is an
+existing folder that receives one subfolder per cloned tag; it has no default,
+so `Engine Checkout` shows an error until you set it.
 
 
 COMMAND_LEAD                                      *unreal-config-command_lead*
@@ -305,6 +318,18 @@ ENGINE CLEARPATH ~
                                                     *:Unreal-Engine-ClearPath*
 
 Forget the `Engine SetPath` folder.
+
+
+ENGINE CHECKOUT ~
+
+                                                     *:Unreal-Engine-Checkout*
+
+Pick an engine release tag (newest first) from |unreal-config-engine_source|
+`git_url` and clone it into `<clone_dir>/<tag>` in a terminal split. Only the
+tag’s latest commit is downloaded (`git clone --depth 1`). Needs `git`, and
+access to the repository: Epic’s repository is private until you link your
+GitHub account to your Epic Games account. Shows an error if `clone_dir` is not
+set or does not exist.
 
 
 PROJECT                                              *unreal-commands-project*
