@@ -140,6 +140,8 @@ describe("commands", function()
         { "Unreal Bu", { "Build" } },
         { "Unreal Code ", { "Impl", "Macro", "SwitchSourceHeader" } },
         { "Unreal Code M", { "Macro" } },
+        { "Unreal Engine ", { "ClearPath", "SetPath" } },
+        { "Unreal Project ", { "Edit", "Open", "Select" } },
         { "Unreal Search ", { "Files", "Grep" } },
         { "Unreal Foo ", {} },
         { "Unreal Code Impl ", {} },
@@ -261,4 +263,30 @@ describe("treesitter.Hijack", function()
         pcall(vim.api.nvim_del_user_command, "Unreal")
         assert.are.equal(1, tsupdate_autocmds())
     end)
+end)
+
+describe("setup() file types", function()
+    before_each(function()
+        h.stub(require("unreal.engine"), "init", function() end)
+        h.stub(require("unreal.project"), "init", function() end)
+        require("unreal").setup()
+    end)
+
+    after_each(function()
+        h.reset()
+        pcall(vim.api.nvim_del_user_command, "Unreal")
+        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim.treesitter")
+        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim.ft")
+    end)
+
+    for _, name in ipairs({ "Game.uproject", "Plugin.uplugin" }) do
+        it(name .. " -> json, tabs 4 wide", function()
+            local root = h.project({ [name] = { "{}" } })
+            vim.cmd.edit(vim.fn.fnameescape(root .. "/" .. name))
+            assert.are.equal("json", vim.bo.filetype)
+            assert.is_false(vim.bo.expandtab)
+            assert.are.equal(4, vim.bo.tabstop)
+            assert.are.equal(4, vim.bo.shiftwidth)
+        end)
+    end
 end)
