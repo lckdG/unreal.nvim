@@ -83,6 +83,9 @@ require('unreal').setup({
     -- Name of the user command, e.g. "UE" gives :UE Project Open.
     command_lead = "Unreal",
 
+    -- Most .uproject files to look for under the project folder; the search stops there.
+    uproject_limits = 5,
+
     -- Command-line abbreviations, expanded to "<command_lead> <value>".
     -- Empty by default -- add your own, e.g.:
     cmd_abbreviations = {

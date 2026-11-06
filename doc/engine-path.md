@@ -20,4 +20,4 @@ Commands that need the engine pick it in this order:
 
 `Project Open` also needs the engine's `UnrealEditor` program. `Build Clangd` only needs `dotnet` and UnrealBuildTool.
 
-The project folder is the closest one above the working directory that has a `.uproject`. If there is none, the closest one with `.git` or `.p4ignore` is used, and finally the working directory itself. `.uproject` files are searched under it (at most 20). The chosen `.uproject` and the `Engine SetPath` folder are kept until Neovim closes or the working directory moves to another project folder. Nothing is saved to disk.
+The project folder is the closest one above the working directory that has a `.uproject`. If there is none, the closest one with `.git` or `.p4ignore` is used, and finally the working directory itself. `.uproject` files are searched under it (at most [uproject_limits](#uproject_limits), 5 by default). The chosen `.uproject` and the `Engine SetPath` folder are kept until Neovim closes or the working directory moves to another project folder. Nothing is saved to disk.

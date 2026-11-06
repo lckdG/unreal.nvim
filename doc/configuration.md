@@ -9,6 +9,7 @@ require('unreal').setup({
         revision = '2d2d5c19a9a83e432e43c041252106995614b29a',
     },
     command_lead = "Unreal",
+    uproject_limits = 5,
     cmd_abbreviations = {},
     clangd_build_args = { "-NoExecCodeGenActions" },
     extensions = {},
@@ -22,6 +23,10 @@ Grammar registered as nvim-treesitter's `cpp` parser. Override `url` and `revisi
 ## command_lead
 
 Name of the user command. With `command_lead = "UE"` the commands become `:UE Project Open`, `:UE Build Clangd`, ...
+
+## uproject_limits
+
+Most `.uproject` files to look for under the project folder (see [Engine path](#engine-path)). The search stops once it finds this many, so opening Neovim in a big folder such as your home directory stays fast. Raise it if the picker misses projects in a folder with many of them.
 
 ## cmd_abbreviations
 
