@@ -7,38 +7,42 @@ function M.Exists(path)
     return vim.uv.fs_stat(path) ~= nil
 end
 
----The folder that counts as "this project" (used to remember the engine path per project).
+---The folder that counts as "this project": `.uproject` files are searched under it, and moving
+---the working directory to another project folder resets the chosen `.uproject` and engine path.
 ---Walks up from the working directory and picks the first folder with a `.uproject`,
 ---else the first with `.git` or `.p4ignore`, else the working directory itself.
 ---@return string
 function M.GetProjectRoot()
     local cwd = vim.fn.getcwd()
     local function isUproject(name)
-        return name:match("%.uproject$") ~= nil
+        return vim.fs.ext(name) == "uproject"
     end
 
     local root = vim.fs.root(cwd, { isUproject, { ".git", ".p4ignore" } })
     return root or cwd
 end
 
----Find `.uproject` files. `upward = false` searches the whole tree under cwd;
----`upward = true` searches cwd and its parents.
+---Find `.uproject` files (Unreal project files) in `opts.path` and all folders below it.
+---Without `opts` it searches the project folder (see `GetProjectRoot`).
+---Stops after `uproject_limits` files (5 by default), so a huge folder such as your home directory
+---does not list everything.
 ---@param opts UprojectFindOpts?
 ---@return string[] files full paths, or basenames when `opts.nameOnly`
 function M.FindUprojects(opts)
     if opts == nil then
         opts = {
-            upward = false,
+            path = M.GetProjectRoot(),
             nameOnly = false,
         }
     end
 
+    local config = require("unreal.config")
     local files = vim.fs.find(function(name, _)
         return vim.fs.ext(name) == "uproject"
     end, {
-        upward = opts.upward or false,
-        path = opts.upward and vim.fn.getcwd() or nil,
-        limit = math.huge,
+        upward = false,
+        path = opts.path,
+        limit = config.opts.uproject_limits,
         type = "file",
     })
 
@@ -108,6 +112,50 @@ function M.GetSourceHeader()
     end, { limit = 1, type = "file", path = directory })
 
     return #switchingFiles > 0 and switchingFiles[1] or nil
+end
+
+function M.FindEngineInstalledFiles()
+    ---@param segments string[]
+    ---@return string
+    local joinpath = function(segments)
+        local slash = package.config:sub(1, 1)
+        return table.concat(segments, slash)
+    end
+
+    local map = {
+        Win64 = {
+            {
+                path = joinpath({ vim.env.ProgramData or "", "Epic", "UnrealEngineLauncher", "LauncherInstalled.dat" }),
+                type = "json",
+            },
+            {
+                path = joinpath({ "HKCU", "Software", "Epic Games", "Unreal Engine", "Builds" }),
+                type = "reg",
+            },
+        },
+        Mac = {
+            {
+                path = joinpath({
+                    vim.env.HOME or "",
+                    "Library",
+                    "Application Support",
+                    "Epic",
+                    "UnrealEngineLauncher",
+                    "LauncherInstalled.dat",
+                }),
+                type = "json",
+            },
+        },
+        Linux = {
+            {
+                path = joinpath({ vim.env.HOME or "", ".config", "Epic", "UnrealEngine", "Install.ini" }),
+                type = "ini",
+            },
+        },
+    }
+
+    local platform = require("unreal.system").GetPlatform()
+    return map[platform]
 end
 
 return M

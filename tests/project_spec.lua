@@ -4,11 +4,10 @@ local engine = require("unreal.engine")
 local project = require("unreal.project")
 local system = require("unreal.system")
 local ui = require("unreal.ui")
-local realGetExecuteCmd = engine.GetExecuteCmd
-local realGetUbtDll = engine.GetUbtDll
-local realGetDotNetCmd = engine.GetDotNetCmd
+local realFindEngineTools = engine.FindEngineTools
 
 local ERROR = vim.log.levels.ERROR
+local UBT = "Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
 
 local function use_select(index)
     local calls = {}
@@ -36,28 +35,53 @@ local function stub_jobstart(code)
     return state
 end
 
+local function fake_tools(overrides)
+    local tools = {
+        RootDir = "/ue",
+        EngineExe = { "editor" },
+        DotNetExe = "/ue/dotnet",
+        UnrealBuildTool = "/ue/" .. UBT,
+    }
+    for k, v in pairs(overrides or {}) do
+        tools[k] = v ~= vim.NIL and v or nil
+    end
+    return tools
+end
+
+local function use_tools(overrides)
+    return h.spy(engine, "FindEngineTools", function(_, cb)
+        if overrides == false then
+            cb(nil)
+        else
+            cb(fake_tools(overrides))
+        end
+    end)
+end
+
+local function real_engine(files)
+    h.stub(engine, "FindEngineTools", realFindEngineTools)
+    local root = h.tmpdir()
+    for _, f in ipairs(files) do
+        h.write(root, f)
+    end
+    h.stub(engine, "OverrideEnginePath", root)
+    return root
+end
+
 describe("project", function()
     local notes
 
     before_each(function()
         config.config()
         notes = h.notifications()
-        h.stub(engine, "EnsureEnginePath", function()
-            return true
-        end)
-        h.stub(engine, "EnginePath", "/ue")
-        h.stub(engine, "GetUbtDll", function()
-            return "/ue/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
-        end)
-        h.stub(engine, "GetDotNetCmd", function()
-            return "/ue/dotnet"
-        end)
-        h.stub(engine, "GetExecuteCmd", function()
-            return true, { "editor" }
-        end)
+        h.stub(project, "UprojectPath", nil)
+        h.stub(project, "ProjectRoot", nil)
+        h.stub(engine, "OverrideEnginePath", nil)
+        use_tools()
     end)
     after_each(function()
         ui.Use(nil)
+        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim.project")
         h.reset()
     end)
 
@@ -101,22 +125,49 @@ describe("project", function()
             assert.are.equal(0, #jobs)
         end)
 
-        it("EnsureEnginePath false -> returns before searching", function()
-            h.project({ ["Game.uproject"] = {} })
-            h.stub(engine, "EnsureEnginePath", function()
-                return false
-            end)
-            local finds = h.spy(require("unreal.path_utils"), "FindUprojects", {})
+        it("chosen uproject is kept -> second run does not prompt", function()
+            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
             local jobs = h.spy(vim.fn, "jobstart", 1)
+            local selects = use_select(2)
             project.OpenUproject()
-            assert.are.equal(0, #finds)
-            assert.are.equal(0, #jobs)
+            project.OpenUproject()
+            assert.are.equal(1, #selects)
+            assert.are.equal(2, #jobs)
+            assert.are.equal(jobs[1][1][2], jobs[2][1][2])
         end)
 
-        it("missing editor binary on Linux -> error, no jobstart", function()
+        it("passes the chosen uproject to FindEngineTools", function()
+            local root = h.project({ ["Game.uproject"] = {} })
+            local finds = use_tools()
+            h.spy(vim.fn, "jobstart", 1)
+            project.OpenUproject()
+            assert.are.equal(root .. "/Game.uproject", finds[1][1])
+        end)
+
+        it("no engine tools -> error, no jobstart", function()
             h.project({ ["Game.uproject"] = {} })
-            h.stub(engine, "GetExecuteCmd", realGetExecuteCmd)
-            h.stub(engine, "EnginePath", h.tmpdir())
+            use_tools(false)
+            local jobs = h.spy(vim.fn, "jobstart", 1)
+            project.OpenUproject()
+            assert.are.equal(0, #jobs)
+            assert.is_true(h.notified(notes, ERROR))
+        end)
+
+        it("engine without editor -> error, no jobstart", function()
+            h.project({ ["Game.uproject"] = {} })
+            use_tools({ EngineExe = vim.NIL })
+            local jobs = h.spy(vim.fn, "jobstart", 1)
+            project.OpenUproject()
+            assert.are.equal(0, #jobs)
+            assert.is_true(h.notified(notes, ERROR))
+        end)
+
+        it("real engine tree missing editor binary on Linux -> error, no jobstart", function()
+            h.project({ ["Game.uproject"] = {} })
+            h.stub(vim.fn, "exepath", function()
+                return "/usr/bin/dotnet"
+            end)
+            real_engine({ UBT })
             h.stub(system, "GetPlatform", function()
                 return "Linux"
             end)
@@ -143,26 +194,31 @@ describe("project", function()
             return state
         end
 
-        it("EnsureEnginePath false -> aborts", function()
+        it("no engine tools -> error, UBT not called", function()
             h.project({ ["Game.uproject"] = {} })
-            h.stub(engine, "EnsureEnginePath", function()
-                return false
-            end)
+            use_tools(false)
             local state = run(0)
             assert.are.equal(0, #state.calls)
+            assert.is_true(h.notified(notes, ERROR))
         end)
 
-        for _, getter in ipairs({ "GetUbtDll", "GetDotNetCmd" }) do
-            it(getter .. " nil -> warn, UBT not called", function()
+        for _, field in ipairs({ "DotNetExe", "UnrealBuildTool" }) do
+            it(field .. " missing -> error, UBT not called", function()
                 h.project({ ["Game.uproject"] = {} })
-                h.stub(engine, getter, function()
-                    return nil
-                end)
+                use_tools({ [field] = vim.NIL })
                 local state = run(0)
                 assert.are.equal(0, #state.calls)
-                assert.is_true(h.notified(notes, vim.log.levels.WARN))
+                assert.is_true(h.notified(notes, ERROR))
             end)
         end
+
+        it("engine without editor -> UBT still runs", function()
+            h.project({ ["Game.uproject"] = {} })
+            use_tools({ EngineExe = vim.NIL })
+            local state = run(0)
+            assert.are.equal(1, #state.calls)
+            assert.are.equal("/ue/dotnet", state.calls[1].cmd[1])
+        end)
 
         it("0 uprojects -> error, UBT not called", function()
             h.project({})
@@ -176,18 +232,12 @@ describe("project", function()
 
             before_each(function()
                 h.project({ ["Game.uproject"] = {} })
-                h.stub(engine, "GetUbtDll", realGetUbtDll)
-                h.stub(engine, "GetDotNetCmd", realGetDotNetCmd)
-                root = h.tmpdir()
-                h.write(root, "Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll")
                 local plat = ({ Win64 = "win", Linux = "linux", Mac = "mac" })[system.GetPlatform()]
                 local exe = system.GetPlatform() == "Win64" and "dotnet.exe" or "dotnet"
-                bundled = h.write(
-                    root,
+                bundled =
                     vim.fs.joinpath("Engine/Binaries/ThirdParty/DotNet/8.0.300", plat .. "-" .. system.GetArch(), exe)
-                )
-                h.stub(engine, "EnginePath", root)
-                h.stub(engine, "EnginePathSet", true)
+                root = real_engine({ UBT, bundled })
+                bundled = vim.fs.joinpath(root, bundled)
             end)
 
             local function path_dotnet(path)
@@ -209,12 +259,18 @@ describe("project", function()
                 assert.are.equal("/usr/bin/dotnet", state.calls[1].cmd[1])
             end)
 
-            it("neither -> warn, UBT not called", function()
+            it("neither -> error, UBT not called", function()
                 path_dotnet("")
                 vim.fn.delete(bundled)
                 local state = run(0)
                 assert.are.equal(0, #state.calls)
-                assert.is_true(h.notified(notes, vim.log.levels.WARN))
+                assert.is_true(h.notified(notes, ERROR))
+            end)
+
+            it("copies compile_commands.json from the engine root", function()
+                path_dotnet("")
+                run(0)
+                assert.are.equal(vim.fs.joinpath(root, "compile_commands.json"), copies[1][1])
             end)
         end)
 
@@ -246,8 +302,8 @@ describe("project", function()
             config.opts.clangd_build_args = { "-NoExecCodeGenActions" }
             local state = run(0)
             assert.are.same({
-                engine.GetDotNetCmd(),
-                engine.GetUbtDll(),
+                "/ue/dotnet",
+                "/ue/" .. UBT,
                 "-mode=GenerateClangDatabase",
                 "-NoExecCodeGenActions",
                 "-project=" .. root .. "/Game.uproject",
@@ -289,10 +345,8 @@ describe("project", function()
 
         it("engine path with spaces stays one argument", function()
             h.project({ ["Game.uproject"] = {} })
-            local dll = "C:/Program Files/Epic Games/UE_5.4/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
-            h.stub(engine, "GetUbtDll", function()
-                return dll
-            end)
+            local dll = "C:/Program Files/Epic Games/UE_5.4/" .. UBT
+            use_tools({ UnrealBuildTool = dll })
             local state = run(0)
             assert.is_true(vim.tbl_contains(state.calls[1].cmd, dll))
         end)
@@ -314,12 +368,19 @@ describe("project", function()
             assert.is_true(h.notified(notes, ERROR))
         end)
 
-        it("exit code 0 -> copies compile_commands.json to cwd, success notify", function()
+        it("exit code 0 -> copies compile_commands.json next to the uproject, success notify", function()
             local root = h.project({ ["Game.uproject"] = {} })
             local state = run(0)
             assert.is_nil(state.callback_error)
             assert.are.same({ "/ue/compile_commands.json", root .. "/compile_commands.json" }, copies[1])
             assert.is_true(h.notified(notes, vim.log.levels.INFO))
+        end)
+
+        it("uproject in a subdir of cwd -> copies compile_commands.json next to it", function()
+            local root = h.project({ [".git/HEAD"] = {}, ["Game/Game.uproject"] = {} })
+            local state = run(0)
+            assert.is_nil(state.callback_error)
+            assert.are.same({ "/ue/compile_commands.json", root .. "/Game/compile_commands.json" }, copies[1])
         end)
 
         it("copy fails -> error with reason", function()
@@ -379,13 +440,98 @@ describe("project", function()
             assert.are.equal(root .. "/My Game%/My Game.uproject", current_file())
         end)
 
-        it("does not require an engine path", function()
+        it("does not look up the engine", function()
             local root = h.project({ ["Game.uproject"] = {} })
-            h.stub(engine, "EnsureEnginePath", function()
-                return false
-            end)
+            local finds = use_tools()
             project.EditUproject()
             assert.are.equal(root .. "/Game.uproject", current_file())
+            assert.are.equal(0, #finds)
+        end)
+    end)
+
+    describe("SelectUproject_User", function()
+        it("2 uprojects, choose 2 -> used by later commands without prompt", function()
+            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
+            local selects = use_select(2)
+            project.SelectUproject_User()
+            local chosen = selects[1].items[2].value
+            assert.are.equal(chosen, project.UprojectPath)
+            local jobs = h.spy(vim.fn, "jobstart", 1)
+            project.OpenUproject()
+            assert.are.equal(1, #selects)
+            assert.are.equal(chosen, jobs[1][1][2])
+        end)
+
+        it("asks again even when one is already chosen", function()
+            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
+            local selects = use_select(1)
+            project.SelectUproject_User()
+            use_select(2)
+            project.SelectUproject_User()
+            assert.are.equal(1, #selects)
+            assert.is_true(h.ends_with(project.UprojectPath, "B/B.uproject"))
+        end)
+
+        it("select dismissed -> previous choice kept", function()
+            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
+            use_select(1)
+            project.SelectUproject_User()
+            local before = project.UprojectPath
+            use_select(nil)
+            project.SelectUproject_User()
+            assert.are.equal(before, project.UprojectPath)
+        end)
+
+        it("0 uprojects -> error, nothing chosen", function()
+            h.project({})
+            project.SelectUproject_User()
+            assert.is_nil(project.UprojectPath)
+            assert.is_true(h.notified(notes, ERROR))
+        end)
+    end)
+
+    describe("init", function()
+        it("project root is the folder with the uproject when started in a subfolder", function()
+            local root = h.project({ ["Game.uproject"] = {}, ["Source/Game/x.h"] = {} })
+            vim.cmd.cd("Source/Game")
+            project.init()
+            assert.are.equal(root, project.ProjectRoot)
+        end)
+
+        it("does not search or notify", function()
+            h.project({})
+            local finds = h.spy(require("unreal.path_utils"), "FindUprojects", {})
+            project.init()
+            assert.are.equal(0, #finds)
+            assert.are.equal(0, #notes)
+        end)
+
+        it(":cd to another project -> uproject and engine override reset", function()
+            h.project({ ["A.uproject"] = {} })
+            project.init()
+            project.UprojectPath = "/a/A.uproject"
+            engine.OverrideEnginePath = "/ue"
+            local other = h.project({ ["B.uproject"] = {} })
+            assert.are.equal(other, project.ProjectRoot)
+            assert.is_nil(project.UprojectPath)
+            assert.is_nil(engine.OverrideEnginePath)
+        end)
+
+        it(":cd within the same project -> uproject and engine override kept", function()
+            local root = h.project({ ["A.uproject"] = {}, ["Source/Mod/x.h"] = {} })
+            project.init()
+            project.UprojectPath = root .. "/A.uproject"
+            engine.OverrideEnginePath = "/ue"
+            vim.cmd.cd("Source/Mod")
+            assert.are.equal(root .. "/A.uproject", project.UprojectPath)
+            assert.are.equal("/ue", engine.OverrideEnginePath)
+        end)
+
+        it("init twice -> one DirChanged autocmd", function()
+            h.project({})
+            project.init()
+            project.init()
+            assert.are.equal(1, #vim.api.nvim_get_autocmds({ group = "unreal.nvim.project" }))
         end)
     end)
 end)
