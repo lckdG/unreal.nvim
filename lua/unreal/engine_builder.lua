@@ -31,13 +31,21 @@ function EngineBuilder.Checkout()
                 return
             end
 
+            local tag = item.value
+            local dest = vim.fs.joinpath(cloneDir, item.value)
+
+            if require("unreal.path_utils").Exists(dest) then
+                log.Notify("Cannot clone to existing directory: " .. dest, logLevels.WARN)
+                return
+            end
+
             local command = {
                 "git",
                 "clone",
                 "--depth",
                 "1",
                 "--branch",
-                item.value,
+                tag,
                 gitUrl,
                 vim.fs.joinpath(cloneDir, item.value),
             }
