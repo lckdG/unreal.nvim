@@ -182,11 +182,7 @@ function EngineBuilder.BuildFrom(sourceDir)
     local system = require("unreal.system")
     local platform = system.GetPlatform()
 
-    local buildArgs = { platform, "Development" }
-    if platform == "Win64" then
-        table.insert(buildArgs, "-WaitMutex")
-    end
-
+    local buildArgs = { platform, "Development", "-WaitMutex" }
     local q = vim.fn.shellescape
     local scripts = getBuildScripts(sourceDir)
 
