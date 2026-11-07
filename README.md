@@ -114,8 +114,6 @@ require('unreal').setup({
 })
 ```
 
-`telescope_extended_ignores` is deprecated and will be removed in 0.3.0; use `extensions.telescope.ignores` instead.
-
 ## Extensions
 
 Extensions are optional integrations with other plugins, enabled through the `extensions` option. Available: Telescope.
@@ -160,8 +158,6 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 | `:Unreal Search Grep` | Grep header/cpp, `.ini` or `Build.cs`/`Target.cs` files (quickfix list, or live with an extension) |
 
 The `.uproject` and engine are found automatically: the engine comes from the `.uproject`'s `EngineAssociation` and your installed engines. If something is not found, the command asks. Nothing is saved to disk; see `:help unreal-engine-path`.
-
-The old one-word names (`OpenProject`, `RebuildClangd`, ...) still work until 0.3.0, with a deprecation warning.
 
 Run `:checkhealth unreal` to check dependencies, the `.uproject` and its engine. See `:help unreal.nvim` or the [doc](doc/) directory for the full reference.
 

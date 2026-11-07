@@ -214,18 +214,3 @@ Grep files with `rg`. Asks for the file type first (scopes are listed below), th
 | Build Files | `*.Build.cs`, `*.Target.cs` |
 
 With the built-in UI, the typed name only matches the part before the extension. For Build Files that is the module or target name: `Editor` finds `GameEditor.Target.cs`, `Target` finds nothing.
-
-## Deprecated names
-
-The old one-word commands still work until 0.3.0, with a deprecation warning:
-
-| Old | New |
-| --- | --- |
-| `SetEnginePath` | `Engine SetPath` |
-| `OpenProject` | `Project Open` |
-| `RebuildClangd` | `Build Clangd` |
-| `CreateImpl` | `Code Impl` |
-| `CompleteMacro` | `Code Macro` |
-| `SwitchSourceHeader` | `Code SwitchSourceHeader` |
-| `FindSource` | `Search Files` |
-| `GrepSource` | `Search Grep` |
