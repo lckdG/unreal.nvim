@@ -6,10 +6,16 @@ local system = require("unreal.system")
 local pathUtils = require("unreal.path_utils")
 
 local UBT = "Engine/Build/BatchFiles/RunUBT" .. (system.GetPlatform() == "Win64" and ".bat" or ".sh")
+local VERSION_FILE = "Engine/Build/Build.version"
+
+local function write_version(root)
+    h.write(root, VERSION_FILE, { vim.json.encode({ MajorVersion = 5, MinorVersion = 4, PatchVersion = 2 }) })
+end
 
 local function fake_engine()
     local root = h.tmpdir()
     h.write(root, UBT)
+    write_version(root)
     return root
 end
 
@@ -51,15 +57,38 @@ describe("engine", function()
     end)
 
     describe("IsRootEngineDirValid", function()
-        for _, hasUbt in ipairs({ true, false }) do
-            it(("RunUBT %s -> %s"):format(hasUbt and "yes" or "no", tostring(hasUbt)), function()
-                local root = h.tmpdir()
-                if hasUbt then
-                    h.write(root, UBT)
-                end
-                assert.are.equal(hasUbt, engine.IsRootEngineDirValid(root))
-            end)
-        end
+        it("Build.version present -> true", function()
+            local root = h.tmpdir()
+            write_version(root)
+            assert.is_true(engine.IsRootEngineDirValid(root))
+        end)
+
+        it("Build.version present, no RunUBT -> true", function()
+            local root = h.tmpdir()
+            write_version(root)
+            assert.is_true(engine.IsRootEngineDirValid(root))
+            assert.is_false(engine.ParseUbtPath(root))
+        end)
+
+        it("RunUBT only, no Build.version -> false", function()
+            local root = h.tmpdir()
+            h.write(root, UBT)
+            assert.is_false(engine.IsRootEngineDirValid(root))
+        end)
+
+        it("malformed Build.version -> false", function()
+            local root = h.tmpdir()
+            h.write(root, VERSION_FILE, { "{ not json" })
+            assert.is_false(engine.IsRootEngineDirValid(root))
+        end)
+
+        it("empty folder -> false", function()
+            assert.is_false(engine.IsRootEngineDirValid(h.tmpdir()))
+        end)
+
+        it("nil -> false", function()
+            assert.is_false(engine.IsRootEngineDirValid(nil))
+        end)
     end)
 
     describe("InputEnginePath", function()
@@ -194,7 +223,7 @@ describe("engine", function()
             h.write(root, EDITOR)
             assert_fields({
                 RootDir = root,
-                Version = "0.0.0",
+                Version = "5.4.2",
                 BuildConfig = vim.fs.joinpath(root, "Engine/Saved/UnrealBuildTool/BuildConfiguration.xml"),
                 EngineExe = { "setsid", "-f", vim.fs.joinpath(root, EDITOR) },
                 UnrealBuildTool = vim.fs.joinpath(root, UBT),
@@ -574,6 +603,7 @@ describe("engine", function()
             it("build path with spaces -> kept whole", function()
                 local root = vim.fs.joinpath(h.tmpdir(), "Epic Games", "UE Source")
                 h.write(root, UBT)
+                write_version(root)
                 reg_query(0, { ["{33333333-3333-3333-3333-333333333333}"] = root })
                 init_and_wait()
                 assert.are.same({ root }, installed_paths())
