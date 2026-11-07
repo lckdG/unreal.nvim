@@ -29,6 +29,11 @@ All notable changes to unreal.nvim are listed here. The format follows [Keep a C
 - `:Unreal Build Clangd` runs UnrealBuildTool through the engine's `RunUBT` script, which picks the engine's `dotnet` and rebuilds UnrealBuildTool when its source changed.
 - `:checkhealth unreal` no longer shows `dotnet`; it shows the `RunUBT` script instead of `UnrealBuildTool.dll`.
 
+### Removed
+
+- The old one-word command names (`RebuildClangd`, `OpenProject`, ...). Use the two-word names, e.g. `:Unreal Build Clangd`.
+- `telescope_extended_ignores`. Use `extensions = { telescope = { ignores = ... } }`.
+
 ### Fixed
 
 - `:Unreal Build Clangd` copies `compile_commands.json` next to the `.uproject`, not to the working directory.
