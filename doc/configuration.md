@@ -26,7 +26,7 @@ Grammar registered as nvim-treesitter's `cpp` parser. Override `url` and `revisi
 
 ## engine_source
 
-Where [Engine Checkout](#engine) gets engine source code. `git_url` is the repository whose tags are listed and cloned. `clone_dir` is an existing folder that receives one subfolder per cloned tag; it has no default, so `Engine Checkout` shows an error until you set it.
+Where [Engine Checkout](#engine) gets engine source code, and where `Engine Build` looks for checkouts to build. `git_url` is the repository whose tags are listed and cloned. `clone_dir` is an existing folder that receives one subfolder per cloned tag; it has no default, so `Engine Checkout` shows an error until you set it. `Engine Build` can still rebuild the project's engine without it.
 
 ## command_lead
 

@@ -1,5 +1,5 @@
 *unreal.txt*                      Neovim plugin for Unreal Engine C++ projects
-                               For NVIM v0.12    Last change: 2026 November 06
+                               For NVIM v0.12    Last change: 2026 November 07
 
 ==============================================================================
 Table of Contents                                   *unreal-table-of-contents*
@@ -32,6 +32,7 @@ Table of Contents                                   *unreal-table-of-contents*
   - Search                                            |unreal-commands-search|
   - Deprecated names                        |unreal-commands-deprecated-names|
 6. Engine path                                            |unreal-engine-path|
+  - Engine from source                 |unreal-engine-path-engine-from-source|
   - Project folder                         |unreal-engine-path-project-folder|
 7. Health                                                      |unreal-health|
 
@@ -169,10 +170,12 @@ Grammar registered as nvim-treesitter’s `cpp` parser. Override `url` and
 
 ENGINE_SOURCE                                    *unreal-config-engine_source*
 
-Where Engine Checkout |unreal-commands-engine| gets engine source code.
-`git_url` is the repository whose tags are listed and cloned. `clone_dir` is an
-existing folder that receives one subfolder per cloned tag; it has no default,
-so `Engine Checkout` shows an error until you set it.
+Where Engine Checkout |unreal-commands-engine| gets engine source code, and
+where `Engine Build` looks for checkouts to build. `git_url` is the repository
+whose tags are listed and cloned. `clone_dir` is an existing folder that
+receives one subfolder per cloned tag; it has no default, so `Engine Checkout`
+shows an error until you set it. `Engine Build` can still rebuild the
+project’s engine without it.
 
 
 COMMAND_LEAD                                      *unreal-config-command_lead*
@@ -330,6 +333,40 @@ tag’s latest commit is downloaded (`git clone --depth 1`). Needs `git`, and
 access to the repository: Epic’s repository is private until you link your
 GitHub account to your Epic Games account. Shows an error if `clone_dir` is not
 set or does not exist.
+
+
+ENGINE BUILD ~
+
+                                                        *:Unreal-Engine-Build*
+
+Build the Unreal editor from engine source code. The picker lists:
+
+- the engine of the chosen `.uproject` (from its `EngineAssociation`), first, when that engine was built from source. A launcher engine has no build scripts and is not listed. The `Engine SetPath` folder is not used here: it is always the `.uproject`’s engine.
+- every checkout under `<clone_dir>` made by `Engine Checkout`. A checkout that is also the project’s engine shows up twice, once under each name; both build the same folder.
+
+Only folders that have the `Setup`, `GenerateProjectFiles` and `Build` scripts
+are listed. Pick one, confirm, and the build runs in a terminal split from that
+folder. A build can take hours and tens of GB of disk. The steps run one after
+another and stop at the first one that fails:
+
+1. `Setup.sh` / `Setup.bat`: downloads the engine’s binary dependencies and installs prerequisites. It may ask for system packages or admin rights.
+2. `GenerateProjectFiles.sh` / `.bat`: writes the project files the build tools need.
+3. Build the `UnrealEditor` target in the `Development` configuration (optimized, with editor tools; the usual choice).
+
+The build step per platform:
+
+>sh
+    # Linux
+    Engine/Build/BatchFiles/Linux/Build.sh UnrealEditor Linux Development
+    # Mac
+    Engine/Build/BatchFiles/Mac/Build.sh UnrealEditor Mac Development
+    # Windows
+    Engine\Build\BatchFiles\Build.bat UnrealEditor Win64 Development -WaitMutex
+<
+
+Shows an error with the exit code if a step fails, an error if `clone_dir` does
+not exist, and a warning if there is nothing to build. `clone_dir` is optional
+here: without it, only the project’s engine is offered.
 
 
 PROJECT                                              *unreal-commands-project*
@@ -518,6 +555,20 @@ Commands use, in order:
 `Project Open` also needs the editor; `Build Clangd` does not.
 
 
+ENGINE FROM SOURCE                     *unreal-engine-path-engine-from-source*
+
+No installed engine, or you need a version the launcher does not offer: build
+one from Epic’s source code.
+
+1. Set |unreal-config-engine_source| `clone_dir` to an existing folder. Each checkout gets its own subfolder, e.g. `<clone_dir>/5.4.4-release`.
+2. `:Unreal Engine Checkout`: pick a release tag; only its latest commit is cloned. Epic’s repository is private: link your GitHub account to your Epic Games account first, and make sure `git` can log in to GitHub (SSH key or credential helper).
+3. `:Unreal Engine Build`: pick the checkout (or the project’s engine, if it was built from source) and confirm. Setup, project file generation and the editor build run in a terminal split; expect hours and tens of GB of disk.
+
+The plugin does not register the built engine itself; it re-reads the installed
+engines when the build succeeds. If the new engine is still not found, point to
+it with `:Unreal Engine SetPath`.
+
+
 PROJECT FOLDER                             *unreal-engine-path-project-folder*
 
 The closest folder above the working directory with a `.uproject`, else with
@@ -545,6 +596,9 @@ Run `:checkhealth unreal` to check:
 - the chosen `.uproject`
 - its engine (a `SetPath` folder shows as a warning) and the engine version
 - the engine’s editor, `dotnet` (bundled or `$PATH`) and UnrealBuildTool
+- |unreal-config-engine_source| `clone_dir` exists (only shown as info when not set) and `git` is installed, for `Engine Checkout` and `Engine Build`
+
+Each problem comes with advice on how to fix it.
 
 Generated by panvimdoc <https://github.com/kdheepak/panvimdoc>
 
