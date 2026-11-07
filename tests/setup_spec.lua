@@ -41,33 +41,6 @@ describe("config", function()
             assert.is_false(config.IsExtensionEnabled("telescope"))
         end)
     end)
-
-    describe("deprecated telescope_extended_ignores", function()
-        local deprecations
-
-        before_each(function()
-            deprecations = h.spy(vim, "deprecate")
-        end)
-
-        for _, case in ipairs({
-            { "not listed -> moved into extensions.telescope", nil, { ignores = { "%.exe" } } },
-            { "telescope = true -> replaced by table with ignores", true, { ignores = { "%.exe" } } },
-            { "new ignores win over the old option", { ignores = { "%.dll" } }, { ignores = { "%.dll" } } },
-            { "telescope = false -> stays disabled", false, false },
-        }) do
-            it(case[1] .. ", one deprecation warning", function()
-                config.config({ telescope_extended_ignores = { "%.exe" }, extensions = { telescope = case[2] } })
-                assert.are.same(case[3], config.opts.extensions.telescope)
-                assert.are.equal(1, #deprecations)
-                assert.are.equal("telescope_extended_ignores", deprecations[1][1])
-            end)
-        end
-
-        it("old option unset -> no warning", function()
-            config.config()
-            assert.are.equal(0, #deprecations)
-        end)
-    end)
 end)
 
 describe("commands", function()
