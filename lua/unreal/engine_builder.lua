@@ -105,9 +105,14 @@ end
 function EngineBuilder.Build()
     local clonedDirs = {}
 
-    local projectEngine, engineVersion = EngineBuilder.GetProjectEngine()
-    if projectEngine ~= nil then
-        table.insert(clonedDirs, { name = "Project Engine (" .. engineVersion .. ")", value = projectEngine })
+    for _, source in ipairs({
+        { "Project Engine", EngineBuilder.GetProjectEngine },
+        { "Overridden Engine", EngineBuilder.GetOverrideEngine },
+    }) do
+        local dir, version = source[2]()
+        if dir ~= nil then
+            table.insert(clonedDirs, { name = source[1] .. " (" .. version .. ")", value = dir })
+        end
     end
 
     local _, cloneDir = getBuilderInfo()
@@ -160,6 +165,17 @@ function EngineBuilder.GetProjectEngine()
 
     local engineDir = engineEntry.path
     return engineDir, engine.GetEngineVersion(engineDir)
+end
+
+function EngineBuilder.GetOverrideEngine()
+    local engine = require("unreal.engine")
+
+    local overrideEngine = engine.OverrideEnginePath
+    if overrideEngine == nil or not isSourceDirValid(overrideEngine) then
+        return nil, nil
+    end
+
+    return overrideEngine, engine.GetEngineVersion(overrideEngine)
 end
 
 function EngineBuilder.BuildFrom(sourceDir)
