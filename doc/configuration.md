@@ -8,6 +8,10 @@ require('unreal').setup({
         url = 'https://github.com/taku25/tree-sitter-unreal-cpp',
         revision = '2d2d5c19a9a83e432e43c041252106995614b29a',
     },
+    engine_source = {
+        git_url = 'https://github.com/EpicGames/UnrealEngine',
+        clone_dir = nil,
+    },
     command_lead = "Unreal",
     uproject_limits = 5,
     cmd_abbreviations = {},
@@ -19,6 +23,10 @@ require('unreal').setup({
 ## custom_treesitter
 
 Grammar registered as nvim-treesitter's `cpp` parser. Override `url` and `revision` to pin another build of the grammar.
+
+## engine_source
+
+Where [Engine Checkout](#engine) gets engine source code, and where `Engine Build` looks for checkouts to build. `git_url` is the repository whose tags are listed and cloned. `clone_dir` is an existing folder that receives one subfolder per cloned tag; it has no default, so `Engine Checkout` shows an error until you set it. `Engine Build` can still rebuild the project's engine or the `SetPath` folder without it.
 
 ## command_lead
 

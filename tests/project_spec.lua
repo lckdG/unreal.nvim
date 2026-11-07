@@ -24,7 +24,6 @@ local function stub_jobstart(code)
     local state = { calls = {}, exited = false }
     h.stub(vim.fn, "jobstart", function(cmd, opts)
         table.insert(state.calls, { cmd = cmd, opts = opts, win = vim.api.nvim_get_current_win() })
-        -- real jobstart fires on_exit later on the main loop
         vim.schedule(function()
             local ok, err = pcall(opts.on_exit, 1, code, "exit")
             state.callback_error = not ok and tostring(err) or nil
@@ -85,17 +84,54 @@ describe("project", function()
         h.reset()
     end)
 
-    describe("OpenUproject", function()
-        it("0 uprojects -> error, no prompt, no jobstart", function()
-            h.project({})
-            local jobs = h.spy(vim.fn, "jobstart", 1)
-            local selects = use_select(1)
-            project.OpenUproject()
-            assert.is_true(h.notified(notes, ERROR))
-            assert.are.equal(0, #jobs)
-            assert.are.equal(0, #selects)
-        end)
+    describe("EnsureUproject", function()
+        local function ensure()
+            local calls = 0
+            project.EnsureUproject(function()
+                calls = calls + 1
+            end)
+            return calls
+        end
 
+        local TWO = { "A/A.uproject", "B/B.uproject" }
+
+        for _, case in ipairs({
+            { name = "0 uprojects -> error, no prompt, callback not run", files = {}, prompts = 0, error = true },
+            { name = "1 uproject -> used without prompt", files = { "Game.uproject" }, prompts = 0 },
+            { name = "2 uprojects, choose 2 -> second one used", files = TWO, choice = 2, prompts = 1 },
+            { name = "2 uprojects, select dismissed -> callback not run", files = TWO, prompts = 1 },
+        }) do
+            it(case.name, function()
+                local tree = {}
+                for _, file in ipairs(case.files) do
+                    tree[file] = {}
+                end
+                local root = h.project(tree)
+                local selects = use_select(case.choice)
+                local calls = ensure()
+                assert.are.equal(case.prompts, #selects)
+                assert.are.equal(case.error == true, h.notified(notes, ERROR))
+                local want = case.choice and selects[1].items[case.choice].value
+                    or (#case.files == 1 and vim.fs.joinpath(root, case.files[1]))
+                    or nil
+                assert.are.equal(want and 1 or 0, calls)
+                assert.are.equal(want, project.UprojectPath)
+            end)
+        end
+
+        it("chosen uproject is kept -> second call does not prompt", function()
+            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
+            local selects = use_select(2)
+            local first = ensure()
+            local chosen = project.UprojectPath
+            local second = ensure()
+            assert.are.equal(2, first + second)
+            assert.are.equal(1, #selects)
+            assert.are.equal(chosen, project.UprojectPath)
+        end)
+    end)
+
+    describe("OpenUproject", function()
         it("1 uproject -> jobstart detached, no prompt", function()
             local root = h.project({ ["Game.uproject"] = {} })
             local jobs = h.spy(vim.fn, "jobstart", 1)
@@ -104,36 +140,6 @@ describe("project", function()
             assert.are.same({ "editor", root .. "/Game.uproject" }, jobs[1][1])
             assert.are.same({ detach = true }, jobs[1][2])
             assert.are.equal(0, #selects)
-        end)
-
-        it("2 uprojects, choose 2 -> second one opened", function()
-            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            local jobs = h.spy(vim.fn, "jobstart", 1)
-            local selects = use_select(2)
-            project.OpenUproject()
-            assert.are.equal(1, #selects)
-            assert.are.equal(2, #selects[1].items)
-            assert.are.equal(selects[1].items[2].value, jobs[1][1][2])
-        end)
-
-        it("2 uprojects, select dismissed -> nothing opened", function()
-            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            local jobs = h.spy(vim.fn, "jobstart", 1)
-            local selects = use_select(nil)
-            project.OpenUproject()
-            assert.are.equal(1, #selects)
-            assert.are.equal(0, #jobs)
-        end)
-
-        it("chosen uproject is kept -> second run does not prompt", function()
-            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            local jobs = h.spy(vim.fn, "jobstart", 1)
-            local selects = use_select(2)
-            project.OpenUproject()
-            project.OpenUproject()
-            assert.are.equal(1, #selects)
-            assert.are.equal(2, #jobs)
-            assert.are.equal(jobs[1][1][2], jobs[2][1][2])
         end)
 
         it("passes the chosen uproject to FindEngineTools", function()
@@ -188,9 +194,11 @@ describe("project", function()
         local function run(code)
             local state = stub_jobstart(code)
             project.RebuildClangd()
-            vim.wait(1000, function()
-                return state.exited
-            end)
+            if #state.calls > 0 then
+                assert.is_true(vim.wait(1000, function()
+                    return state.exited
+                end))
+            end
             return state
         end
 
@@ -218,13 +226,6 @@ describe("project", function()
             local state = run(0)
             assert.are.equal(1, #state.calls)
             assert.are.equal("/ue/dotnet", state.calls[1].cmd[1])
-        end)
-
-        it("0 uprojects -> error, UBT not called", function()
-            h.project({})
-            local state = run(0)
-            assert.are.equal(0, #state.calls)
-            assert.is_true(h.notified(notes, ERROR))
         end)
 
         describe("dotnet resolved from a real engine tree", function()
@@ -274,14 +275,6 @@ describe("project", function()
             end)
         end)
 
-        it("2 uprojects, select dismissed -> UBT not called", function()
-            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            local selects = use_select(nil)
-            local state = run(0)
-            assert.are.equal(1, #selects)
-            assert.are.equal(0, #state.calls)
-        end)
-
         it("2 uprojects, choose 2 -> UBT gets the second project and its Editor target", function()
             h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
             local selects = use_select(2)
@@ -323,10 +316,10 @@ describe("project", function()
             project.RebuildClangd()
             local jobWin = state.calls[1].win
             assert.are_not.equal(origWin, jobWin)
-            vim.api.nvim_set_current_win(origWin) -- user moves away during build
-            vim.wait(1000, function()
+            vim.api.nvim_set_current_win(origWin)
+            assert.is_true(vim.wait(1000, function()
                 return state.exited
-            end)
+            end))
             assert.is_nil(state.callback_error)
             assert.are.equal(jobWin, vim.api.nvim_get_current_win())
         end)
@@ -336,9 +329,9 @@ describe("project", function()
             local state = stub_jobstart(0)
             project.RebuildClangd()
             vim.api.nvim_win_close(state.calls[1].win, true)
-            vim.wait(1000, function()
+            assert.is_true(vim.wait(1000, function()
                 return state.exited
-            end)
+            end))
             assert.is_nil(state.callback_error)
             assert.is_true(h.notified(notes, vim.log.levels.INFO))
         end)
@@ -365,7 +358,7 @@ describe("project", function()
             local state = run(6)
             assert.is_nil(state.callback_error)
             assert.are.equal(0, #copies)
-            assert.is_true(h.notified(notes, ERROR))
+            assert.is_true(h.notified(notes, ERROR, "(6)"))
         end)
 
         it("exit code 0 -> copies compile_commands.json next to the uproject, success notify", function()
@@ -399,39 +392,12 @@ describe("project", function()
             return vim.api.nvim_buf_get_name(0)
         end
 
-        it("0 uprojects -> error, current buffer unchanged", function()
-            h.project({})
-            local before = current_file()
-            local selects = use_select(1)
-            project.EditUproject()
-            assert.is_true(h.notified(notes, ERROR))
-            assert.are.equal(0, #selects)
-            assert.are.equal(before, current_file())
-        end)
-
         it("1 uproject -> opened in current window, no prompt", function()
             local root = h.project({ ["Game.uproject"] = {} })
             local selects = use_select(1)
             project.EditUproject()
             assert.are.equal(0, #selects)
             assert.are.equal(root .. "/Game.uproject", current_file())
-        end)
-
-        it("2 uprojects, choose 2 -> second one opened", function()
-            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            local selects = use_select(2)
-            project.EditUproject()
-            assert.are.equal(1, #selects)
-            assert.are.equal(selects[1].items[2].value, current_file())
-        end)
-
-        it("2 uprojects, select dismissed -> current buffer unchanged", function()
-            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            local before = current_file()
-            local selects = use_select(nil)
-            project.EditUproject()
-            assert.are.equal(1, #selects)
-            assert.are.equal(before, current_file())
         end)
 
         it("path with spaces and % -> opened literally", function()
@@ -532,10 +498,10 @@ describe("project", function()
             assert.are.equal(root .. "/Game.uproject", project.UprojectPath)
         end)
 
-        it("two uprojects in the project root -> one of them chosen", function()
-            local root = h.project({ ["A.uproject"] = {}, ["B.uproject"] = {} })
+        it("two uprojects in the project root -> first by name chosen", function()
+            local root = h.project({ ["B.uproject"] = {}, ["A.uproject"] = {} })
             project.init()
-            assert.is_true(vim.tbl_contains({ root .. "/A.uproject", root .. "/B.uproject" }, project.UprojectPath))
+            assert.are.equal(root .. "/A.uproject", project.UprojectPath)
         end)
 
         it("uproject only in a subfolder -> none chosen", function()

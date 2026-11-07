@@ -30,6 +30,51 @@ Use an engine folder you type instead of the one the `.uproject` asks for. Lasts
 
 Forget the `Engine SetPath` folder.
 
+### Engine Checkout
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                     *:Unreal-Engine-Checkout*
+```
+-->
+
+Pick an engine release tag (newest first) from [engine_source](#engine_source) `git_url` and clone it into `<clone_dir>/<tag>` in a terminal split. Only the tag's latest commit is downloaded (`git clone --depth 1`). Needs `git`, and access to the repository: Epic's repository is private until you link your GitHub account to your Epic Games account. Shows an error if `clone_dir` is not set or does not exist.
+
+### Engine Build
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                        *:Unreal-Engine-Build*
+```
+-->
+
+Build the Unreal editor from engine source code. The picker lists, in this order:
+
+1. the engine of the chosen `.uproject` (from its `EngineAssociation`), with its version.
+2. the `Engine SetPath` folder, with its version.
+3. every checkout under `<clone_dir>` made by `Engine Checkout`, by folder name.
+
+The first two are only listed when that engine was built from source: a launcher engine has no build scripts. The same folder can show up more than once, for example when `SetPath` points at the project's engine or at a checkout; every entry builds the same folder.
+
+Only folders that have the `Setup`, `GenerateProjectFiles` and `Build` scripts are listed. Pick one, confirm, and the build runs in a terminal split from that folder. A build can take hours and tens of GB of disk. The steps run one after another and stop at the first one that fails:
+
+1. `Setup.sh` / `Setup.bat`: downloads the engine's binary dependencies and installs prerequisites. It may ask for system packages or admin rights.
+2. `GenerateProjectFiles.sh` / `.bat`: writes the project files the build tools need.
+3. Build the `UnrealEditor` target in the `Development` configuration (optimized, with editor tools; the usual choice).
+
+The build step per platform:
+
+```sh
+# Linux
+Engine/Build/BatchFiles/Linux/Build.sh UnrealEditor Linux Development
+# Mac
+Engine/Build/BatchFiles/Mac/Build.sh UnrealEditor Mac Development
+# Windows
+Engine\Build\BatchFiles\Build.bat UnrealEditor Win64 Development -WaitMutex
+```
+
+Shows an error with the exit code if a step fails, an error if `clone_dir` does not exist, and a warning if there is nothing to build. `clone_dir` is optional here: without it, only the project's engine and the `SetPath` folder are offered.
+
 ## Project
 
 ### Project Open

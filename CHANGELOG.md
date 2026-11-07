@@ -12,6 +12,9 @@ All notable changes to unreal.nvim are listed here. The format follows [Keep a C
 ### Added
 
 - `:Unreal Engine ClearPath`: forget the `SetPath` folder.
+- `:Unreal Engine Checkout`: pick an engine release tag and shallow-clone it into `engine_source.clone_dir`.
+- `:Unreal Engine Build`: build the editor from a checkout under `engine_source.clone_dir`, the `.uproject`'s engine or the `Engine SetPath` folder, when built from source.
+- `engine_source` option (`git_url`, `clone_dir`) for `Engine Checkout` and `Engine Build`.
 - `:Unreal Project Select`: choose the `.uproject` for other commands.
 - `:Unreal Build Config`: open a project, user or engine `BuildConfiguration.xml`.
 - A `.uproject` in the project folder is chosen at startup.

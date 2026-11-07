@@ -12,32 +12,27 @@ end
 local function check_setup()
     local health = vim.health
     if require("unreal").inited then
-        health.ok("Plugin is inited")
+        health.ok("setup(): called")
     else
-        health.warn("setup() is not called before running healthcheck")
+        health.warn("setup(): not called", "Call require('unreal').setup() in your config")
     end
 end
 
 local function check_executable(name, hint)
     local health = vim.health
     if vim.fn.executable(name) == 1 then
-        local version = get_version(name)
-        if version then
-            health.ok(name .. " found (" .. version .. ")")
-        else
-            health.ok(name .. " found")
-        end
+        health.ok(name .. ": " .. (get_version(name) or "found"))
     else
-        health.error(name .. " not found", hint)
+        health.error(name .. ": not found", hint)
     end
 end
 
 local function check_lsp()
     local health = vim.health
     if vim.lsp.is_enabled("clangd") then
-        health.ok("nvim clangd is enabled")
+        health.ok("clangd LSP: enabled")
     else
-        health.warn("nvim clangd is not enabled", 'call vim.lsp.enable("clangd")')
+        health.warn("clangd LSP: not enabled", 'Call vim.lsp.enable("clangd")')
     end
 end
 
@@ -48,10 +43,36 @@ local function check_plugin(module, name, hint)
     local health = vim.health
     local ok = pcall(require, module)
     if ok then
-        health.ok(name .. " found")
+        health.ok(name .. ": found")
     else
-        health.error(name .. " not found", hint)
+        health.error(name .. ": not found", hint)
     end
+end
+
+---Check the folder that `:Unreal Engine Checkout` clones engine source code into and
+---`:Unreal Engine Build` builds from (`engine_source.clone_dir`), and that `git` is installed.
+---Not set is only info: the option is needed just for those two commands.
+---Set but missing on disk is an error, because both commands stop with an error then.
+local function check_source_dir()
+    local health = vim.health
+    local config = require("unreal.config")
+    local cloneDir = (config.opts or config.defaults).engine_source.clone_dir
+
+    if cloneDir == nil then
+        health.info("clone_dir: not set (only needed by :Unreal Engine Checkout and Build)")
+    else
+        cloneDir = vim.fs.normalize(cloneDir)
+        if require("unreal.path_utils").Exists(cloneDir) then
+            health.ok("clone_dir: " .. cloneDir)
+        else
+            health.error(
+                "clone_dir: " .. cloneDir .. " does not exist",
+                "Create the folder, or fix engine_source.clone_dir in setup()"
+            )
+        end
+    end
+
+    check_executable("git", "Required by :Unreal Engine Checkout")
 end
 
 local function check_project_path()
@@ -60,10 +81,10 @@ local function check_project_path()
 
     local projectPath = project.UprojectPath
     if projectPath ~= nil then
-        health.ok(".uproject file set:\n" .. projectPath)
+        health.ok(".uproject: " .. projectPath)
         return true, projectPath
     else
-        health.warn("No .uproject set for this session", "Run :Unreal Project Select")
+        health.warn(".uproject: none chosen for this session", "Run :Unreal Project Select")
         return false, nil
     end
 end
@@ -72,22 +93,30 @@ local function check_engine_path(uprojectPath)
     local health = vim.health
     local engine = require("unreal.engine")
 
-    local enginePath = nil
-    local overridenPath = engine.OverrideEnginePath
+    local enginePath = engine.OverrideEnginePath
 
-    if overridenPath ~= nil then
-        enginePath = overridenPath
-        health.warn("Overridden engine: found\n" .. "Path: " .. enginePath)
+    if enginePath ~= nil then
+        health.warn(
+            "Engine: " .. enginePath .. " (from :Unreal Engine SetPath, not the .uproject)",
+            "Run :Unreal Engine ClearPath to use the .uproject's engine"
+        )
     else
         local engineId = engine.GetAssociatedEngine(uprojectPath)
         local engineInfo = engine.FindEngine(engineId)
-        local enginePathExist = engineInfo ~= nil
         enginePath = engineInfo and engineInfo.path or nil
 
-        if enginePathExist then
-            health.ok("Associated engine: found\n" .. "ID: " .. engineId .. "\nPath: " .. enginePath)
+        if engineInfo then
+            health.ok("Engine: " .. engineId .. " at " .. enginePath)
+        elseif engineId == nil or engineId == "" then
+            health.error(
+                "Engine: the .uproject has no EngineAssociation",
+                "Open the project once in the Unreal editor, or run :Unreal Engine SetPath"
+            )
         else
-            health.error("Associated engine: not found", "Check the .uproject file\nOr run :Unreal Engine SetPath")
+            health.error(
+                "Engine: " .. engineId .. " (EngineAssociation) is not installed",
+                "Check EngineAssociation in the .uproject, or run :Unreal Engine SetPath"
+            )
         end
     end
 
@@ -95,60 +124,63 @@ local function check_engine_path(uprojectPath)
     if engineVersion ~= "0.0.0" then
         health.ok("Engine version: " .. engineVersion)
     else
-        health.warn("Engine version: unable to determine")
+        health.warn("Engine version: unknown", "Engine/Build/Build.version is missing or unreadable")
     end
 
     local exeExists, exePath = engine.GetEngineExecutable(enginePath)
     if exeExists then
-        health.ok("Engine executable:\n" .. exePath)
+        health.ok("Editor: " .. exePath)
     else
-        health.warn("Engine executable: not found")
+        health.warn("Editor: not found", "Needed by :Unreal Project Open; build the editor first")
     end
 
     local dotNetBundled, dotnetPath = engine.ParseDotnetPath(enginePath)
     if dotnetPath ~= nil then
-        local text = (dotNetBundled and "Bundled .NET found:\n" or "System .NET found:\n") .. dotnetPath
-        health.ok(text)
+        health.ok(".NET: " .. dotnetPath .. (dotNetBundled and " (bundled)" or " (system, from $PATH)"))
     else
-        health.warn(".NET: not found")
+        health.warn(".NET: not found", "UnrealBuildTool needs dotnet: install it, or use an engine that bundles it")
     end
 
-    local UbtOk, ubtPath = engine.ParseUbtPath(enginePath)
-    if UbtOk then
-        health.ok("UnrealBuildTool found:\n" .. ubtPath)
+    local ubtOk, ubtPath = engine.ParseUbtPath(enginePath)
+    if ubtOk then
+        health.ok("UnrealBuildTool: " .. ubtPath)
     else
-        health.warn("UnrealBuildTool: not found")
+        health.warn("UnrealBuildTool: not found", "Needed by :Unreal Build Clangd; is the engine built?")
     end
 end
 
 ---`:checkhealth unreal`: check everything the plugin needs and explain what is missing:
 ---programs (`rg`, `clangd`), plugins (plenary.nvim, telescope.nvim when its extension is on),
----whether `setup()` ran, and the engine path for the current project.
+---whether `setup()` ran, the engine path for the current project, and the engine source
+---folder used by `:Unreal Engine Checkout` / `Build`.
 function M.check()
     local health = vim.health
 
     health.start("System dependencies")
-    check_executable("rg", "required for Search commands")
-    check_executable("clangd", "for LSP functionalities")
+    check_executable("rg", "Required by :Unreal Search commands")
+    check_executable("clangd", "Required for LSP features")
 
     health.start("Plugin dependencies")
 
     local config = require("unreal.config")
 
     if config.IsExtensionEnabled("telescope") then
-        check_plugin("telescope", "telescope.nvim", "required by the telescope extension")
+        check_plugin("telescope", "telescope.nvim", "Required by the telescope extension")
     end
 
-    check_plugin("plenary", "plenary.nvim", "required for LSP async calls")
+    check_plugin("plenary", "plenary.nvim", "Required for LSP async calls")
     check_lsp()
 
-    health.start("Plugin core")
+    health.start("Project and engine")
     check_setup()
 
     local isProjectSet, projectPath = check_project_path()
     if isProjectSet then
         check_engine_path(projectPath)
     end
+
+    health.start("Engine source")
+    check_source_dir()
 end
 
 return M

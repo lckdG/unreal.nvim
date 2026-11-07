@@ -62,123 +62,85 @@ describe("engine", function()
     end)
 
     describe("ParseDotnetPath", function()
-        local function no_system_dotnet()
-            h.stub(vim.fn, "exepath", function()
-                return ""
+        local SYSTEM = "/usr/bin/dotnet"
+        local engines = { bundled = fake_engine, empty = h.tmpdir }
+
+        for _, case in ipairs({
+            { "nil", "", true, false, nil },
+            { "nil", SYSTEM, true, false, SYSTEM },
+            { "bundled", "", true, true, "bundled" },
+            { "bundled", SYSTEM, true, true, "bundled" },
+            { "empty", SYSTEM, true, false, SYSTEM },
+            { "empty", "", true, false, nil },
+            { "bundled", "", false, false, nil },
+            { "bundled", SYSTEM, false, false, SYSTEM },
+        }) do
+            local engineDir, pathDotnet, archKnown, wantOk, wantPath = case[1], case[2], case[3], case[4], case[5]
+            local name = ("%s engine, PATH dotnet %s, arch %s -> %s, %s"):format(
+                engineDir,
+                pathDotnet == "" and "no" or "yes",
+                archKnown and "known" or "unknown",
+                tostring(wantOk),
+                tostring(wantPath)
+            )
+            it(name, function()
+                h.stub(vim.fn, "exepath", function()
+                    return pathDotnet
+                end)
+                if not archKnown then
+                    h.stub(system, "GetArch", function()
+                        return nil
+                    end)
+                end
+                local root = engines[engineDir] and engines[engineDir]()
+                local ok, path = engine.ParseDotnetPath(root)
+                assert.are.equal(wantOk, ok)
+                if wantPath == "bundled" then
+                    wantPath = vim.fs.joinpath(root, bundled_dotnet("8.0.300"))
+                end
+                assert.are.equal(wantPath, path)
             end)
         end
 
-        it("nil engine dir, no system dotnet -> false, nil", function()
-            local ok, path = engine.ParseDotnetPath(nil)
-            assert.is_false(ok)
-            assert.is_nil(path)
-        end)
-
-        it("nil engine dir, system dotnet -> false, system path", function()
-            h.stub(vim.fn, "exepath", function()
-                return "/usr/bin/dotnet"
+        for _, case in ipairs({
+            { { "6.0.302", "9.0.100" }, "9.0.100" },
+            { { "10.0.100" }, "10.0.100" },
+        }) do
+            it("bundled 8.0.300, " .. table.concat(case[1], ", ") .. " -> " .. case[2] .. " (version order)", function()
+                local root = fake_engine()
+                for _, version in ipairs(case[1]) do
+                    h.write(root, bundled_dotnet(version))
+                end
+                local _, path = engine.ParseDotnetPath(root)
+                assert.are.equal(vim.fs.joinpath(root, bundled_dotnet(case[2])), path)
             end)
-            local ok, path = engine.ParseDotnetPath(nil)
-            assert.is_false(ok)
-            assert.are.equal("/usr/bin/dotnet", path)
-        end)
-
-        it("bundled dotnet -> true, bundled path", function()
-            no_system_dotnet()
-            local root = fake_engine()
-            local ok, path = engine.ParseDotnetPath(root)
-            assert.is_true(ok)
-            assert.are.equal(vim.fs.joinpath(root, bundled_dotnet("8.0.300")), path)
-        end)
-
-        it("several bundled versions -> highest sorted one", function()
-            local root = fake_engine()
-            h.write(root, bundled_dotnet("6.0.302"))
-            h.write(root, bundled_dotnet("9.0.100"))
-            local _, path = engine.ParseDotnetPath(root)
-            assert.are.equal(vim.fs.joinpath(root, bundled_dotnet("9.0.100")), path)
-        end)
-
-        it("several bundled versions -> compared as versions, not strings", function()
-            local root = fake_engine()
-            h.write(root, bundled_dotnet("10.0.100"))
-            local _, path = engine.ParseDotnetPath(root)
-            assert.are.equal(vim.fs.joinpath(root, bundled_dotnet("10.0.100")), path)
-        end)
-
-        it("bundled preferred over system dotnet", function()
-            h.stub(vim.fn, "exepath", function()
-                return "/usr/bin/dotnet"
-            end)
-            local root = fake_engine()
-            local ok, path = engine.ParseDotnetPath(root)
-            assert.is_true(ok)
-            assert.are.equal(vim.fs.joinpath(root, bundled_dotnet("8.0.300")), path)
-        end)
-
-        it("no bundled, system dotnet -> false, system path", function()
-            h.stub(vim.fn, "exepath", function()
-                return "/usr/bin/dotnet"
-            end)
-            local ok, path = engine.ParseDotnetPath(h.tmpdir())
-            assert.is_false(ok)
-            assert.are.equal("/usr/bin/dotnet", path)
-        end)
-
-        it("no bundled, no system dotnet -> false, nil", function()
-            no_system_dotnet()
-            local ok, path = engine.ParseDotnetPath(h.tmpdir())
-            assert.is_false(ok)
-            assert.is_nil(path)
-        end)
-
-        it("unknown arch, no system dotnet -> false, nil", function()
-            h.stub(require("unreal.system"), "GetArch", function()
-                return nil
-            end)
-            local ok, path = engine.ParseDotnetPath(fake_engine())
-            assert.is_false(ok)
-            assert.is_nil(path)
-        end)
-
-        it("unknown arch, system dotnet -> false, system path", function()
-            h.stub(require("unreal.system"), "GetArch", function()
-                return nil
-            end)
-            h.stub(vim.fn, "exepath", function()
-                return "/usr/bin/dotnet"
-            end)
-            local ok, path = engine.ParseDotnetPath(fake_engine())
-            assert.is_false(ok)
-            assert.are.equal("/usr/bin/dotnet", path)
-        end)
+        end
     end)
 
     describe("IsRootEngineDirValid", function()
-        it("UBT and bundled dotnet -> true", function()
-            assert.is_true(engine.IsRootEngineDirValid(fake_engine()))
-        end)
-
-        it("UBT, no bundled dotnet, no PATH dotnet -> false", function()
-            local root = h.tmpdir()
-            h.write(root, UBT)
-            assert.is_false(engine.IsRootEngineDirValid(root))
-        end)
-
-        it("UBT, no bundled dotnet, PATH dotnet -> true", function()
-            h.stub(vim.fn, "exepath", function()
-                return "/usr/bin/dotnet"
+        for _, case in ipairs({
+            { true, "bundled", true },
+            { true, "none", false },
+            { true, "PATH", true },
+            { false, "bundled", false },
+        }) do
+            local hasUbt, dotnet, want = case[1], case[2], case[3]
+            it(("UBT %s, dotnet %s -> %s"):format(hasUbt and "yes" or "no", dotnet, tostring(want)), function()
+                if dotnet == "PATH" then
+                    h.stub(vim.fn, "exepath", function()
+                        return "/usr/bin/dotnet"
+                    end)
+                end
+                local root = h.tmpdir()
+                if hasUbt then
+                    h.write(root, UBT)
+                end
+                if dotnet == "bundled" then
+                    h.write(root, bundled_dotnet("8.0.300"))
+                end
+                assert.are.equal(want, engine.IsRootEngineDirValid(root))
             end)
-            local root = h.tmpdir()
-            h.write(root, UBT)
-            assert.is_true(engine.IsRootEngineDirValid(root))
-        end)
-
-        it("bundled dotnet without UBT -> false", function()
-            local root = h.tmpdir()
-            h.write(root, bundled_dotnet("8.0.300"))
-            assert.is_false(engine.IsRootEngineDirValid(root))
-        end)
+        end
     end)
 
     describe("InputEnginePath", function()
@@ -456,113 +418,93 @@ describe("engine", function()
     end)
 
     describe("GetExecuteCmd", function()
-        local function on(platform)
-            h.stub(vim.fn, "has", function(feature)
-                return feature == platform and 1 or 0
+        local EDITORS = {
+            win32 = "Engine/Binaries/Win64/UnrealEditor.exe",
+            linux = "Engine/Binaries/Linux/UnrealEditor",
+            mac = "Engine/Binaries/Mac/UnrealEditor.app",
+        }
+
+        local function on(feature, systemdRun)
+            h.stub(vim.fn, "has", function(name)
+                return name == feature and 1 or 0
             end)
-            -- host-independent: systemd-run cases opt in via withSystemdRun()
-            h.stub(vim.fn, "executable", function()
-                return 0
+            h.stub(vim.fn, "executable", function(name)
+                return (systemdRun and name == "systemd-run") and 1 or 0
             end)
         end
 
-        local function withSystemdRun()
-            h.stub(vim.fn, "executable", function(name)
-                return name == "systemd-run" and 1 or 0
+        for feature, platform in pairs({ win32 = "Win64", linux = "Linux", mac = "Mac" }) do
+            it(feature .. " -> platform " .. platform, function()
+                on(feature, false)
+                assert.are.equal(platform, system.GetPlatform())
             end)
         end
 
         it("nil engine path -> not ok", function()
-            on("linux")
-            local ok = engine.GetExecuteCmd(nil)
-            assert.is_false(ok)
+            on("linux", false)
+            assert.is_false((engine.GetExecuteCmd(nil)))
         end)
 
-        it("win32, editor missing -> not ok, UnrealEditor.exe path", function()
-            on("win32")
-            assert.are.equal("Win64", system.GetPlatform())
-            local ok, cmd = engine.GetExecuteCmd("/ue")
-            assert.is_false(ok)
-            assert.are.same({ vim.fs.joinpath("/ue", "Engine/Binaries/Win64/UnrealEditor.exe") }, cmd)
-        end)
-
-        it("win32, editor present -> ok, runs UnrealEditor.exe directly", function()
-            on("win32")
-            local root = h.tmpdir()
-            local exe = h.write(root, "Engine/Binaries/Win64/UnrealEditor.exe")
-            local ok, cmd = engine.GetExecuteCmd(root)
-            assert.is_true(ok)
-            assert.are.same({ exe }, cmd)
-        end)
-
-        it("linux, no systemd-run, editor binary missing -> not ok, setsid", function()
-            on("linux")
-            assert.are.equal("Linux", system.GetPlatform())
-            local ok, cmd = engine.GetExecuteCmd("/ue")
-            assert.is_false(ok)
-            assert.are.same({ "setsid", "-f", "/ue/Engine/Binaries/Linux/UnrealEditor" }, cmd)
-        end)
-
-        it("linux, no systemd-run, editor binary present -> ok, setsid", function()
-            on("linux")
-            local root = h.tmpdir()
-            h.write(root, "Engine/Binaries/Linux/UnrealEditor")
-            local ok, cmd = engine.GetExecuteCmd(root)
-            assert.is_true(ok)
-            assert.are.same({ "setsid", "-f", vim.fs.joinpath(root, "Engine/Binaries/Linux/UnrealEditor") }, cmd)
-        end)
-
-        it("linux + systemd-run, editor binary present -> ok, own user unit", function()
-            on("linux")
-            withSystemdRun()
-            local root = h.tmpdir()
-            h.write(root, "Engine/Binaries/Linux/UnrealEditor")
-            local ok, cmd = engine.GetExecuteCmd(root)
-            assert.is_true(ok)
-            assert.are.same({
-                "systemd-run",
-                "--user",
-                "--collect",
-                "--quiet",
-                "--",
-                vim.fs.joinpath(root, "Engine/Binaries/Linux/UnrealEditor"),
-            }, cmd)
-        end)
-
-        it("linux + systemd-run, editor binary missing -> not ok", function()
-            on("linux")
-            withSystemdRun()
-            local ok, cmd = engine.GetExecuteCmd("/ue")
-            assert.is_false(ok)
-            assert.are.equal("systemd-run", cmd[1])
-        end)
-
-        it("mac, editor binary missing -> not ok, open -n -a bundle", function()
-            on("mac")
-            assert.are.equal("Mac", system.GetPlatform())
-            local ok, cmd = engine.GetExecuteCmd("/ue")
-            assert.is_false(ok)
-            assert.are.same({ "open", "-n", "-a", "/ue/Engine/Binaries/Mac/UnrealEditor.app", "--args" }, cmd)
-        end)
-
-        it("mac, editor binary present -> ok, bundle path not inner binary", function()
-            on("mac")
-            local root = h.tmpdir()
-            h.write(root, "Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor")
-            local ok, cmd = engine.GetExecuteCmd(root)
-            assert.is_true(ok)
-            assert.are.same(
-                { "open", "-n", "-a", vim.fs.joinpath(root, "Engine/Binaries/Mac/UnrealEditor.app"), "--args" },
-                cmd
-            )
-        end)
-
-        it("mac ignores systemd-run", function()
-            on("mac")
-            withSystemdRun()
-            local _, cmd = engine.GetExecuteCmd("/ue")
-            assert.are.equal("open", cmd[1])
-        end)
+        for _, case in ipairs({
+            {
+                "win32",
+                false,
+                function(exe)
+                    return { exe }
+                end,
+            },
+            {
+                "linux",
+                false,
+                function(exe)
+                    return { "setsid", "-f", exe }
+                end,
+            },
+            {
+                "linux",
+                true,
+                function(exe)
+                    return { "systemd-run", "--user", "--collect", "--quiet", "--", exe }
+                end,
+            },
+            {
+                "mac",
+                false,
+                function(exe)
+                    return { "open", "-n", "-a", exe, "--args" }
+                end,
+            },
+            {
+                "mac",
+                true,
+                function(exe)
+                    return { "open", "-n", "-a", exe, "--args" }
+                end,
+            },
+        }) do
+            local feature, systemdRun, expected = case[1], case[2], case[3]
+            for _, present in ipairs({ true, false }) do
+                local name = ("%s, systemd-run %s, editor %s -> %s"):format(
+                    feature,
+                    systemdRun and "on" or "off",
+                    present and "present" or "missing",
+                    present and "ok" or "not ok"
+                )
+                it(name, function()
+                    on(feature, systemdRun)
+                    local root = h.tmpdir()
+                    if present then
+                        h.write(
+                            root,
+                            feature == "mac" and EDITORS.mac .. "/Contents/MacOS/UnrealEditor" or EDITORS[feature]
+                        )
+                    end
+                    local ok, cmd = engine.GetExecuteCmd(root)
+                    assert.are.equal(present, ok)
+                    assert.are.same(expected(vim.fs.joinpath(root, EDITORS[feature])), cmd)
+                end)
+            end
+        end
     end)
 
     describe("InstalledEngines", function()
@@ -653,7 +595,7 @@ describe("engine", function()
             assert.are.same({ valid }, installed_paths())
         end)
 
-        it("same path in two sources -> listed once", function()
+        it("same id in two sources -> listed once", function()
             local a, b = fake_engine(), fake_engine()
             use_sources({ launcher_json({ ["UE_5.4"] = a }), install_ini({ ["UE_5.4"] = a, ["UE_5.3"] = b }) })
             engine.init()
@@ -685,10 +627,12 @@ describe("engine", function()
                 end)
             end
 
-            local function wait_for(count)
-                vim.wait(1000, function()
-                    return #engine.InstalledEngines >= count
-                end)
+            local function init_and_wait(sources)
+                local appends = h.spy(engine, "AppendEngines", engine.AppendEngines)
+                engine.init()
+                assert.is_true(vim.wait(1000, function()
+                    return #appends >= (sources or 1)
+                end))
             end
 
             before_each(function()
@@ -706,8 +650,7 @@ describe("engine", function()
                 local guidA = "{11111111-1111-1111-1111-111111111111}"
                 local guidB = "{22222222-2222-2222-2222-222222222222}"
                 reg_query(0, { [guidA] = a, [guidB] = b })
-                engine.init()
-                wait_for(2)
+                init_and_wait()
                 assert.are.same(sorted({ a, b }), installed_paths())
                 assert.are.equal(a, engine.FindEngine(guidA).path)
             end)
@@ -717,32 +660,28 @@ describe("engine", function()
                 h.write(root, UBT)
                 h.write(root, bundled_dotnet("8.0.300"))
                 reg_query(0, { ["{33333333-3333-3333-3333-333333333333}"] = root })
-                engine.init()
-                wait_for(1)
+                init_and_wait()
                 assert.are.same({ root }, installed_paths())
             end)
 
             it("invalid build dir -> hidden", function()
                 reg_query(0, { ["{44444444-4444-4444-4444-444444444444}"] = h.tmpdir() })
-                engine.init()
-                vim.wait(50)
+                init_and_wait()
                 assert.are.same({}, engine.InstalledEngines)
             end)
 
-            it("key missing (reg exit 1) -> empty, no notify", function()
+            it("key missing (reg exit 1) -> empty, error notify", function()
                 reg_query(1)
-                engine.init()
-                vim.wait(50)
+                init_and_wait()
                 assert.are.same({}, engine.InstalledEngines)
-                assert.are.equal(1, #notes)
+                assert.is_true(h.notified(notes, vim.log.levels.ERROR, "(1)"))
             end)
 
             it("registry and LauncherInstalled.dat -> both listed", function()
                 local a, b = fake_engine(), fake_engine()
                 use_sources({ launcher_json({ ["UE_5.4"] = a }), { path = KEY, type = "reg" } })
                 reg_query(0, { ["{55555555-5555-5555-5555-555555555555}"] = b })
-                engine.init()
-                wait_for(2)
+                init_and_wait(2)
                 assert.are.same(sorted({ a, b }), installed_paths())
             end)
         end)

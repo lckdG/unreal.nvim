@@ -20,7 +20,6 @@ describe("search", function()
 
     describe("SwitchSourceHeader", function()
         it("counterpart path with special chars is escaped for :edit", function()
-            -- space, '#' and '%' would break an unescaped :e
             h.project({ ["Source/My Mod #1/Foo%.h"] = {}, ["Source/My Mod #1/Foo%.cpp"] = {} })
             h.edit("Source/My Mod #1/Foo%.h")
             search.SwitchSourceHeader()
@@ -73,18 +72,10 @@ describe("search", function()
             end)
         end
 
-        local cases = { { "All", "*.{h,cpp}" }, { "Headers", "*.h" }, { "Cpp", "*.cpp" } }
-        for _, case in ipairs(cases) do
-            it("choice " .. case[1] .. " -> -g " .. case[2], function()
-                choose(case[1])
-                search.FindSource()
-                search.GrepSource()
-                assert.are.same({ "rg", "--files", "-g", case[2] }, finds[1][1])
-                assert.are.same({ "rg", "--vimgrep", "-S", "-g", case[2] }, greps[1][1])
-            end)
-        end
-
-        local multiArgCases = {
+        local SCOPES = {
+            { "All", { "-g", "*.{h,cpp}" } },
+            { "Headers", { "-g", "*.h" } },
+            { "Cpp", { "-g", "*.cpp" } },
             {
                 "Ini",
                 {
@@ -101,8 +92,9 @@ describe("search", function()
             },
             { "Build Files", { "-g", "*.{Build,Target}.cs" } },
         }
-        for _, case in ipairs(multiArgCases) do
-            it("choice " .. case[1] .. " -> every scope arg in order", function()
+
+        for _, case in ipairs(SCOPES) do
+            it("choice " .. case[1] .. " -> " .. table.concat(case[2], " "), function()
                 choose(case[1])
                 search.FindSource()
                 search.GrepSource()
@@ -119,7 +111,12 @@ describe("search", function()
                 end, items)
             end)
             search.FindSource()
-            assert.are.same({ "All", "Headers", "Cpp", "Ini", "Build Files" }, names)
+            assert.are.same(
+                vim.tbl_map(function(case)
+                    return case[1]
+                end, SCOPES),
+                names
+            )
         end)
 
         it("cancelled -> no search", function()
@@ -156,10 +153,10 @@ describe("search", function()
                     cb(typed)
                 end)
                 fn()
-                vim.wait(5000, function()
+                assert.is_true(vim.wait(5000, function()
                     return qf ~= nil
-                end)
-                local lines = qf and qf.lines or {}
+                end))
+                local lines = qf.lines
                 table.sort(lines)
                 return lines
             end
@@ -228,5 +225,7 @@ describe("search", function()
                 )
             end)
         end)
+    else
+        pending("real rg, native provider: rg not installed")
     end
 end)

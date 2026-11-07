@@ -80,6 +80,13 @@ require('unreal').setup({
         revision = '2d2d5c19a9a83e432e43c041252106995614b29a',
     },
 
+    -- Used by :Unreal Engine Checkout and Build: repository to list tags from and clone,
+    -- and an existing folder that receives one subfolder per cloned tag (no default).
+    engine_source = {
+        git_url = 'https://github.com/EpicGames/UnrealEngine',
+        clone_dir = nil,
+    },
+
     -- Name of the user command, e.g. "UE" gives :UE Project Open.
     command_lead = "Unreal",
 
@@ -140,6 +147,8 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 |---|---|
 | `:Unreal Engine SetPath` | Use a typed engine folder for this session |
 | `:Unreal Engine ClearPath` | Forget the `SetPath` folder |
+| `:Unreal Engine Checkout` | Pick an engine release tag and shallow-clone it into `engine_source.clone_dir` |
+| `:Unreal Engine Build` | Build the editor from a checkout under `engine_source.clone_dir`, the project's engine or the `SetPath` folder |
 | `:Unreal Project Open` | Open the project in the Unreal editor |
 | `:Unreal Project Edit` | Open the `.uproject` in a buffer |
 | `:Unreal Project Select` | Choose which `.uproject` the other commands use |
