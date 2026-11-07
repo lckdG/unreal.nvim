@@ -49,7 +49,6 @@
 ---@field Version string?
 ---@field BuildConfig string?
 ---@field EngineExe string[]?
----@field DotNetExe string?
 ---@field UnrealBuildTool string?
 
 ---@class (exact) unreal.EngineSourceScripts

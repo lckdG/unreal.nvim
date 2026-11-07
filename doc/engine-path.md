@@ -8,15 +8,16 @@ Installed engines are read when Neovim starts:
 | Mac | `~/Library/Application Support/Epic/UnrealEngineLauncher/LauncherInstalled.dat` |
 | Linux | `~/.config/Epic/UnrealEngine/Install.ini` |
 
-An engine folder needs `Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll` and a `dotnet`: the engine's bundled one (`Engine/Binaries/ThirdParty/DotNet/`, newest first), else the one on `$PATH`.
+An engine folder is accepted when it has a readable `Engine/Build/Build.version`. Each command then checks what it needs:
+
+- `Build Clangd` needs `Engine/Build/BatchFiles/RunUBT.sh` (`RunUBT.bat` on Windows), the engine's script that runs UnrealBuildTool. The script sets up the engine's `dotnet` and builds UnrealBuildTool when needed.
+- `Project Open` needs the editor.
 
 Commands use, in order:
 
 1. the folder from `:Unreal Engine SetPath`
 2. the engine named by the `.uproject`'s `EngineAssociation` (e.g. `"5.4"` or a source build ID)
 3. a prompt for the engine folder (not remembered)
-
-`Project Open` also needs the editor; `Build Clangd` does not.
 
 ## Engine from source
 

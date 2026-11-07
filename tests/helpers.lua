@@ -1,6 +1,8 @@
 local M = {}
 
 M.repo_root = vim.fn.getcwd()
+M.UBT = "Engine/Build/BatchFiles/RunUBT" .. (vim.fn.has("win32") == 1 and ".bat" or ".sh")
+M.VERSION_FILE = "Engine/Build/Build.version"
 
 local stubs = {}
 
@@ -45,6 +47,10 @@ function M.reset()
         rawset(s.tbl, s.key, s.value)
     end
     stubs = {}
+    local ui = package.loaded["unreal.ui"]
+    if ui then
+        ui.Use(nil)
+    end
     vim.cmd("silent! %bwipeout!")
     vim.cmd.cd(vim.fn.fnameescape(M.repo_root))
 end
@@ -87,6 +93,63 @@ function M.edit(rel, row)
         local line = vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1] or ""
         vim.api.nvim_win_set_cursor(0, { row, #(line:match("^%s*")) })
     end
+end
+
+function M.write_version(root)
+    return M.write(root, M.VERSION_FILE, {
+        vim.json.encode({ MajorVersion = 5, MinorVersion = 4, PatchVersion = 2 }),
+    })
+end
+
+function M.write_uproject(root, association)
+    local data = association and { EngineAssociation = association } or {}
+    return M.write(root, "Game.uproject", { vim.json.encode(data) })
+end
+
+function M.answer_input(value)
+    return M.spy(vim.ui, "input", function(_, cb)
+        cb(value)
+    end)
+end
+
+function M.use_select(index)
+    local calls = {}
+    require("unreal.ui").Use({
+        Select = function(items, opts, cb)
+            table.insert(calls, { items = items, opts = opts })
+            cb(index and items[index] or nil)
+        end,
+    })
+    return calls
+end
+
+function M.stub_jobstart(code)
+    local state = { calls = {}, exited = false }
+    M.stub(vim.fn, "jobstart", function(cmd, opts)
+        table.insert(state.calls, { cmd = cmd, opts = opts, win = vim.api.nvim_get_current_win() })
+        vim.schedule(function()
+            local ok, err = pcall(opts.on_exit, 1, code or 0, "exit")
+            state.callback_error = not ok and tostring(err) or nil
+            state.exited = true
+        end)
+        return 1
+    end)
+    return state
+end
+
+function M.wait_job(state)
+    assert(vim.wait(1000, function()
+        return state.exited
+    end))
+end
+
+function M.run_job(action, code)
+    local state = M.stub_jobstart(code)
+    action()
+    if #state.calls > 0 then
+        M.wait_job(state)
+    end
+    return state
 end
 
 function M.ends_with(str, suffix)

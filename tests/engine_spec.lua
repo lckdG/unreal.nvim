@@ -5,25 +5,13 @@ local engine = require("unreal.engine")
 local system = require("unreal.system")
 local pathUtils = require("unreal.path_utils")
 
-local UBT = "Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
-local DOTNET_DIR = "Engine/Binaries/ThirdParty/DotNet"
-local hostDotnet = ({ Win64 = "win", Linux = "linux", Mac = "mac" })[system.GetPlatform()] .. "-" .. system.GetArch()
-local hostDotnetExe = system.GetPlatform() == "Win64" and "dotnet.exe" or "dotnet"
-
-local function bundled_dotnet(version)
-    return vim.fs.joinpath(DOTNET_DIR, version, hostDotnet, hostDotnetExe)
-end
+local UBT = h.UBT
 
 local function fake_engine()
     local root = h.tmpdir()
     h.write(root, UBT)
-    h.write(root, bundled_dotnet("8.0.300"))
+    h.write_version(root)
     return root
-end
-
-local function write_uproject(root, association)
-    local data = association and { EngineAssociation = association } or {}
-    return h.write(root, "Game.uproject", { vim.json.encode(data) })
 end
 
 describe("engine", function()
@@ -32,22 +20,19 @@ describe("engine", function()
     before_each(function()
         config.config()
         notes = h.notifications()
-        h.stub(vim.fn, "exepath", function()
-            return ""
-        end)
         h.stub(engine, "OverrideEnginePath", nil)
     end)
     after_each(h.reset)
 
     describe("ParseUbtPath", function()
-        it("engine dir without UnrealBuildTool.dll -> false, expected path", function()
+        it("engine dir without RunUBT script -> false, expected path", function()
             local root = h.tmpdir()
             local ok, path = engine.ParseUbtPath(root)
             assert.is_false(ok)
             assert.are.equal(vim.fs.joinpath(root, UBT), path)
         end)
 
-        it("engine dir with UnrealBuildTool.dll -> true, dll path", function()
+        it("engine dir with RunUBT script -> true, script path", function()
             local root = fake_engine()
             local ok, path = engine.ParseUbtPath(root)
             assert.is_true(ok)
@@ -61,94 +46,45 @@ describe("engine", function()
         end)
     end)
 
-    describe("ParseDotnetPath", function()
-        local SYSTEM = "/usr/bin/dotnet"
-        local engines = { bundled = fake_engine, empty = h.tmpdir }
-
-        for _, case in ipairs({
-            { "nil", "", true, false, nil },
-            { "nil", SYSTEM, true, false, SYSTEM },
-            { "bundled", "", true, true, "bundled" },
-            { "bundled", SYSTEM, true, true, "bundled" },
-            { "empty", SYSTEM, true, false, SYSTEM },
-            { "empty", "", true, false, nil },
-            { "bundled", "", false, false, nil },
-            { "bundled", SYSTEM, false, false, SYSTEM },
-        }) do
-            local engineDir, pathDotnet, archKnown, wantOk, wantPath = case[1], case[2], case[3], case[4], case[5]
-            local name = ("%s engine, PATH dotnet %s, arch %s -> %s, %s"):format(
-                engineDir,
-                pathDotnet == "" and "no" or "yes",
-                archKnown and "known" or "unknown",
-                tostring(wantOk),
-                tostring(wantPath)
-            )
-            it(name, function()
-                h.stub(vim.fn, "exepath", function()
-                    return pathDotnet
-                end)
-                if not archKnown then
-                    h.stub(system, "GetArch", function()
-                        return nil
-                    end)
-                end
-                local root = engines[engineDir] and engines[engineDir]()
-                local ok, path = engine.ParseDotnetPath(root)
-                assert.are.equal(wantOk, ok)
-                if wantPath == "bundled" then
-                    wantPath = vim.fs.joinpath(root, bundled_dotnet("8.0.300"))
-                end
-                assert.are.equal(wantPath, path)
-            end)
-        end
-
-        for _, case in ipairs({
-            { { "6.0.302", "9.0.100" }, "9.0.100" },
-            { { "10.0.100" }, "10.0.100" },
-        }) do
-            it("bundled 8.0.300, " .. table.concat(case[1], ", ") .. " -> " .. case[2] .. " (version order)", function()
-                local root = fake_engine()
-                for _, version in ipairs(case[1]) do
-                    h.write(root, bundled_dotnet(version))
-                end
-                local _, path = engine.ParseDotnetPath(root)
-                assert.are.equal(vim.fs.joinpath(root, bundled_dotnet(case[2])), path)
-            end)
-        end
-    end)
-
     describe("IsRootEngineDirValid", function()
-        for _, case in ipairs({
-            { true, "bundled", true },
-            { true, "none", false },
-            { true, "PATH", true },
-            { false, "bundled", false },
-        }) do
-            local hasUbt, dotnet, want = case[1], case[2], case[3]
-            it(("UBT %s, dotnet %s -> %s"):format(hasUbt and "yes" or "no", dotnet, tostring(want)), function()
-                if dotnet == "PATH" then
-                    h.stub(vim.fn, "exepath", function()
-                        return "/usr/bin/dotnet"
-                    end)
-                end
-                local root = h.tmpdir()
-                if hasUbt then
-                    h.write(root, UBT)
-                end
-                if dotnet == "bundled" then
-                    h.write(root, bundled_dotnet("8.0.300"))
-                end
-                assert.are.equal(want, engine.IsRootEngineDirValid(root))
-            end)
-        end
+        it("Build.version present -> true", function()
+            local root = h.tmpdir()
+            h.write_version(root)
+            assert.is_true(engine.IsRootEngineDirValid(root))
+        end)
+
+        it("Build.version present, no RunUBT -> true", function()
+            local root = h.tmpdir()
+            h.write_version(root)
+            assert.is_true(engine.IsRootEngineDirValid(root))
+            assert.is_false(engine.ParseUbtPath(root))
+        end)
+
+        it("RunUBT only, no Build.version -> false", function()
+            local root = h.tmpdir()
+            h.write(root, UBT)
+            assert.is_false(engine.IsRootEngineDirValid(root))
+        end)
+
+        it("malformed Build.version -> false", function()
+            local root = h.tmpdir()
+            h.write(root, h.VERSION_FILE, { "{ not json" })
+            assert.is_false(engine.IsRootEngineDirValid(root))
+        end)
+
+        it("empty folder -> false", function()
+            assert.is_false(engine.IsRootEngineDirValid(h.tmpdir()))
+        end)
+
+        it("nil -> false", function()
+            assert.is_false(engine.IsRootEngineDirValid(nil))
+        end)
     end)
 
     describe("InputEnginePath", function()
         for _, case in ipairs({ { "cancel (nil)", nil }, { "empty string", "" } }) do
             it(case[1] .. " -> callback(nil)", function()
-                h.stub(vim.ui, "input", function(_, cb)
-                    cb(case[2])
-                end)
+                h.answer_input(case[2])
                 local got = "unset"
                 engine.InputEnginePath(function(path)
                     got = path
@@ -158,9 +94,7 @@ describe("engine", function()
         end
 
         it("typed text -> callback(text)", function()
-            h.stub(vim.ui, "input", function(_, cb)
-                cb("/ue")
-            end)
+            h.answer_input("/ue")
             local got
             engine.InputEnginePath(function(path)
                 got = path
@@ -170,15 +104,9 @@ describe("engine", function()
     end)
 
     describe("SetEnginePath_User / ClearEnginePath_User", function()
-        local function answer(value)
-            h.stub(vim.ui, "input", function(_, cb)
-                cb(value)
-            end)
-        end
-
         it("valid engine folder -> override set, info notify", function()
             local root = fake_engine()
-            answer(root)
+            h.answer_input(root)
             engine.SetEnginePath_User()
             assert.are.equal(root, engine.OverrideEnginePath)
             assert.is_true(h.notified(notes, vim.log.levels.INFO))
@@ -187,14 +115,14 @@ describe("engine", function()
         it("invalid folder -> warn, previous override kept", function()
             local root = fake_engine()
             engine.OverrideEnginePath = root
-            answer(h.tmpdir())
+            h.answer_input(h.tmpdir())
             engine.SetEnginePath_User()
             assert.are.equal(root, engine.OverrideEnginePath)
             assert.is_true(h.notified(notes, vim.log.levels.WARN))
         end)
 
         it("prompt cancelled -> warn, no override", function()
-            answer(nil)
+            h.answer_input(nil)
             engine.SetEnginePath_User()
             assert.is_nil(engine.OverrideEnginePath)
             assert.is_true(h.notified(notes, vim.log.levels.WARN))
@@ -236,11 +164,11 @@ describe("engine", function()
 
     describe("GetAssociatedEngine", function()
         it("EngineAssociation field -> its value", function()
-            assert.are.equal("5.4", engine.GetAssociatedEngine(write_uproject(h.tmpdir(), "5.4")))
+            assert.are.equal("5.4", engine.GetAssociatedEngine(h.write_uproject(h.tmpdir(), "5.4")))
         end)
 
         it("no EngineAssociation field -> nil", function()
-            assert.is_nil(engine.GetAssociatedEngine(write_uproject(h.tmpdir(), nil)))
+            assert.is_nil(engine.GetAssociatedEngine(h.write_uproject(h.tmpdir(), nil)))
         end)
 
         it("invalid JSON -> nil", function()
@@ -270,33 +198,30 @@ describe("engine", function()
             end)
         end)
 
-        it("editor, dotnet and UBT -> all tools", function()
+        it("editor and UBT -> all tools", function()
             local root = fake_engine()
             h.write(root, EDITOR)
             assert_fields({
                 RootDir = root,
-                Version = "0.0.0",
+                Version = "5.4.2",
                 BuildConfig = vim.fs.joinpath(root, "Engine/Saved/UnrealBuildTool/BuildConfiguration.xml"),
                 EngineExe = { "setsid", "-f", vim.fs.joinpath(root, EDITOR) },
-                DotNetExe = vim.fs.joinpath(root, bundled_dotnet("8.0.300")),
                 UnrealBuildTool = vim.fs.joinpath(root, UBT),
             }, engine.RetrieveTools(root))
         end)
 
-        it("no editor -> dotnet and UBT kept, no EngineExe", function()
+        it("no editor -> UBT kept, no EngineExe", function()
             local root = fake_engine()
             local tools = engine.RetrieveTools(root)
             assert.is_nil(tools.EngineExe)
             assert.are.equal(vim.fs.joinpath(root, UBT), tools.UnrealBuildTool)
-            assert.is_not_nil(tools.DotNetExe)
         end)
 
-        it("empty folder, no system dotnet -> no tools, RootDir kept", function()
+        it("empty folder -> no tools, RootDir kept", function()
             local root = h.tmpdir()
             local tools = engine.RetrieveTools(root)
             assert.are.equal(root, tools.RootDir)
             assert.is_nil(tools.EngineExe)
-            assert.is_nil(tools.DotNetExe)
             assert.is_nil(tools.UnrealBuildTool)
         end)
     end)
@@ -359,13 +284,11 @@ describe("engine", function()
         end
 
         local function answer(value)
-            prompts = h.spy(vim.ui, "input", function(_, cb)
-                cb(value)
-            end)
+            prompts = h.answer_input(value)
         end
 
         before_each(function()
-            uproject = write_uproject(h.tmpdir(), "5.4")
+            uproject = h.write_uproject(h.tmpdir(), "5.4")
             h.stub(engine, "InstalledEngines", {})
             answer(nil)
         end)
@@ -393,7 +316,7 @@ describe("engine", function()
         end)
 
         it("no EngineAssociation -> prompt", function()
-            uproject = write_uproject(h.tmpdir(), nil)
+            uproject = h.write_uproject(h.tmpdir(), nil)
             local root = fake_engine()
             answer(root)
             assert.are.equal(root, find().RootDir)
@@ -658,7 +581,7 @@ describe("engine", function()
             it("build path with spaces -> kept whole", function()
                 local root = vim.fs.joinpath(h.tmpdir(), "Epic Games", "UE Source")
                 h.write(root, UBT)
-                h.write(root, bundled_dotnet("8.0.300"))
+                h.write_version(root)
                 reg_query(0, { ["{33333333-3333-3333-3333-333333333333}"] = root })
                 init_and_wait()
                 assert.are.same({ root }, installed_paths())

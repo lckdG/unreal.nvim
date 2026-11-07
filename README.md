@@ -24,7 +24,6 @@ A Neovim plugin for working on Unreal Engine C++ projects: source/header switchi
 - [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
 - `rg` and `clangd` on `$PATH`
 - clangd enabled with `vim.lsp` (see below)
-- `dotnet` prioritizes the bundled executable from the engine, then the one from `$PATH`
 - Optional: plugins needed by the [extensions](#extensions) you enable
 - An installed Unreal Engine build to point the plugin at
 

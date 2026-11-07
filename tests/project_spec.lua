@@ -3,42 +3,15 @@ local config = require("unreal.config")
 local engine = require("unreal.engine")
 local project = require("unreal.project")
 local system = require("unreal.system")
-local ui = require("unreal.ui")
 local realFindEngineTools = engine.FindEngineTools
 
 local ERROR = vim.log.levels.ERROR
-local UBT = "Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
-
-local function use_select(index)
-    local calls = {}
-    ui.Use({
-        Select = function(items, opts, cb)
-            table.insert(calls, { items = items, opts = opts })
-            cb(index and items[index] or nil)
-        end,
-    })
-    return calls
-end
-
-local function stub_jobstart(code)
-    local state = { calls = {}, exited = false }
-    h.stub(vim.fn, "jobstart", function(cmd, opts)
-        table.insert(state.calls, { cmd = cmd, opts = opts, win = vim.api.nvim_get_current_win() })
-        vim.schedule(function()
-            local ok, err = pcall(opts.on_exit, 1, code, "exit")
-            state.callback_error = not ok and tostring(err) or nil
-            state.exited = true
-        end)
-        return 1
-    end)
-    return state
-end
+local UBT = h.UBT
 
 local function fake_tools(overrides)
     local tools = {
         RootDir = "/ue",
         EngineExe = { "editor" },
-        DotNetExe = "/ue/dotnet",
         UnrealBuildTool = "/ue/" .. UBT,
     }
     for k, v in pairs(overrides or {}) do
@@ -79,7 +52,6 @@ describe("project", function()
         use_tools()
     end)
     after_each(function()
-        ui.Use(nil)
         pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim.project")
         h.reset()
     end)
@@ -107,7 +79,7 @@ describe("project", function()
                     tree[file] = {}
                 end
                 local root = h.project(tree)
-                local selects = use_select(case.choice)
+                local selects = h.use_select(case.choice)
                 local calls = ensure()
                 assert.are.equal(case.prompts, #selects)
                 assert.are.equal(case.error == true, h.notified(notes, ERROR))
@@ -121,7 +93,7 @@ describe("project", function()
 
         it("chosen uproject is kept -> second call does not prompt", function()
             h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            local selects = use_select(2)
+            local selects = h.use_select(2)
             local first = ensure()
             local chosen = project.UprojectPath
             local second = ensure()
@@ -135,7 +107,7 @@ describe("project", function()
         it("1 uproject -> jobstart detached, no prompt", function()
             local root = h.project({ ["Game.uproject"] = {} })
             local jobs = h.spy(vim.fn, "jobstart", 1)
-            local selects = use_select(1)
+            local selects = h.use_select(1)
             project.OpenUproject()
             assert.are.same({ "editor", root .. "/Game.uproject" }, jobs[1][1])
             assert.are.same({ detach = true }, jobs[1][2])
@@ -170,9 +142,6 @@ describe("project", function()
 
         it("real engine tree missing editor binary on Linux -> error, no jobstart", function()
             h.project({ ["Game.uproject"] = {} })
-            h.stub(vim.fn, "exepath", function()
-                return "/usr/bin/dotnet"
-            end)
             real_engine({ UBT })
             h.stub(system, "GetPlatform", function()
                 return "Linux"
@@ -192,14 +161,7 @@ describe("project", function()
         end)
 
         local function run(code)
-            local state = stub_jobstart(code)
-            project.RebuildClangd()
-            if #state.calls > 0 then
-                assert.is_true(vim.wait(1000, function()
-                    return state.exited
-                end))
-            end
-            return state
+            return h.run_job(project.RebuildClangd, code)
         end
 
         it("no engine tools -> error, UBT not called", function()
@@ -210,66 +172,43 @@ describe("project", function()
             assert.is_true(h.notified(notes, ERROR))
         end)
 
-        for _, field in ipairs({ "DotNetExe", "UnrealBuildTool" }) do
-            it(field .. " missing -> error, UBT not called", function()
-                h.project({ ["Game.uproject"] = {} })
-                use_tools({ [field] = vim.NIL })
-                local state = run(0)
-                assert.are.equal(0, #state.calls)
-                assert.is_true(h.notified(notes, ERROR))
-            end)
-        end
+        it("UnrealBuildTool missing -> error, UBT not called", function()
+            h.project({ ["Game.uproject"] = {} })
+            use_tools({ UnrealBuildTool = vim.NIL })
+            local state = run(0)
+            assert.are.equal(0, #state.calls)
+            assert.is_true(h.notified(notes, ERROR))
+        end)
 
         it("engine without editor -> UBT still runs", function()
             h.project({ ["Game.uproject"] = {} })
             use_tools({ EngineExe = vim.NIL })
             local state = run(0)
             assert.are.equal(1, #state.calls)
-            assert.are.equal("/ue/dotnet", state.calls[1].cmd[1])
+            assert.are.equal("/ue/" .. UBT, state.calls[1].cmd[1])
         end)
 
-        describe("dotnet resolved from a real engine tree", function()
-            local root, bundled
+        describe("real engine tree", function()
+            local root
 
             before_each(function()
                 h.project({ ["Game.uproject"] = {} })
-                local plat = ({ Win64 = "win", Linux = "linux", Mac = "mac" })[system.GetPlatform()]
-                local exe = system.GetPlatform() == "Win64" and "dotnet.exe" or "dotnet"
-                bundled =
-                    vim.fs.joinpath("Engine/Binaries/ThirdParty/DotNet/8.0.300", plat .. "-" .. system.GetArch(), exe)
-                root = real_engine({ UBT, bundled })
-                bundled = vim.fs.joinpath(root, bundled)
+                root = real_engine({ UBT })
             end)
 
-            local function path_dotnet(path)
-                h.stub(vim.fn, "exepath", function()
-                    return path
-                end)
-            end
-
-            it("bundled dotnet wins over PATH", function()
-                path_dotnet("/usr/bin/dotnet")
+            it("runs the engine's RunUBT script", function()
                 local state = run(0)
-                assert.are.equal(bundled, state.calls[1].cmd[1])
+                assert.are.equal(vim.fs.joinpath(root, UBT), state.calls[1].cmd[1])
             end)
 
-            it("no bundled dotnet -> falls back to PATH", function()
-                path_dotnet("/usr/bin/dotnet")
-                vim.fn.delete(bundled)
-                local state = run(0)
-                assert.are.equal("/usr/bin/dotnet", state.calls[1].cmd[1])
-            end)
-
-            it("neither -> error, UBT not called", function()
-                path_dotnet("")
-                vim.fn.delete(bundled)
+            it("no RunUBT script -> error, UBT not called", function()
+                vim.fn.delete(vim.fs.joinpath(root, UBT))
                 local state = run(0)
                 assert.are.equal(0, #state.calls)
                 assert.is_true(h.notified(notes, ERROR))
             end)
 
             it("copies compile_commands.json from the engine root", function()
-                path_dotnet("")
                 run(0)
                 assert.are.equal(vim.fs.joinpath(root, "compile_commands.json"), copies[1][1])
             end)
@@ -277,7 +216,7 @@ describe("project", function()
 
         it("2 uprojects, choose 2 -> UBT gets the second project and its Editor target", function()
             h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            local selects = use_select(2)
+            local selects = h.use_select(2)
             local state = run(0)
             assert.are.equal(1, #selects)
             local second = selects[1].items[2].value
@@ -287,7 +226,7 @@ describe("project", function()
             assert.is_true(vim.tbl_contains(cmd, target))
         end)
 
-        it("runs dotnet via jobstart in a terminal with an argument list", function()
+        it("runs RunUBT via jobstart in a terminal with an argument list", function()
             local root = h.project({ ["Game.uproject"] = {} })
             h.stub(system, "GetPlatform", function()
                 return "Linux"
@@ -295,7 +234,6 @@ describe("project", function()
             config.opts.clangd_build_args = { "-NoExecCodeGenActions" }
             local state = run(0)
             assert.are.same({
-                "/ue/dotnet",
                 "/ue/" .. UBT,
                 "-mode=GenerateClangDatabase",
                 "-NoExecCodeGenActions",
@@ -312,26 +250,22 @@ describe("project", function()
         it("opens a split for the terminal and focuses it after exit", function()
             h.project({ ["Game.uproject"] = {} })
             local origWin = vim.api.nvim_get_current_win()
-            local state = stub_jobstart(0)
+            local state = h.stub_jobstart(0)
             project.RebuildClangd()
             local jobWin = state.calls[1].win
             assert.are_not.equal(origWin, jobWin)
             vim.api.nvim_set_current_win(origWin)
-            assert.is_true(vim.wait(1000, function()
-                return state.exited
-            end))
+            h.wait_job(state)
             assert.is_nil(state.callback_error)
             assert.are.equal(jobWin, vim.api.nvim_get_current_win())
         end)
 
         it("terminal window closed before exit -> no error", function()
             h.project({ ["Game.uproject"] = {} })
-            local state = stub_jobstart(0)
+            local state = h.stub_jobstart(0)
             project.RebuildClangd()
             vim.api.nvim_win_close(state.calls[1].win, true)
-            assert.is_true(vim.wait(1000, function()
-                return state.exited
-            end))
+            h.wait_job(state)
             assert.is_nil(state.callback_error)
             assert.is_true(h.notified(notes, vim.log.levels.INFO))
         end)
@@ -394,7 +328,7 @@ describe("project", function()
 
         it("1 uproject -> opened in current window, no prompt", function()
             local root = h.project({ ["Game.uproject"] = {} })
-            local selects = use_select(1)
+            local selects = h.use_select(1)
             project.EditUproject()
             assert.are.equal(0, #selects)
             assert.are.equal(root .. "/Game.uproject", current_file())
@@ -438,7 +372,7 @@ describe("project", function()
     describe("SelectUproject_User", function()
         it("2 uprojects, choose 2 -> used by later commands without prompt", function()
             h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            local selects = use_select(2)
+            local selects = h.use_select(2)
             project.SelectUproject_User()
             local chosen = selects[1].items[2].value
             assert.are.equal(chosen, project.UprojectPath)
@@ -450,9 +384,9 @@ describe("project", function()
 
         it("asks again even when one is already chosen", function()
             h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            local selects = use_select(1)
+            local selects = h.use_select(1)
             project.SelectUproject_User()
-            use_select(2)
+            h.use_select(2)
             project.SelectUproject_User()
             assert.are.equal(1, #selects)
             assert.is_true(h.ends_with(project.UprojectPath, "B/B.uproject"))
@@ -460,10 +394,10 @@ describe("project", function()
 
         it("select dismissed -> previous choice kept", function()
             h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
-            use_select(1)
+            h.use_select(1)
             project.SelectUproject_User()
             local before = project.UprojectPath
-            use_select(nil)
+            h.use_select(nil)
             project.SelectUproject_User()
             assert.are.equal(before, project.UprojectPath)
         end)
@@ -580,7 +514,7 @@ describe("project", function()
         it("no uproject chosen -> only user entries, engine not looked up", function()
             h.project({})
             local finds = use_tools()
-            local selects = use_select(nil)
+            local selects = h.use_select(nil)
             project.EditBuildConfiguration()
             assert.are.same({ "User Config" }, names(selects[1].items))
             assert.are.equal(0, #finds)
@@ -590,7 +524,7 @@ describe("project", function()
             local root = h.project({ [".git/HEAD"] = {}, ["Game/Game.uproject"] = {} })
             project.UprojectPath = root .. "/Game/Game.uproject"
             use_tools({ BuildConfig = ENGINE_CONFIG })
-            local selects = use_select(nil)
+            local selects = h.use_select(nil)
             project.EditBuildConfiguration()
             local items = selects[1].items
             assert.are.same({ "Project Config", "User Config", "Engine Config" }, names(items))
@@ -602,7 +536,7 @@ describe("project", function()
             local root = h.project({ ["Game.uproject"] = {} })
             project.UprojectPath = root .. "/Game.uproject"
             use_tools(false)
-            local selects = use_select(nil)
+            local selects = h.use_select(nil)
             project.EditBuildConfiguration()
             assert.are.same({ "Project Config", "User Config" }, names(selects[1].items))
         end)
@@ -610,7 +544,7 @@ describe("project", function()
         it("existing file -> opened as is, no confirm", function()
             h.project({})
             h.write(vim.fs.dirname(userFile), "BuildConfiguration.xml", { "<Configuration/>" })
-            use_select(1)
+            h.use_select(1)
             project.EditBuildConfiguration()
             assert.are.equal(userFile, current_file())
             assert.are.same({ "<Configuration/>" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
@@ -619,7 +553,7 @@ describe("project", function()
 
         it("missing file, Yes -> template in buffer, folders created, file written on save", function()
             h.project({})
-            use_select(1)
+            h.use_select(1)
             project.EditBuildConfiguration()
             local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
             assert.are.equal(userFile, current_file())
@@ -633,7 +567,7 @@ describe("project", function()
 
         it("missing file picked again before saving -> same buffer, template not duplicated", function()
             h.project({})
-            use_select(1)
+            h.use_select(1)
             project.EditBuildConfiguration()
             local buf = vim.api.nvim_get_current_buf()
             project.EditBuildConfiguration()
@@ -646,7 +580,7 @@ describe("project", function()
         it("missing file, No -> nothing opened, no folder created", function()
             h.project({})
             answer(2)
-            use_select(1)
+            h.use_select(1)
             local before = current_file()
             project.EditBuildConfiguration()
             assert.are.equal(before, current_file())
@@ -655,7 +589,7 @@ describe("project", function()
 
         it("list dismissed -> nothing opened, no confirm", function()
             h.project({})
-            use_select(nil)
+            h.use_select(nil)
             local before = current_file()
             project.EditBuildConfiguration()
             assert.are.equal(before, current_file())

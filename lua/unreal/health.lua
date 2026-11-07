@@ -134,13 +134,6 @@ local function check_engine_path(uprojectPath)
         health.warn("Editor: not found", "Needed by :Unreal Project Open; build the editor first")
     end
 
-    local dotNetBundled, dotnetPath = engine.ParseDotnetPath(enginePath)
-    if dotnetPath ~= nil then
-        health.ok(".NET: " .. dotnetPath .. (dotNetBundled and " (bundled)" or " (system, from $PATH)"))
-    else
-        health.warn(".NET: not found", "UnrealBuildTool needs dotnet: install it, or use an engine that bundles it")
-    end
-
     local ubtOk, ubtPath = engine.ParseUbtPath(enginePath)
     if ubtOk then
         health.ok("UnrealBuildTool: " .. ubtPath)

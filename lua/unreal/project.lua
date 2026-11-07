@@ -119,21 +119,20 @@ end
 ---understand your code (include paths, defines). Run it after adding modules, plugins or files.
 ---Runs UnrealBuildTool in a terminal split, then copies the result next to the `.uproject`.
 ---Extra UnrealBuildTool arguments come from the `clangd_build_args` option.
----Needs `dotnet` and UnrealBuildTool from the engine, not the editor, so it also works on an
+---Runs the engine's `RunUBT` script (`Engine/Build/BatchFiles/RunUBT.sh`, `.bat` on Windows), which
+---sets up the engine's `dotnet` and compiles UnrealBuildTool itself when needed, so it also works on an
 ---engine built from source before the editor is compiled. Shows an error if the build or copy fails.
 function M.RebuildClangd()
     M.EnsureUproject(function()
         local uprojectPath = M.UprojectPath
         engine.FindEngineTools(uprojectPath, function(tools)
-            if tools and tools.DotNetExe and tools.UnrealBuildTool then
+            if tools and tools.UnrealBuildTool then
                 local projectName = vim.fn.fnamemodify(uprojectPath, ":t:r")
                 local projectEditor = projectName .. "Editor"
 
-                local dotnet = tools.DotNetExe
                 local buildTool = tools.UnrealBuildTool
 
                 local commandParts = {
-                    dotnet,
                     buildTool,
                     "-mode=GenerateClangDatabase",
                 }

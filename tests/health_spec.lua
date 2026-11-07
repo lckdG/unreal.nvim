@@ -56,23 +56,16 @@ describe("health", function()
             h.stub(engine, "InstalledEngines", {})
             h.stub(engine, "OverrideEnginePath", nil)
             h.stub(project, "UprojectPath", nil)
-            h.stub(vim.fn, "exepath", function()
-                return ""
-            end)
             h.stub(vim.lsp, "is_enabled", function()
                 return true
             end)
         end)
 
-        local UBT = "Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
+        local UBT = h.UBT
         local EDITOR = "Engine/Binaries/Linux/UnrealEditor"
-        local DOTNET = "Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-"
-            .. require("unreal.system").GetArch()
-            .. "/dotnet"
 
         local function choose_uproject(association)
-            local data = association and { EngineAssociation = association } or {}
-            project.UprojectPath = h.write(h.tmpdir(), "Game.uproject", { vim.json.encode(data) })
+            project.UprojectPath = h.write_uproject(h.tmpdir(), association)
         end
 
         local function engine_with(files)
@@ -84,12 +77,6 @@ describe("health", function()
                 h.write(root, f)
             end
             return root
-        end
-
-        local function with_version(root)
-            h.write(root, "Engine/Build/Build.version", {
-                vim.json.encode({ MajorVersion = 5, MinorVersion = 4, PatchVersion = 2 }),
-            })
         end
 
         local function installed(files)
@@ -114,50 +101,38 @@ describe("health", function()
         for _, case in ipairs({
             {
                 name = "installed engine, all tools and version",
-                files = { UBT, EDITOR, DOTNET },
+                files = { UBT, EDITOR },
                 version = true,
-                kinds = { "warn", "ok", "ok", "ok", "ok", "ok", "ok" },
-                texts = { [4] = "5.4.2", [6] = "(bundled)" },
+                kinds = { "warn", "ok", "ok", "ok", "ok", "ok" },
+                texts = { [4] = "5.4.2", [6] = "RunUBT" },
             },
             {
                 name = "installed engine, UBT only",
                 files = { UBT },
-                kinds = { "warn", "ok", "ok", "warn", "warn", "warn", "ok" },
+                kinds = { "warn", "ok", "ok", "warn", "warn", "ok" },
                 texts = { [4] = "version" },
             },
             {
-                name = "installed engine, no bundled dotnet, system dotnet on PATH",
-                files = { UBT, EDITOR },
-                pathDotnet = true,
-                kinds = { "warn", "ok", "ok", "warn", "ok", "ok", "ok" },
-                texts = { [6] = "(system" },
-            },
-            {
                 name = "override with all tools",
-                files = { UBT, EDITOR, DOTNET },
+                files = { UBT, EDITOR },
                 override = true,
-                kinds = { "warn", "ok", "warn", "warn", "ok", "ok", "ok" },
+                kinds = { "warn", "ok", "warn", "warn", "ok", "ok" },
                 texts = { [3] = "Engine SetPath" },
             },
             {
                 name = "override with editor only",
                 files = { EDITOR },
                 override = true,
-                kinds = { "warn", "ok", "warn", "warn", "ok", "warn", "warn" },
+                kinds = { "warn", "ok", "warn", "warn", "ok", "warn" },
                 texts = {},
             },
             {
                 name = "associated engine not installed",
-                kinds = { "warn", "ok", "error", "warn", "warn", "warn", "warn" },
+                kinds = { "warn", "ok", "error", "warn", "warn", "warn" },
                 texts = { [3] = "Engine SetPath" },
             },
         }) do
             it(case.name .. " -> " .. table.concat(case.kinds, " "), function()
-                if case.pathDotnet then
-                    h.stub(vim.fn, "exepath", function()
-                        return "/usr/bin/dotnet"
-                    end)
-                end
                 local root
                 if case.override then
                     root = engine_with(case.files)
@@ -169,7 +144,7 @@ describe("health", function()
                     choose_uproject("5.4")
                 end
                 if case.version then
-                    with_version(root)
+                    h.write_version(root)
                 end
                 require("unreal.health").check()
                 local core = section(CORE)
