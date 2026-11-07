@@ -8,7 +8,7 @@ All notable changes to unreal.nvim are listed here. The format follows [Keep a C
 
 - **Engine path no longer saved.** `lock.dat` is ignored and can be deleted; the engine comes from the `.uproject`'s `EngineAssociation`.
 - **`:Unreal Engine SetPath` lasts for the session only.**
-- **Engine path rules changed.** An engine path is accepted when it has `Engine/Build/BatchFiles/RunUBT.sh` (`RunUBT.bat` on Windows). `UnrealBuildTool.dll` and `dotnet` are no longer checked.
+- **Engine path rules changed.** An engine path is accepted when it has a readable `Engine/Build/Build.version`. `UnrealBuildTool.dll` and `dotnet` are no longer checked; `Build Clangd` needs `Engine/Build/BatchFiles/RunUBT.sh` (`RunUBT.bat` on Windows).
 
 ### Added
 
