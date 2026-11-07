@@ -19,6 +19,7 @@ local function createCommands(config)
             SetPath = require("unreal.engine").SetEnginePath_User,
             ClearPath = require("unreal.engine").ClearEnginePath_User,
             Checkout = require("unreal.engine_builder").Checkout,
+            Build = require("unreal.engine_builder").Build,
         },
         Project = {
             Open = require("unreal.project").OpenUproject,

@@ -52,6 +52,11 @@
 ---@field DotNetExe string?
 ---@field UnrealBuildTool string?
 
+---@class (exact) unreal.EngineSourceScripts
+---@field Setup string
+---@field GenerateProjectFile string
+---@field Build string
+
 --- Ui Classes
 ---@class unreal.UiEntry
 ---@field name string
