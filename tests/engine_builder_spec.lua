@@ -2,7 +2,6 @@ local h = dofile("tests/helpers.lua")
 local config = require("unreal.config")
 local system = require("unreal.system")
 local builder = require("unreal.engine_builder")
-local ui = require("unreal.ui")
 
 local ERROR = vim.log.levels.ERROR
 local URL = "https://github.com/EpicGames/UnrealEngine"
@@ -35,6 +34,33 @@ local function names(tags)
     return vim.tbl_map(function(t)
         return t.name
     end, tags)
+end
+
+local selects
+
+local function use_select(index)
+    selects = h.use_select(index)
+end
+
+local CLONE_DIR_CASES = {
+    ["not set"] = function() end,
+    ["missing on disk"] = function(cloneDir)
+        return vim.fs.joinpath(cloneDir, "missing")
+    end,
+}
+
+local function close_window_on_start(action)
+    local jobs = 0
+    h.stub(vim.fn, "jobstart", function(_, opts)
+        jobs = jobs + 1
+        vim.api.nvim_win_close(vim.api.nvim_get_current_win(), true)
+        assert.has_no.errors(function()
+            opts.on_exit(1, 0, "exit")
+        end)
+        return 1
+    end)
+    action()
+    assert.are.equal(1, jobs)
 end
 
 describe("system.GetUnrealTags", function()
@@ -111,46 +137,15 @@ describe("system.GetUnrealTags", function()
 end)
 
 describe("engine_builder.Checkout", function()
-    local cloneDir, selects, notes, tagCalls
+    local cloneDir, notes, tagCalls
 
     local TAGS = {
         { name = "5.5.0-release", value = "5.5.0-release" },
         { name = "5.4.4-release", value = "5.4.4-release" },
     }
 
-    local function use_select(index)
-        selects = {}
-        ui.Use({
-            Select = function(items, opts, cb)
-                table.insert(selects, { items = items, opts = opts })
-                cb(index and items[index] or nil)
-            end,
-        })
-    end
-
-    local function stub_jobstart()
-        local state = { calls = {}, exited = false }
-        h.stub(vim.fn, "jobstart", function(cmd, opts)
-            table.insert(state.calls, { cmd = cmd, opts = opts, win = vim.api.nvim_get_current_win() })
-            vim.schedule(function()
-                local ok, err = pcall(opts.on_exit, 1, 0, "exit")
-                state.callback_error = not ok and tostring(err) or nil
-                state.exited = true
-            end)
-            return 1
-        end)
-        return state
-    end
-
     local function run()
-        local state = stub_jobstart()
-        builder.Checkout()
-        if #state.calls > 0 then
-            assert.is_true(vim.wait(1000, function()
-                return state.exited
-            end))
-        end
-        return state
+        return h.run_job(builder.Checkout)
     end
 
     before_each(function()
@@ -161,27 +156,11 @@ describe("engine_builder.Checkout", function()
             cb(TAGS)
         end)
     end)
-    after_each(function()
-        ui.Use(nil)
-        h.reset()
-    end)
+    after_each(h.reset)
 
-    for _, case in ipairs({
-        {
-            "not set",
-            function()
-                return nil
-            end,
-        },
-        {
-            "missing on disk",
-            function()
-                return vim.fs.joinpath(cloneDir, "missing")
-            end,
-        },
-    }) do
-        it("clone_dir " .. case[1] .. " -> error, tags not listed, no clone", function()
-            config.config({ engine_source = { clone_dir = case[2]() } })
+    for name, dir in pairs(CLONE_DIR_CASES) do
+        it("clone_dir " .. name .. " -> error, tags not listed, no clone", function()
+            config.config({ engine_source = { clone_dir = dir(cloneDir) } })
             use_select(1)
             local state = run()
             assert.is_true(h.notified(notes, vim.log.levels.ERROR))
@@ -260,22 +239,12 @@ describe("engine_builder.Checkout", function()
 
     it("terminal window closed before exit -> no error", function()
         use_select(1)
-        local jobs = 0
-        h.stub(vim.fn, "jobstart", function(_, opts)
-            jobs = jobs + 1
-            vim.api.nvim_win_close(vim.api.nvim_get_current_win(), true)
-            assert.has_no.errors(function()
-                opts.on_exit(1, 0, "exit")
-            end)
-            return 1
-        end)
-        builder.Checkout()
-        assert.are.equal(1, jobs)
+        close_window_on_start(builder.Checkout)
     end)
 end)
 
 describe("engine_builder.Build", function()
-    local cloneDir, selects, confirms, notes, initCalls
+    local cloneDir, confirms, notes, initCalls
 
     local SCRIPTS = {
         Linux = { "Setup.sh", "GenerateProjectFiles.sh", "Engine/Build/BatchFiles/Linux/Build.sh" },
@@ -292,49 +261,17 @@ describe("engine_builder.Build", function()
         return dir
     end
 
-    local function use_select(index)
-        selects = {}
-        ui.Use({
-            Select = function(items, opts, cb)
-                table.insert(selects, { items = items, opts = opts })
-                cb(index and items[index] or nil)
-            end,
-        })
-    end
-
     local function use_confirm(answer)
         confirms = h.spy(vim.fn, "confirm", answer)
     end
 
-    local function stub_jobstart(code)
-        local state = { calls = {}, exited = false }
-        h.stub(vim.fn, "jobstart", function(cmd, opts)
-            table.insert(state.calls, { cmd = cmd, opts = opts, win = vim.api.nvim_get_current_win() })
-            vim.schedule(function()
-                local ok, err = pcall(opts.on_exit, 1, code or 0, "exit")
-                state.callback_error = not ok and tostring(err) or nil
-                state.exited = true
-            end)
-            return 1
-        end)
-        return state
-    end
-
     local function run(code)
-        local state = stub_jobstart(code)
-        builder.Build()
-        if #state.calls > 0 then
-            assert.is_true(vim.wait(1000, function()
-                return state.exited
-            end))
-        end
-        return state
+        return h.run_job(builder.Build, code)
     end
 
     local function expected_cmd(dir, platform)
         local q = vim.fn.shellescape
         local s = SCRIPTS[platform]
-        local args = platform .. " Development" .. (platform == "Win64" and " -WaitMutex" or "")
         return table.concat({
             q(vim.fs.joinpath(dir, s[1])),
             "&&",
@@ -342,7 +279,9 @@ describe("engine_builder.Build", function()
             "&&",
             q(vim.fs.joinpath(dir, s[3])),
             "UnrealEditor",
-            args,
+            platform,
+            "Development",
+            "-WaitMutex",
         }, " ")
     end
 
@@ -356,27 +295,11 @@ describe("engine_builder.Build", function()
         initCalls = h.spy(require("unreal.engine"), "init")
         use_confirm(1)
     end)
-    after_each(function()
-        ui.Use(nil)
-        h.reset()
-    end)
+    after_each(h.reset)
 
-    for _, case in ipairs({
-        {
-            "not set",
-            function()
-                return nil
-            end,
-        },
-        {
-            "missing on disk",
-            function()
-                return vim.fs.joinpath(cloneDir, "missing")
-            end,
-        },
-    }) do
-        it("clone_dir " .. case[1] .. " -> error, no picker, no build", function()
-            config.config({ engine_source = { clone_dir = case[2]() } })
+    for name, dir in pairs(CLONE_DIR_CASES) do
+        it("clone_dir " .. name .. " -> error, no picker, no build", function()
+            config.config({ engine_source = { clone_dir = dir(cloneDir) } })
             use_select(1)
             local state = run()
             assert.is_true(h.notified(notes, ERROR))
@@ -495,26 +418,23 @@ describe("engine_builder.Build", function()
     describe("project engine and SetPath folder", function()
         local engine, project
 
-        local function source_engine(root)
-            local dir = checkout("engine", "Linux", root or h.tmpdir())
-            h.write(dir, "Engine/Build/Build.version", {
-                vim.json.encode({ MajorVersion = 5, MinorVersion = 4, PatchVersion = 2 }),
-            })
+        local function launcher_engine(dir)
+            dir = dir or h.tmpdir()
+            h.write_version(dir)
             return dir
         end
 
-        local function launcher_engine()
-            local dir = h.tmpdir()
-            h.write(dir, "Engine/Build/Build.version", {
-                vim.json.encode({ MajorVersion = 5, MinorVersion = 4, PatchVersion = 2 }),
-            })
-            return dir
+        local function source_engine()
+            return launcher_engine(checkout("engine", "Linux", h.tmpdir()))
+        end
+
+        local function use_uproject()
+            project.UprojectPath = h.write_uproject(h.tmpdir(), "5.4")
         end
 
         local function use_project_engine(dir)
             h.stub(engine, "InstalledEngines", { { id = "UE_5.4", path = dir } })
-            project.UprojectPath =
-                h.write(h.tmpdir(), "Game.uproject", { vim.json.encode({ EngineAssociation = "5.4" }) })
+            use_uproject()
         end
 
         local function listed()
@@ -552,8 +472,7 @@ describe("engine_builder.Build", function()
         end)
 
         it("EngineAssociation not installed -> not listed, no error", function()
-            project.UprojectPath =
-                h.write(h.tmpdir(), "Game.uproject", { vim.json.encode({ EngineAssociation = "5.4" }) })
+            use_uproject()
             checkout("5.5.0-release")
             local items = listed()
             assert.are.equal(1, #items)
@@ -614,16 +533,6 @@ describe("engine_builder.Build", function()
     it("terminal window closed before exit -> no error", function()
         checkout("5.4.4-release")
         use_select(1)
-        local jobs = 0
-        h.stub(vim.fn, "jobstart", function(_, opts)
-            jobs = jobs + 1
-            vim.api.nvim_win_close(vim.api.nvim_get_current_win(), true)
-            assert.has_no.errors(function()
-                opts.on_exit(1, 0, "exit")
-            end)
-            return 1
-        end)
-        builder.Build()
-        assert.are.equal(1, jobs)
+        close_window_on_start(builder.Build)
     end)
 end)

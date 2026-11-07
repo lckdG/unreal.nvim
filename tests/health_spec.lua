@@ -61,13 +61,11 @@ describe("health", function()
             end)
         end)
 
-        local UBT = "Engine/Build/BatchFiles/RunUBT"
-            .. (require("unreal.system").GetPlatform() == "Win64" and ".bat" or ".sh")
+        local UBT = h.UBT
         local EDITOR = "Engine/Binaries/Linux/UnrealEditor"
 
         local function choose_uproject(association)
-            local data = association and { EngineAssociation = association } or {}
-            project.UprojectPath = h.write(h.tmpdir(), "Game.uproject", { vim.json.encode(data) })
+            project.UprojectPath = h.write_uproject(h.tmpdir(), association)
         end
 
         local function engine_with(files)
@@ -79,12 +77,6 @@ describe("health", function()
                 h.write(root, f)
             end
             return root
-        end
-
-        local function with_version(root)
-            h.write(root, "Engine/Build/Build.version", {
-                vim.json.encode({ MajorVersion = 5, MinorVersion = 4, PatchVersion = 2 }),
-            })
         end
 
         local function installed(files)
@@ -152,7 +144,7 @@ describe("health", function()
                     choose_uproject("5.4")
                 end
                 if case.version then
-                    with_version(root)
+                    h.write_version(root)
                 end
                 require("unreal.health").check()
                 local core = section(CORE)

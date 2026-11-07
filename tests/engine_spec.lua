@@ -5,23 +5,13 @@ local engine = require("unreal.engine")
 local system = require("unreal.system")
 local pathUtils = require("unreal.path_utils")
 
-local UBT = "Engine/Build/BatchFiles/RunUBT" .. (system.GetPlatform() == "Win64" and ".bat" or ".sh")
-local VERSION_FILE = "Engine/Build/Build.version"
-
-local function write_version(root)
-    h.write(root, VERSION_FILE, { vim.json.encode({ MajorVersion = 5, MinorVersion = 4, PatchVersion = 2 }) })
-end
+local UBT = h.UBT
 
 local function fake_engine()
     local root = h.tmpdir()
     h.write(root, UBT)
-    write_version(root)
+    h.write_version(root)
     return root
-end
-
-local function write_uproject(root, association)
-    local data = association and { EngineAssociation = association } or {}
-    return h.write(root, "Game.uproject", { vim.json.encode(data) })
 end
 
 describe("engine", function()
@@ -59,13 +49,13 @@ describe("engine", function()
     describe("IsRootEngineDirValid", function()
         it("Build.version present -> true", function()
             local root = h.tmpdir()
-            write_version(root)
+            h.write_version(root)
             assert.is_true(engine.IsRootEngineDirValid(root))
         end)
 
         it("Build.version present, no RunUBT -> true", function()
             local root = h.tmpdir()
-            write_version(root)
+            h.write_version(root)
             assert.is_true(engine.IsRootEngineDirValid(root))
             assert.is_false(engine.ParseUbtPath(root))
         end)
@@ -78,7 +68,7 @@ describe("engine", function()
 
         it("malformed Build.version -> false", function()
             local root = h.tmpdir()
-            h.write(root, VERSION_FILE, { "{ not json" })
+            h.write(root, h.VERSION_FILE, { "{ not json" })
             assert.is_false(engine.IsRootEngineDirValid(root))
         end)
 
@@ -94,9 +84,7 @@ describe("engine", function()
     describe("InputEnginePath", function()
         for _, case in ipairs({ { "cancel (nil)", nil }, { "empty string", "" } }) do
             it(case[1] .. " -> callback(nil)", function()
-                h.stub(vim.ui, "input", function(_, cb)
-                    cb(case[2])
-                end)
+                h.answer_input(case[2])
                 local got = "unset"
                 engine.InputEnginePath(function(path)
                     got = path
@@ -106,9 +94,7 @@ describe("engine", function()
         end
 
         it("typed text -> callback(text)", function()
-            h.stub(vim.ui, "input", function(_, cb)
-                cb("/ue")
-            end)
+            h.answer_input("/ue")
             local got
             engine.InputEnginePath(function(path)
                 got = path
@@ -118,15 +104,9 @@ describe("engine", function()
     end)
 
     describe("SetEnginePath_User / ClearEnginePath_User", function()
-        local function answer(value)
-            h.stub(vim.ui, "input", function(_, cb)
-                cb(value)
-            end)
-        end
-
         it("valid engine folder -> override set, info notify", function()
             local root = fake_engine()
-            answer(root)
+            h.answer_input(root)
             engine.SetEnginePath_User()
             assert.are.equal(root, engine.OverrideEnginePath)
             assert.is_true(h.notified(notes, vim.log.levels.INFO))
@@ -135,14 +115,14 @@ describe("engine", function()
         it("invalid folder -> warn, previous override kept", function()
             local root = fake_engine()
             engine.OverrideEnginePath = root
-            answer(h.tmpdir())
+            h.answer_input(h.tmpdir())
             engine.SetEnginePath_User()
             assert.are.equal(root, engine.OverrideEnginePath)
             assert.is_true(h.notified(notes, vim.log.levels.WARN))
         end)
 
         it("prompt cancelled -> warn, no override", function()
-            answer(nil)
+            h.answer_input(nil)
             engine.SetEnginePath_User()
             assert.is_nil(engine.OverrideEnginePath)
             assert.is_true(h.notified(notes, vim.log.levels.WARN))
@@ -184,11 +164,11 @@ describe("engine", function()
 
     describe("GetAssociatedEngine", function()
         it("EngineAssociation field -> its value", function()
-            assert.are.equal("5.4", engine.GetAssociatedEngine(write_uproject(h.tmpdir(), "5.4")))
+            assert.are.equal("5.4", engine.GetAssociatedEngine(h.write_uproject(h.tmpdir(), "5.4")))
         end)
 
         it("no EngineAssociation field -> nil", function()
-            assert.is_nil(engine.GetAssociatedEngine(write_uproject(h.tmpdir(), nil)))
+            assert.is_nil(engine.GetAssociatedEngine(h.write_uproject(h.tmpdir(), nil)))
         end)
 
         it("invalid JSON -> nil", function()
@@ -304,13 +284,11 @@ describe("engine", function()
         end
 
         local function answer(value)
-            prompts = h.spy(vim.ui, "input", function(_, cb)
-                cb(value)
-            end)
+            prompts = h.answer_input(value)
         end
 
         before_each(function()
-            uproject = write_uproject(h.tmpdir(), "5.4")
+            uproject = h.write_uproject(h.tmpdir(), "5.4")
             h.stub(engine, "InstalledEngines", {})
             answer(nil)
         end)
@@ -338,7 +316,7 @@ describe("engine", function()
         end)
 
         it("no EngineAssociation -> prompt", function()
-            uproject = write_uproject(h.tmpdir(), nil)
+            uproject = h.write_uproject(h.tmpdir(), nil)
             local root = fake_engine()
             answer(root)
             assert.are.equal(root, find().RootDir)
@@ -603,7 +581,7 @@ describe("engine", function()
             it("build path with spaces -> kept whole", function()
                 local root = vim.fs.joinpath(h.tmpdir(), "Epic Games", "UE Source")
                 h.write(root, UBT)
-                write_version(root)
+                h.write_version(root)
                 reg_query(0, { ["{33333333-3333-3333-3333-333333333333}"] = root })
                 init_and_wait()
                 assert.are.same({ root }, installed_paths())
