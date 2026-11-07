@@ -7,7 +7,7 @@ local ui = require("unreal.ui")
 local realFindEngineTools = engine.FindEngineTools
 
 local ERROR = vim.log.levels.ERROR
-local UBT = "Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
+local UBT = "Engine/Build/BatchFiles/RunUBT" .. (system.GetPlatform() == "Win64" and ".bat" or ".sh")
 
 local function use_select(index)
     local calls = {}
@@ -38,7 +38,6 @@ local function fake_tools(overrides)
     local tools = {
         RootDir = "/ue",
         EngineExe = { "editor" },
-        DotNetExe = "/ue/dotnet",
         UnrealBuildTool = "/ue/" .. UBT,
     }
     for k, v in pairs(overrides or {}) do
@@ -170,9 +169,6 @@ describe("project", function()
 
         it("real engine tree missing editor binary on Linux -> error, no jobstart", function()
             h.project({ ["Game.uproject"] = {} })
-            h.stub(vim.fn, "exepath", function()
-                return "/usr/bin/dotnet"
-            end)
             real_engine({ UBT })
             h.stub(system, "GetPlatform", function()
                 return "Linux"
@@ -210,66 +206,43 @@ describe("project", function()
             assert.is_true(h.notified(notes, ERROR))
         end)
 
-        for _, field in ipairs({ "DotNetExe", "UnrealBuildTool" }) do
-            it(field .. " missing -> error, UBT not called", function()
-                h.project({ ["Game.uproject"] = {} })
-                use_tools({ [field] = vim.NIL })
-                local state = run(0)
-                assert.are.equal(0, #state.calls)
-                assert.is_true(h.notified(notes, ERROR))
-            end)
-        end
+        it("UnrealBuildTool missing -> error, UBT not called", function()
+            h.project({ ["Game.uproject"] = {} })
+            use_tools({ UnrealBuildTool = vim.NIL })
+            local state = run(0)
+            assert.are.equal(0, #state.calls)
+            assert.is_true(h.notified(notes, ERROR))
+        end)
 
         it("engine without editor -> UBT still runs", function()
             h.project({ ["Game.uproject"] = {} })
             use_tools({ EngineExe = vim.NIL })
             local state = run(0)
             assert.are.equal(1, #state.calls)
-            assert.are.equal("/ue/dotnet", state.calls[1].cmd[1])
+            assert.are.equal("/ue/" .. UBT, state.calls[1].cmd[1])
         end)
 
-        describe("dotnet resolved from a real engine tree", function()
-            local root, bundled
+        describe("real engine tree", function()
+            local root
 
             before_each(function()
                 h.project({ ["Game.uproject"] = {} })
-                local plat = ({ Win64 = "win", Linux = "linux", Mac = "mac" })[system.GetPlatform()]
-                local exe = system.GetPlatform() == "Win64" and "dotnet.exe" or "dotnet"
-                bundled =
-                    vim.fs.joinpath("Engine/Binaries/ThirdParty/DotNet/8.0.300", plat .. "-" .. system.GetArch(), exe)
-                root = real_engine({ UBT, bundled })
-                bundled = vim.fs.joinpath(root, bundled)
+                root = real_engine({ UBT })
             end)
 
-            local function path_dotnet(path)
-                h.stub(vim.fn, "exepath", function()
-                    return path
-                end)
-            end
-
-            it("bundled dotnet wins over PATH", function()
-                path_dotnet("/usr/bin/dotnet")
+            it("runs the engine's RunUBT script", function()
                 local state = run(0)
-                assert.are.equal(bundled, state.calls[1].cmd[1])
+                assert.are.equal(vim.fs.joinpath(root, UBT), state.calls[1].cmd[1])
             end)
 
-            it("no bundled dotnet -> falls back to PATH", function()
-                path_dotnet("/usr/bin/dotnet")
-                vim.fn.delete(bundled)
-                local state = run(0)
-                assert.are.equal("/usr/bin/dotnet", state.calls[1].cmd[1])
-            end)
-
-            it("neither -> error, UBT not called", function()
-                path_dotnet("")
-                vim.fn.delete(bundled)
+            it("no RunUBT script -> error, UBT not called", function()
+                vim.fn.delete(vim.fs.joinpath(root, UBT))
                 local state = run(0)
                 assert.are.equal(0, #state.calls)
                 assert.is_true(h.notified(notes, ERROR))
             end)
 
             it("copies compile_commands.json from the engine root", function()
-                path_dotnet("")
                 run(0)
                 assert.are.equal(vim.fs.joinpath(root, "compile_commands.json"), copies[1][1])
             end)
@@ -287,7 +260,7 @@ describe("project", function()
             assert.is_true(vim.tbl_contains(cmd, target))
         end)
 
-        it("runs dotnet via jobstart in a terminal with an argument list", function()
+        it("runs RunUBT via jobstart in a terminal with an argument list", function()
             local root = h.project({ ["Game.uproject"] = {} })
             h.stub(system, "GetPlatform", function()
                 return "Linux"
@@ -295,7 +268,6 @@ describe("project", function()
             config.opts.clangd_build_args = { "-NoExecCodeGenActions" }
             local state = run(0)
             assert.are.same({
-                "/ue/dotnet",
                 "/ue/" .. UBT,
                 "-mode=GenerateClangDatabase",
                 "-NoExecCodeGenActions",
