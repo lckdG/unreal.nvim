@@ -103,17 +103,21 @@ local function isSourceDirValid(sourceDir)
 end
 
 function EngineBuilder.Build()
-    local _, cloneDir = getBuilderInfo()
-    if not cloneDir then
-        return
+    local clonedDirs = {}
+
+    local projectEngine, engineVersion = EngineBuilder.GetProjectEngine()
+    if projectEngine ~= nil then
+        table.insert(clonedDirs, { name = "Project Engine (" .. engineVersion .. ")", value = projectEngine })
     end
 
-    local clonedDirs = {}
-    for name, kind in vim.fs.dir(cloneDir) do
-        if kind == "directory" then
-            local dir = vim.fs.joinpath(cloneDir, name)
-            if isSourceDirValid(dir) then
-                table.insert(clonedDirs, dir)
+    local _, cloneDir = getBuilderInfo()
+    if cloneDir then
+        for name, kind in vim.fs.dir(cloneDir) do
+            if kind == "directory" then
+                local dir = vim.fs.joinpath(cloneDir, name)
+                if isSourceDirValid(dir) then
+                    table.insert(clonedDirs, { name = vim.fs.basename(dir), value = dir })
+                end
             end
         end
     end
@@ -124,7 +128,7 @@ function EngineBuilder.Build()
     end
 
     local ui = require("unreal.ui")
-    ui.Select(ui.WrapList(clonedDirs), { prompt = "Choose source directory to build: " }, function (item)
+    ui.Select(clonedDirs, { prompt = "Choose source directory to build: " }, function (item)
         if not item or not item.value then
             return
         end
@@ -137,6 +141,25 @@ function EngineBuilder.Build()
         local dir = item.value
         EngineBuilder.BuildFrom(dir)
     end)
+end
+
+function EngineBuilder.GetProjectEngine()
+    local uproject = require("unreal.project").UprojectPath
+    if not uproject then
+        return nil, nil
+    end
+
+    local engine = require("unreal.engine")
+
+    local id = engine.GetAssociatedEngine(uproject)
+    local engineEntry = engine.FindEngine(id)
+
+    if engineEntry == nil or not isSourceDirValid(engineEntry.path) then
+        return nil, nil
+    end
+
+    local engineDir = engineEntry.path
+    return engineDir, engine.GetEngineVersion(engineDir)
 end
 
 function EngineBuilder.BuildFrom(sourceDir)
