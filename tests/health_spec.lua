@@ -13,7 +13,7 @@ describe("health", function()
     end)
     after_each(h.reset)
 
-    local SYSTEM, PLUGINS, CORE = 1, 2, 3
+    local SYSTEM, PLUGINS, CORE, SOURCE = 1, 2, 3, 4
 
     local function section(index)
         local sections = {}
@@ -117,7 +117,7 @@ describe("health", function()
                 files = { UBT, EDITOR, DOTNET },
                 version = true,
                 kinds = { "warn", "ok", "ok", "ok", "ok", "ok", "ok" },
-                texts = { [4] = "5.4.2", [6] = "Bundled .NET" },
+                texts = { [4] = "5.4.2", [6] = "(bundled)" },
             },
             {
                 name = "installed engine, UBT only",
@@ -130,14 +130,14 @@ describe("health", function()
                 files = { UBT, EDITOR },
                 pathDotnet = true,
                 kinds = { "warn", "ok", "ok", "warn", "ok", "ok", "ok" },
-                texts = { [6] = "System .NET" },
+                texts = { [6] = "(system" },
             },
             {
                 name = "override with all tools",
                 files = { UBT, EDITOR, DOTNET },
                 override = true,
                 kinds = { "warn", "ok", "warn", "warn", "ok", "ok", "ok" },
-                texts = { [3] = "Overridden" },
+                texts = { [3] = "Engine SetPath" },
             },
             {
                 name = "override with editor only",
@@ -286,6 +286,49 @@ describe("health", function()
             local entries = section(PLUGINS)
             assert.are.equal("warn", entries[#entries].kind)
             assert.is_not_nil(entries[#entries].hint:find("vim.lsp.enable", 1, true))
+        end)
+        describe("engine source", function()
+            local function with_git(found)
+                h.stub(vim.fn, "executable", function(name)
+                    return (name ~= "git" or found) and 1 or 0
+                end)
+                h.stub(vim.fn, "system", function()
+                    return "git version 2.47.0\n"
+                end)
+            end
+
+            it("clone_dir not set -> info, git checked", function()
+                with_git(true)
+                require("unreal.health").check()
+                assert.are.same({ "info", "ok" }, kinds(section(SOURCE)))
+                assert.is_not_nil(section(SOURCE)[2].msg:find("git version 2.47.0", 1, true))
+            end)
+
+            it("clone_dir exists -> ok with its path", function()
+                with_git(true)
+                local dir = h.tmpdir()
+                require("unreal.config").config({ engine_source = { clone_dir = dir } })
+                require("unreal.health").check()
+                assert.are.same({ "ok", "ok" }, kinds(section(SOURCE)))
+                assert.is_not_nil(section(SOURCE)[1].msg:find(vim.fs.normalize(dir), 1, true))
+            end)
+
+            it("clone_dir missing on disk -> error with hint", function()
+                with_git(true)
+                local dir = vim.fs.joinpath(h.tmpdir(), "missing")
+                require("unreal.config").config({ engine_source = { clone_dir = dir } })
+                require("unreal.health").check()
+                assert.are.same({ "error", "ok" }, kinds(section(SOURCE)))
+                assert.is_not_nil(section(SOURCE)[1].msg:find(dir, 1, true))
+                assert.is_not_nil(section(SOURCE)[1].hint:find("clone_dir", 1, true))
+            end)
+
+            it("git missing -> error with Engine Checkout hint", function()
+                with_git(false)
+                require("unreal.health").check()
+                assert.are.same({ "info", "error" }, kinds(section(SOURCE)))
+                assert.is_not_nil(section(SOURCE)[2].hint:find("Engine Checkout", 1, true))
+            end)
         end)
     end)
 end)
