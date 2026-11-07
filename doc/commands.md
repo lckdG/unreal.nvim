@@ -48,10 +48,13 @@ Pick an engine release tag (newest first) from [engine_source](#engine_source) `
 ```
 -->
 
-Build the Unreal editor from engine source code. The picker lists:
+Build the Unreal editor from engine source code. The picker lists, in this order:
 
-- the engine of the chosen `.uproject` (from its `EngineAssociation`), first, when that engine was built from source. A launcher engine has no build scripts and is not listed. The `Engine SetPath` folder is not used here: it is always the `.uproject`'s engine.
-- every checkout under `<clone_dir>` made by `Engine Checkout`. A checkout that is also the project's engine shows up twice, once under each name; both build the same folder.
+1. the engine of the chosen `.uproject` (from its `EngineAssociation`), with its version.
+2. the `Engine SetPath` folder, with its version.
+3. every checkout under `<clone_dir>` made by `Engine Checkout`, by folder name.
+
+The first two are only listed when that engine was built from source: a launcher engine has no build scripts. The same folder can show up more than once, for example when `SetPath` points at the project's engine or at a checkout; every entry builds the same folder.
 
 Only folders that have the `Setup`, `GenerateProjectFiles` and `Build` scripts are listed. Pick one, confirm, and the build runs in a terminal split from that folder. A build can take hours and tens of GB of disk. The steps run one after another and stop at the first one that fails:
 
@@ -70,7 +73,7 @@ Engine/Build/BatchFiles/Mac/Build.sh UnrealEditor Mac Development
 Engine\Build\BatchFiles\Build.bat UnrealEditor Win64 Development -WaitMutex
 ```
 
-Shows an error with the exit code if a step fails, an error if `clone_dir` does not exist, and a warning if there is nothing to build. `clone_dir` is optional here: without it, only the project's engine is offered.
+Shows an error with the exit code if a step fails, an error if `clone_dir` does not exist, and a warning if there is nothing to build. `clone_dir` is optional here: without it, only the project's engine and the `SetPath` folder are offered.
 
 ## Project
 

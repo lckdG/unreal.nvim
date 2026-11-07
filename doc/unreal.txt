@@ -175,7 +175,7 @@ where `Engine Build` looks for checkouts to build. `git_url` is the repository
 whose tags are listed and cloned. `clone_dir` is an existing folder that
 receives one subfolder per cloned tag; it has no default, so `Engine Checkout`
 shows an error until you set it. `Engine Build` can still rebuild the
-project’s engine without it.
+project’s engine or the `SetPath` folder without it.
 
 
 COMMAND_LEAD                                      *unreal-config-command_lead*
@@ -339,10 +339,17 @@ ENGINE BUILD ~
 
                                                         *:Unreal-Engine-Build*
 
-Build the Unreal editor from engine source code. The picker lists:
+Build the Unreal editor from engine source code. The picker lists, in this
+order:
 
-- the engine of the chosen `.uproject` (from its `EngineAssociation`), first, when that engine was built from source. A launcher engine has no build scripts and is not listed. The `Engine SetPath` folder is not used here: it is always the `.uproject`’s engine.
-- every checkout under `<clone_dir>` made by `Engine Checkout`. A checkout that is also the project’s engine shows up twice, once under each name; both build the same folder.
+1. the engine of the chosen `.uproject` (from its `EngineAssociation`), with its version.
+2. the `Engine SetPath` folder, with its version.
+3. every checkout under `<clone_dir>` made by `Engine Checkout`, by folder name.
+
+The first two are only listed when that engine was built from source: a
+launcher engine has no build scripts. The same folder can show up more than
+once, for example when `SetPath` points at the project’s engine or at a
+checkout; every entry builds the same folder.
 
 Only folders that have the `Setup`, `GenerateProjectFiles` and `Build` scripts
 are listed. Pick one, confirm, and the build runs in a terminal split from that
@@ -366,7 +373,8 @@ The build step per platform:
 
 Shows an error with the exit code if a step fails, an error if `clone_dir` does
 not exist, and a warning if there is nothing to build. `clone_dir` is optional
-here: without it, only the project’s engine is offered.
+here: without it, only the project’s engine and the `SetPath` folder are
+offered.
 
 
 PROJECT                                              *unreal-commands-project*
@@ -562,7 +570,7 @@ one from Epic’s source code.
 
 1. Set |unreal-config-engine_source| `clone_dir` to an existing folder. Each checkout gets its own subfolder, e.g. `<clone_dir>/5.4.4-release`.
 2. `:Unreal Engine Checkout`: pick a release tag; only its latest commit is cloned. Epic’s repository is private: link your GitHub account to your Epic Games account first, and make sure `git` can log in to GitHub (SSH key or credential helper).
-3. `:Unreal Engine Build`: pick the checkout (or the project’s engine, if it was built from source) and confirm. Setup, project file generation and the editor build run in a terminal split; expect hours and tens of GB of disk.
+3. `:Unreal Engine Build`: pick the checkout (or the project’s engine or `SetPath` folder, if it was built from source) and confirm. Setup, project file generation and the editor build run in a terminal split; expect hours and tens of GB of disk.
 
 The plugin does not register the built engine itself; it re-reads the installed
 engines when the build succeeds. If the new engine is still not found, point to

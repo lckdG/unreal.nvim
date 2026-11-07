@@ -148,7 +148,7 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 | `:Unreal Engine SetPath` | Use a typed engine folder for this session |
 | `:Unreal Engine ClearPath` | Forget the `SetPath` folder |
 | `:Unreal Engine Checkout` | Pick an engine release tag and shallow-clone it into `engine_source.clone_dir` |
-| `:Unreal Engine Build` | Build the editor from a checkout under `engine_source.clone_dir` or the project's source-built engine |
+| `:Unreal Engine Build` | Build the editor from a checkout under `engine_source.clone_dir`, the project's engine or the `SetPath` folder |
 | `:Unreal Project Open` | Open the project in the Unreal editor |
 | `:Unreal Project Edit` | Open the `.uproject` in a buffer |
 | `:Unreal Project Select` | Choose which `.uproject` the other commands use |

@@ -24,7 +24,7 @@ No installed engine, or you need a version the launcher does not offer: build on
 
 1. Set [engine_source](#engine_source) `clone_dir` to an existing folder. Each checkout gets its own subfolder, e.g. `<clone_dir>/5.4.4-release`.
 2. `:Unreal Engine Checkout`: pick a release tag; only its latest commit is cloned. Epic's repository is private: link your GitHub account to your Epic Games account first, and make sure `git` can log in to GitHub (SSH key or credential helper).
-3. `:Unreal Engine Build`: pick the checkout (or the project's engine, if it was built from source) and confirm. Setup, project file generation and the editor build run in a terminal split; expect hours and tens of GB of disk.
+3. `:Unreal Engine Build`: pick the checkout (or the project's engine or `SetPath` folder, if it was built from source) and confirm. Setup, project file generation and the editor build run in a terminal split; expect hours and tens of GB of disk.
 
 The plugin does not register the built engine itself; it re-reads the installed engines when the build succeeds. If the new engine is still not found, point to it with `:Unreal Engine SetPath`.
 
