@@ -6,7 +6,7 @@ local EngineBuilder = {}
 function EngineBuilder.Checkout()
     local config = require("unreal.config")
     local engineSource = config.opts.engine_source
-    local cloneDir = engineSource.clone_dir
+    local cloneDir = vim.fs.normalize(engineSource.clone_dir)
 
     if cloneDir == nil or not require("unreal.path_utils").Exists(cloneDir) then
         log.Notify("Error: Engine source folder not found " .. tostring(cloneDir), logLevels.ERROR)
