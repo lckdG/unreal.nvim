@@ -146,7 +146,7 @@ end
 ---`:Unreal Engine SetPath`: ask for an Unreal Engine folder and use it for every command,
 ---instead of the engine the `.uproject` asks for. Useful when the engine is not found automatically.
 ---Kept until `:Unreal Engine ClearPath`, a move to another project folder, or Neovim closes.
----Warns and keeps the old value if the folder has no `RunUBT` script (see `ParseUbtPath`).
+---Warns and keeps the old value if the folder has no readable `Engine/Build/Build.version`.
 function M.SetEnginePath_User()
     M.InputEnginePath(function(path)
         if path and M.IsRootEngineDirValid(path) then
@@ -180,12 +180,8 @@ function M.ParseUbtPath(engineDir)
 end
 
 function M.IsRootEngineDirValid(engineDir)
-    local ok, _ = M.ParseUbtPath(engineDir)
-    if not ok then
-        return false
-    end
-
-    return true
+    local version = M.GetEngineVersion(engineDir)
+    return version and version ~= "0.0.0"
 end
 
 ---Path of the engine's `BuildConfiguration.xml`, whether it exists or not.
