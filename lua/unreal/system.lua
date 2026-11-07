@@ -65,9 +65,12 @@ function M.GetUnrealTags(callback)
     local engine_source = config.opts.engine_source
 
     vim.system({ "git", "ls-remote", "--tags", "--refs", engine_source.git_url }, function(exitInfo)
-        vim.schedule(function ()
+        vim.schedule(function()
             if exitInfo.code ~= 0 then
-                log.Notify("Error while listing Unreal Engine tags (" .. exitInfo.code .. "): " .. exitInfo.stderr, logLevel.ERROR)
+                log.Notify(
+                    "Error while listing Unreal Engine tags (" .. exitInfo.code .. "): " .. exitInfo.stderr,
+                    logLevel.ERROR
+                )
                 return
             end
 
@@ -76,14 +79,11 @@ function M.GetUnrealTags(callback)
                 local name = line:match("\trefs/tags/(.+)$")
                 local version = name and vim.version.parse(name, { strict = true })
                 if version then
-                    table.insert(
-                        tags,
-                        {
-                            name = name,
-                            value = name,
-                            version = version,
-                        }
-                    )
+                    table.insert(tags, {
+                        name = name,
+                        value = name,
+                        version = version,
+                    })
                 end
             end
 

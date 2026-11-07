@@ -26,7 +26,7 @@ function EngineBuilder.Checkout()
 
     local system = require("unreal.system")
     system.GetUnrealTags(function(tags)
-        require("unreal.ui").Select(tags, { prompt = "Select tag to checkout: " }, function (item)
+        require("unreal.ui").Select(tags, { prompt = "Select tag to checkout: " }, function(item)
             if item == nil then
                 return
             end
@@ -128,7 +128,7 @@ function EngineBuilder.Build()
     end
 
     local ui = require("unreal.ui")
-    ui.Select(clonedDirs, { prompt = "Choose source directory to build: " }, function (item)
+    ui.Select(clonedDirs, { prompt = "Choose source directory to build: " }, function(item)
         if not item or not item.value then
             return
         end
@@ -184,13 +184,12 @@ function EngineBuilder.BuildFrom(sourceDir)
         table.concat(buildArgs, " "),
     }
 
-
     vim.cmd("botright new")
     local termWin = vim.api.nvim_get_current_win()
     vim.fn.jobstart(table.concat(commands, " "), {
         term = true,
         cwd = sourceDir,
-        on_exit = function (_, code)
+        on_exit = function(_, code)
             if vim.api.nvim_win_is_valid(termWin) then
                 vim.api.nvim_set_current_win(termWin)
                 vim.cmd("startinsert")
@@ -201,7 +200,7 @@ function EngineBuilder.BuildFrom(sourceDir)
             else
                 require("unreal.engine").init()
             end
-        end
+        end,
     })
 end
 
