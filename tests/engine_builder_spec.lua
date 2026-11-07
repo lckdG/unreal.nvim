@@ -492,6 +492,125 @@ describe("engine_builder.Build", function()
         assert.are.equal(0, #initCalls)
     end)
 
+    describe("project engine and SetPath folder", function()
+        local engine, project
+
+        local function source_engine(root)
+            local dir = checkout("engine", "Linux", root or h.tmpdir())
+            h.write(dir, "Engine/Build/Build.version", {
+                vim.json.encode({ MajorVersion = 5, MinorVersion = 4, PatchVersion = 2 }),
+            })
+            return dir
+        end
+
+        local function launcher_engine()
+            local dir = h.tmpdir()
+            h.write(dir, "Engine/Build/Build.version", {
+                vim.json.encode({ MajorVersion = 5, MinorVersion = 4, PatchVersion = 2 }),
+            })
+            return dir
+        end
+
+        local function use_project_engine(dir)
+            h.stub(engine, "InstalledEngines", { { id = "UE_5.4", path = dir } })
+            project.UprojectPath =
+                h.write(h.tmpdir(), "Game.uproject", { vim.json.encode({ EngineAssociation = "5.4" }) })
+        end
+
+        local function listed()
+            use_select(nil)
+            run()
+            return selects[1] and selects[1].items or {}
+        end
+
+        before_each(function()
+            engine = require("unreal.engine")
+            project = require("unreal.project")
+            h.stub(engine, "InstalledEngines", {})
+            h.stub(engine, "OverrideEnginePath", nil)
+            h.stub(project, "UprojectPath", nil)
+        end)
+
+        it("source-built project engine -> first entry, labelled with its version, checkouts after", function()
+            local dir = source_engine()
+            use_project_engine(dir)
+            local co = checkout("5.5.0-release")
+            local items = listed()
+            assert.are.equal(2, #items)
+            assert.are.equal(dir, items[1].value)
+            assert.is_truthy(items[1].name:find("^Project Engine"))
+            assert.is_truthy(items[1].name:find("(5.4.2)", 1, true))
+            assert.are.same({ name = "5.5.0-release", value = co }, items[2])
+        end)
+
+        it("launcher project engine -> not listed", function()
+            use_project_engine(launcher_engine())
+            checkout("5.5.0-release")
+            local items = listed()
+            assert.are.equal(1, #items)
+            assert.are.equal("5.5.0-release", items[1].name)
+        end)
+
+        it("EngineAssociation not installed -> not listed, no error", function()
+            project.UprojectPath =
+                h.write(h.tmpdir(), "Game.uproject", { vim.json.encode({ EngineAssociation = "5.4" }) })
+            checkout("5.5.0-release")
+            local items = listed()
+            assert.are.equal(1, #items)
+            assert.is_false(h.notified(notes, ERROR))
+        end)
+
+        it("source-built SetPath folder -> listed after the project engine, labelled with its version", function()
+            local projectDir = source_engine()
+            use_project_engine(projectDir)
+            local overrideDir = source_engine()
+            engine.OverrideEnginePath = overrideDir
+            local items = listed()
+            assert.are.equal(2, #items)
+            assert.are.equal(projectDir, items[1].value)
+            assert.are.equal(overrideDir, items[2].value)
+            assert.is_truthy(items[2].name:find("^Overridden Engine"))
+            assert.is_truthy(items[2].name:find("(5.4.2)", 1, true))
+        end)
+
+        it("launcher SetPath folder -> not listed", function()
+            engine.OverrideEnginePath = launcher_engine()
+            checkout("5.5.0-release")
+            local items = listed()
+            assert.are.equal(1, #items)
+            assert.are.equal("5.5.0-release", items[1].name)
+        end)
+
+        it("SetPath folder is the project engine -> listed twice", function()
+            local dir = source_engine()
+            use_project_engine(dir)
+            engine.OverrideEnginePath = dir
+            local items = listed()
+            assert.are.equal(2, #items)
+            assert.are.equal(dir, items[1].value)
+            assert.are.equal(dir, items[2].value)
+        end)
+
+        it("clone_dir not set -> project engine still offered", function()
+            config.config({ engine_source = { clone_dir = nil } })
+            local dir = source_engine()
+            use_project_engine(dir)
+            local items = listed()
+            assert.are.equal(1, #items)
+            assert.are.equal(dir, items[1].value)
+        end)
+
+        it("project engine picked -> built from its folder", function()
+            local dir = source_engine()
+            use_project_engine(dir)
+            use_select(1)
+            local state = run()
+            assert.are.equal(1, #state.calls)
+            assert.are.equal(expected_cmd(dir, "Linux"), state.calls[1].cmd)
+            assert.are.equal(dir, state.calls[1].opts.cwd)
+        end)
+    end)
+
     it("terminal window closed before exit -> no error", function()
         checkout("5.4.4-release")
         use_select(1)
