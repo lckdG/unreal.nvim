@@ -1,5 +1,8 @@
+local system = require("unreal.system")
 local pathUtils = require("unreal.path_utils")
 local log = require("unreal.log")
+
+local ext = system.GetPlatform() == "Win64" and ".bat" or ".sh"
 
 --#region Utility functions
 
@@ -143,7 +146,7 @@ end
 ---`:Unreal Engine SetPath`: ask for an Unreal Engine folder and use it for every command,
 ---instead of the engine the `.uproject` asks for. Useful when the engine is not found automatically.
 ---Kept until `:Unreal Engine ClearPath`, a move to another project folder, or Neovim closes.
----Warns and keeps the old value if the folder has no UnrealBuildTool or usable `dotnet`.
+---Warns and keeps the old value if the folder has no `RunUBT` script (see `ParseUbtPath`).
 function M.SetEnginePath_User()
     M.InputEnginePath(function(path)
         if path and M.IsRootEngineDirValid(path) then
@@ -162,103 +165,21 @@ function M.ClearEnginePath_User()
     log.Notify("Override engine path is cleared!", vim.log.levels.INFO)
 end
 
-local function parseFromBinaryDir(engineDir, ...)
-    return vim.fs.joinpath(engineDir, "Engine", "Binaries", ...)
-end
-
----Find the `dotnet` program used to run UnrealBuildTool (Unreal's build tool, a .NET app).
----Prefers the copy bundled with the engine (`Engine/Binaries/ThirdParty/DotNet/<version>/...`),
----and falls back to `dotnet` installed on your system ($PATH).
----With several bundled versions it takes the newest one, comparing folder names as versions
----(`10.0.100` beats `8.0.300`).
----@param engineDir string? engine root folder
----@return boolean bundled true only when the engine's own copy is used
----@return string? path nil when neither is found
-function M.ParseDotnetPath(engineDir)
-    local function ParseFromEnv()
-        local path = vim.fn.exepath("dotnet")
-        if path and path ~= "" then
-            return false, path
-        else
-            return false, nil
-        end
-    end
-
-    if engineDir == nil then
-        return ParseFromEnv()
-    end
-
-    local map = {
-        Win64 = {
-            name = "win",
-            fileName = "dotnet.exe",
-        },
-        Linux = {
-            name = "linux",
-            fileName = "dotnet",
-        },
-        Mac = {
-            name = "mac",
-            fileName = "dotnet",
-        },
-    }
-
-    local sys = require("unreal.system")
-    local platform = sys.GetPlatform()
-    local arch = sys.GetArch()
-
-    if arch == nil or map[platform] == nil then
-        return ParseFromEnv()
-    end
-
-    local dotnetDir = parseFromBinaryDir(engineDir, "ThirdParty", "DotNet")
-    local parentDir = map[platform].name .. "-" .. arch
-    local globPattern = vim.fs.joinpath(dotnetDir, "*", parentDir, map[platform].fileName)
-
-    local found = vim.fn.glob(globPattern, false, true)
-    table.sort(found, function(a, b)
-        local function parseVersion(path)
-            local archDir = vim.fs.dirname(path)
-            local versionDir = vim.fs.dirname(archDir)
-
-            return vim.version.parse(vim.fs.basename(versionDir))
-        end
-
-        local va, vb = parseVersion(a), parseVersion(b)
-        if va and vb then
-            return vim.version.gt(va, vb)
-        end
-
-        return a > b
-    end)
-
-    local path = found[1]
-    if path and path ~= "" then
-        return true, path
-    end
-
-    return ParseFromEnv()
-end
-
----Build the `UnrealBuildTool.dll` path inside an engine root.
+---Build the path of the script that runs UnrealBuildTool inside an engine root:
+---`Engine/Build/BatchFiles/RunUBT.sh` (`RunUBT.bat` on Windows).
 ---@param engineDir string?
----@return boolean ok the dll exists
----@return string? path built even when the dll is missing
+---@return boolean ok the script exists
+---@return string? path built even when the script is missing
 function M.ParseUbtPath(engineDir)
     if engineDir == nil then
         return false, nil
     end
 
-    local path = vim.fs.joinpath(engineDir, "Engine", "Binaries", "DotNET", "UnrealBuildTool", "UnrealBuildTool.dll")
+    local path = vim.fs.joinpath(engineDir, "Engine", "Build", "BatchFiles", "RunUBT" .. ext)
     return pathUtils.Exists(path), path
 end
 
 function M.IsRootEngineDirValid(engineDir)
-    local _, dotNetPath = M.ParseDotnetPath(engineDir)
-    if dotNetPath == nil then
-        return false
-    end
-
     local ok, _ = M.ParseUbtPath(engineDir)
     if not ok then
         return false
@@ -303,7 +224,7 @@ function M.GetEngineExecutable(enginePath)
         return false, nil
     end
 
-    local platform = require("unreal.system").GetPlatform()
+    local platform = system.GetPlatform()
     local binariesPath = vim.fs.joinpath(enginePath, "Engine", "Binaries")
 
     local exeName = engineExecutable[platform]
@@ -320,7 +241,7 @@ end
 ---@return boolean ok whether the editor program exists
 ---@return string[] cmd command and arguments, without the `.uproject` path
 function M.GetExecuteCmd(enginePath)
-    local platform = require("unreal.system").GetPlatform()
+    local platform = system.GetPlatform()
     local exists, executablePath = M.GetEngineExecutable(enginePath)
 
     if platform == "Win64" then
@@ -374,7 +295,7 @@ end
 
 -----------------------------------
 
----Find the engine tools (editor, `dotnet`, UnrealBuildTool) for a project and pass them to `callback`.
+---Find the engine tools (editor, UnrealBuildTool's `RunUBT` script) for a project and pass them to `callback`.
 ---Order: the folder from `:Unreal Engine SetPath`; then the installed engine named by the
 ---`.uproject`'s `EngineAssociation` field (e.g. `"5.4"`, matching the launcher's `UE_5.4`);
 ---otherwise it asks for a folder. The typed folder is not remembered.
@@ -431,11 +352,6 @@ function M.RetrieveTools(enginePath)
         Version = M.GetEngineVersion(enginePath),
         BuildConfig = M.ParseBuildConfiguration(enginePath),
     }
-
-    local _, dotNetExe = M.ParseDotnetPath(enginePath)
-    if dotNetExe ~= nil then
-        result.DotNetExe = dotNetExe
-    end
 
     local ubtOk, ubtPath = M.ParseUbtPath(enginePath)
     if ubtOk then
