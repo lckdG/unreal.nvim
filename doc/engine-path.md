@@ -8,7 +8,7 @@ Installed engines are read when Neovim starts:
 | Mac | `~/Library/Application Support/Epic/UnrealEngineLauncher/LauncherInstalled.dat` |
 | Linux | `~/.config/Epic/UnrealEngine/Install.ini` |
 
-An engine folder needs `Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll` and a `dotnet`: the engine's bundled one (`Engine/Binaries/ThirdParty/DotNet/`, newest first), else the one on `$PATH`.
+An engine folder needs `Engine/Build/BatchFiles/RunUBT.sh` (`RunUBT.bat` on Windows), the engine's script that runs UnrealBuildTool. The script sets up the engine's `dotnet` and builds UnrealBuildTool when needed.
 
 Commands use, in order:
 

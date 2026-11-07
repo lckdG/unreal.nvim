@@ -86,9 +86,6 @@ REQUIREMENTS                                *unreal-installation-requirements*
 
 Use the nvim-treesitter `main` branch; `master` is not supported.
 
-`dotnet` prioritizes the bundled executable from the engine, then the one from
-`$PATH`, so you usually don’t need to install it. See |unreal-engine-path|.
-
 |unreal-extensions| are optional and may need other plugins.
 
 
@@ -549,10 +546,9 @@ Installed engines are read when Neovim starts:
 
   Linux                               ~/.config/Epic/UnrealEngine/Install.ini
   -------------------------------------------------------------------------------------------------------------------
-An engine folder needs
-`Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll` and a `dotnet`:
-the engine’s bundled one (`Engine/Binaries/ThirdParty/DotNet/`, newest
-first), else the one on `$PATH`.
+An engine folder needs `Engine/Build/BatchFiles/RunUBT.sh` (`RunUBT.bat` on
+Windows), the engine’s script that runs UnrealBuildTool. The script sets up
+the engine’s `dotnet` and builds UnrealBuildTool when needed.
 
 Commands use, in order:
 
@@ -603,7 +599,7 @@ Run `:checkhealth unreal` to check:
 - `setup()` was called
 - the chosen `.uproject`
 - its engine (a `SetPath` folder shows as a warning) and the engine version
-- the engine’s editor, `dotnet` (bundled or `$PATH`) and UnrealBuildTool
+- the engine’s editor and its `RunUBT` script (UnrealBuildTool)
 - |unreal-config-engine_source| `clone_dir` exists (only shown as info when not set) and `git` is installed, for `Engine Checkout` and `Engine Build`
 
 Each problem comes with advice on how to fix it.

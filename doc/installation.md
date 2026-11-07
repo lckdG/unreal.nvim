@@ -11,8 +11,6 @@
 
 Use the nvim-treesitter `main` branch; `master` is not supported.
 
-`dotnet` prioritizes the bundled executable from the engine, then the one from `$PATH`, so you usually don't need to install it. See [Engine path](#engine-path).
-
 [Extensions](#extensions) are optional and may need other plugins.
 
 ## lazy.nvim
