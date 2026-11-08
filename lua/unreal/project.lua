@@ -11,6 +11,13 @@ local M = {}
 M.ProjectRoot = nil
 M.UprojectPath = nil
 
+local function sendToQuickfix(errors)
+    if errors and #errors > 0 then
+        vim.fn.setqflist(errors, " ")
+        vim.cmd.copen()
+    end
+end
+
 function M.init()
     M.ProjectRoot = pathUtils.GetProjectRoot()
     M.FindDefaultUproject()
@@ -155,7 +162,7 @@ function M.RebuildClangd()
                 require("unreal.job").Start(commandParts, function(code, errors)
                     if code ~= 0 then
                         log.Notify("Rebuild Clangd failed (" .. code .. ")", logLevel.ERROR)
-                        vim.fn.setqflist(errors, " ")
+                        sendToQuickfix(errors)
                         return
                     end
 
@@ -277,7 +284,7 @@ function M.BuildEditor()
                 require("unreal.job").Start(commandParts, function(code, errors)
                     if code ~= 0 then
                         log.Notify("Build editor failed (" .. code .. ")", logLevel.ERROR)
-                        vim.fn.setqflist(errors, " ")
+                        sendToQuickfix(errors)
                         return
                     end
                 end)
