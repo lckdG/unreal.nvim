@@ -123,11 +123,14 @@ function M.use_select(index)
     return calls
 end
 
-function M.stub_jobstart(code)
+function M.stub_jobstart(code, chunks)
     local state = { calls = {}, exited = false }
     M.stub(vim.fn, "jobstart", function(cmd, opts)
         table.insert(state.calls, { cmd = cmd, opts = opts, win = vim.api.nvim_get_current_win() })
         vim.schedule(function()
+            for _, data in ipairs(chunks or {}) do
+                opts.on_stdout(1, data, "stdout")
+            end
             local ok, err = pcall(opts.on_exit, 1, code or 0, "exit")
             state.callback_error = not ok and tostring(err) or nil
             state.exited = true
@@ -143,8 +146,8 @@ function M.wait_job(state)
     end))
 end
 
-function M.run_job(action, code)
-    local state = M.stub_jobstart(code)
+function M.run_job(action, code, chunks)
+    local state = M.stub_jobstart(code, chunks)
     action()
     if #state.calls > 0 then
         M.wait_job(state)

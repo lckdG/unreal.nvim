@@ -151,6 +151,8 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 | `:Unreal Project Select` | Choose which `.uproject` the other commands use |
 | `:Unreal Build Clangd` | Regenerate `compile_commands.json` next to the `.uproject` |
 | `:Unreal Build Config` | Open a project, user or engine `BuildConfiguration.xml` |
+| `:Unreal Build Editor` | Compile the project's editor target; compiler errors go to the quickfix list |
+| `:Unreal Build CleanEditor` | Delete the editor target's build output, then compile it again |
 | `:Unreal Code SwitchSourceHeader` | Switch between the current header and its matching source file (falls back to clangd) |
 | `:Unreal Code Impl` | Generate a `.cpp` implementation stub for the function under the cursor (in a header) |
 | `:Unreal Code Macro` | Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` attribute under the cursor |

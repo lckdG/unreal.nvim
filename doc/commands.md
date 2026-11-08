@@ -117,7 +117,7 @@ Choose which `.uproject` the other commands use, e.g. when the project folder ha
 ```
 -->
 
-Regenerate `compile_commands.json` with UnrealBuildTool and copy it next to the `.uproject`. Does not need the editor. Output shows in a terminal split; press any key to close it when done.
+Regenerate `compile_commands.json` with UnrealBuildTool and copy it next to the `.uproject`. Does not need the editor. Output shows in a terminal split; press any key to close it when done. If it fails, shows an error with the exit code, puts the compiler errors (file, line, message) in the quickfix list and opens it. Warnings are left out. No compiler errors found: the quickfix list is left as it was; read the terminal output.
 
 ### Build Config
 
@@ -137,6 +137,40 @@ Pick a `BuildConfiguration.xml` (UnrealBuildTool settings) and open it:
 | Engine Config | `<engine>/Engine/Saved/UnrealBuildTool/BuildConfiguration.xml` |
 
 Project and Engine entries need a chosen `.uproject`. A missing file is created from a template after you confirm, and written when you save.
+
+### Build Editor
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                        *:Unreal-Build-Editor*
+```
+-->
+
+Compile the project's C++ code so the Unreal editor can open it, without the editor or an IDE. Builds the `<Project>Editor` target (the project plus its editor code) in the `Development` configuration with UnrealBuildTool:
+
+```sh
+RunUBT.sh <Project>Editor <Platform> Development -project=<uproject> -WaitMutex
+```
+
+Output shows in a terminal split that follows the end of the output. `-WaitMutex` makes the build wait instead of failing when another UnrealBuildTool build (for example from the editor) is already running.
+
+If the build fails, shows an error with the exit code, puts the compiler errors (file, line, message) in the quickfix list and opens it. Warnings are left out. No compiler errors found (e.g. the failure was not in C++ code): the quickfix list is left as it was; read the terminal output.
+
+### Build CleanEditor
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                   *:Unreal-Build-CleanEditor*
+```
+-->
+
+Like `Build Editor`, but deletes the project's previous build output first and then compiles everything again. Use it when an incremental build behaves oddly, for example after moving files, changing `.Build.cs` modules or switching engine versions. Slower than `Build Editor`, because nothing is reused. UnrealBuildTool does both steps in one run:
+
+```sh
+RunUBT.sh <Project>Editor <Platform> Development -project=<uproject> -Rebuild -WaitMutex
+```
+
+Output, `-WaitMutex` and errors work as in `Build Editor`: if the clean or the build fails, shows an error with the exit code, puts the compiler errors in the quickfix list and opens it.
 
 ## Code
 
