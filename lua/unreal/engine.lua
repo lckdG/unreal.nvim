@@ -215,13 +215,13 @@ local engineExecutable = {
 
 ---@return boolean
 ---@return string?
-function M.GetEngineExecutable(enginePath)
-    if enginePath == nil then
+function M.GetEngineExecutable(engineDir)
+    if engineDir == nil then
         return false, nil
     end
 
     local platform = system.GetPlatform()
-    local binariesPath = vim.fs.joinpath(enginePath, "Engine", "Binaries")
+    local binariesPath = vim.fs.joinpath(engineDir, "Engine", "Binaries")
 
     local exeName = engineExecutable[platform]
     local exePath = vim.fs.joinpath(binariesPath, platform, exeName)
@@ -233,12 +233,12 @@ end
 ---The command that starts Unreal Editor in the background; add the `.uproject` path at the end.
 ---Starts the engine's `UnrealEditor` directly, detached so it keeps running
 ---if Neovim closes.
----@param enginePath string
+---@param engineDir string
 ---@return boolean ok whether the editor program exists
 ---@return string[] cmd command and arguments, without the `.uproject` path
-function M.GetExecuteCmd(enginePath)
+function M.GetExecuteCmd(engineDir)
     local platform = system.GetPlatform()
-    local exists, executablePath = M.GetEngineExecutable(enginePath)
+    local exists, executablePath = M.GetEngineExecutable(engineDir)
 
     if platform == "Win64" then
         return exists, { executablePath }
@@ -256,16 +256,16 @@ function M.GetExecuteCmd(enginePath)
 end
 
 ---The engine's version, e.g. `"5.4.2"`, read from `Engine/Build/Build.version`.
----@param enginePath string? engine root folder
+---@param engineDir string? engine root folder
 ---@return string version `"0.0.0"` when there is no engine path, or the file is missing or unreadable
-function M.GetEngineVersion(enginePath)
+function M.GetEngineVersion(engineDir)
     local default = "0.0.0"
 
-    if not enginePath then
+    if not engineDir then
         return default
     end
 
-    local versionFile = vim.fs.joinpath(enginePath, "Engine", "Build", "Build.version")
+    local versionFile = vim.fs.joinpath(engineDir, "Engine", "Build", "Build.version")
     if not pathUtils.Exists(versionFile) then
         return default
     end
@@ -313,9 +313,9 @@ function M.FindEngineTools(uprojectPath, callback)
         end
     end
 
-    M.InputEnginePath(function(enginePath)
-        if M.IsRootEngineDirValid(enginePath) then
-            callback(M.RetrieveTools(enginePath))
+    M.InputEnginePath(function(engineDir)
+        if M.IsRootEngineDirValid(engineDir) then
+            callback(M.RetrieveTools(engineDir))
         else
             callback(nil)
         end
@@ -340,21 +340,21 @@ function M.GetAssociatedEngine(uprojectPath)
 end
 
 ---@private
----@param enginePath string
+---@param engineDir string
 ---@return unreal.EngineTools
-function M.RetrieveTools(enginePath)
+function M.RetrieveTools(engineDir)
     local result = {
-        RootDir = enginePath,
-        Version = M.GetEngineVersion(enginePath),
-        BuildConfig = M.ParseBuildConfiguration(enginePath),
+        RootDir = engineDir,
+        Version = M.GetEngineVersion(engineDir),
+        BuildConfig = M.ParseBuildConfiguration(engineDir),
     }
 
-    local ubtOk, ubtPath = M.ParseUbtPath(enginePath)
+    local ubtOk, ubtPath = M.ParseUbtPath(engineDir)
     if ubtOk then
         result.UnrealBuildTool = ubtPath
     end
 
-    local engineOk, engineExe = M.GetExecuteCmd(enginePath)
+    local engineOk, engineExe = M.GetExecuteCmd(engineDir)
     if engineOk then
         result.EngineExe = engineExe
     end
