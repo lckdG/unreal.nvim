@@ -103,7 +103,7 @@ describe("commands", function()
         { "Unreal Code ", { "Impl", "Macro", "SwitchSourceHeader" } },
         { "Unreal Code M", { "Macro" } },
         { "Unreal Engine ", { "Build", "Checkout", "ClearPath", "SetPath" } },
-        { "Unreal Project ", { "Edit", "Open", "Select" } },
+        { "Unreal Project ", { "BuildEditor", "Edit", "Open", "Select" } },
         { "Unreal Search ", { "Files", "Grep" } },
         { "Unreal Foo ", {} },
         { "Unreal Code Impl ", {} },
