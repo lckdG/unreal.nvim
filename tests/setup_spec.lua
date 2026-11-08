@@ -99,11 +99,11 @@ describe("commands", function()
     for _, case in ipairs({
         { "Unreal ", { "Build", "Code", "Engine", "Project", "Search" } },
         { "Unreal Bu", { "Build" } },
-        { "Unreal Build ", { "Clangd", "Config" } },
+        { "Unreal Build ", { "Clangd", "Config", "Editor" } },
         { "Unreal Code ", { "Impl", "Macro", "SwitchSourceHeader" } },
         { "Unreal Code M", { "Macro" } },
         { "Unreal Engine ", { "Build", "Checkout", "ClearPath", "SetPath" } },
-        { "Unreal Project ", { "BuildEditor", "Edit", "Open", "Select" } },
+        { "Unreal Project ", { "Edit", "Open", "Select" } },
         { "Unreal Search ", { "Files", "Grep" } },
         { "Unreal Foo ", {} },
         { "Unreal Code Impl ", {} },

@@ -11,11 +11,11 @@ local function createCommands(config)
             Open = require("unreal.project").OpenUproject,
             Edit = require("unreal.project").EditUproject,
             Select = require("unreal.project").SelectUproject_User,
-            BuildEditor = require("unreal.project").BuildEditor,
         },
         Build = {
             Clangd = require("unreal.project").RebuildClangd,
             Config = require("unreal.project").EditBuildConfiguration,
+            Editor = require("unreal.project").BuildEditor,
         },
         Code = {
             Impl = require("unreal.impl").ImplementFunction,
