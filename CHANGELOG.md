@@ -2,6 +2,17 @@
 
 All notable changes to unreal.nvim are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.1] - 2026-11-08
+
+### Added
+
+- `:Unreal Project BuildEditor`: compile the project's `<Project>Editor` target in `Development` with UnrealBuildTool, in a terminal split. On failure, compiler errors go to the quickfix list, which opens.
+
+### Changed
+
+- `:Unreal Build Clangd`: on failure, compiler errors go to the quickfix list, which opens.
+- UnrealBuildTool terminal splits follow the end of the output.
+
 ## [0.3.0] - 2026-11-08
 
 ### Breaking
