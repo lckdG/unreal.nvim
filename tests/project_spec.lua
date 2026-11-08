@@ -471,6 +471,97 @@ describe("project", function()
         end)
     end)
 
+    describe("BuildEditorClean", function()
+        before_each(function()
+            vim.fn.setqflist({}, "f")
+            h.stub(system, "GetPlatform", function()
+                return "Linux"
+            end)
+        end)
+
+        local function run(code, chunks)
+            return h.run_job(project.BuildEditorClean, code, chunks)
+        end
+
+        it("no engine tools -> error, UBT not called", function()
+            h.project({ ["Game.uproject"] = {} })
+            use_tools(false)
+            local state = run(0)
+            assert.are.equal(0, #state.calls)
+            assert.is_true(h.notified(notes, ERROR))
+        end)
+
+        it("UnrealBuildTool missing -> error, UBT not called", function()
+            h.project({ ["Game.uproject"] = {} })
+            use_tools({ UnrealBuildTool = vim.NIL })
+            local state = run(0)
+            assert.are.equal(0, #state.calls)
+            assert.is_true(h.notified(notes, ERROR))
+        end)
+
+        it("runs RunUBT with -Rebuild via jobstart in a terminal", function()
+            local root = h.project({ ["Game.uproject"] = {} })
+            local state = run(0)
+            assert.are.same({
+                "/ue/" .. UBT,
+                "GameEditor",
+                "Linux",
+                "Development",
+                "-project=" .. root .. "/Game.uproject",
+                "-Rebuild",
+                "-WaitMutex",
+            }, state.calls[1].cmd)
+            assert.is_true(state.calls[1].opts.term)
+        end)
+
+        it("does not pass -Clean", function()
+            h.project({ ["Game.uproject"] = {} })
+            local state = run(0)
+            assert.is_false(vim.tbl_contains(state.calls[1].cmd, "-Clean"))
+        end)
+
+        it("2 uprojects, choose 2 -> UBT gets the second project and its Editor target", function()
+            h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
+            local selects = h.use_select(2)
+            local state = run(0)
+            local second = selects[1].items[2].value
+            local cmd = state.calls[1].cmd
+            assert.is_true(vim.tbl_contains(cmd, "-project=" .. second))
+            assert.is_true(vim.tbl_contains(cmd, "BEditor"))
+        end)
+
+        it("exit code 0 -> no error, quickfix untouched", function()
+            h.project({ ["Game.uproject"] = {} })
+            local state = run(0, { { "/src/A.cpp:1:1: error: stale\r", "" } })
+            assert.is_nil(state.callback_error)
+            assert.is_false(h.notified(notes, ERROR))
+            assert.are.equal(0, vim.fn.getqflist({ nr = "$" }).nr)
+        end)
+
+        it("exit code != 0 -> error with exit code, error lines in quickfix", function()
+            h.project({ ["Game.uproject"] = {} })
+            local state = run(6, {
+                {
+                    "Cleaning GameEditor...\r",
+                    "/src/A.cpp:10:5: error: boom\r",
+                    "/src/B.cpp:3:1: warning: unused\r",
+                    "",
+                },
+            })
+            assert.is_nil(state.callback_error)
+            assert.is_true(h.notified(notes, ERROR, "(6)"))
+            local items = vim.fn.getqflist()
+            assert.are.equal(1, #items)
+            assert.are.equal("boom", items[1].text)
+        end)
+
+        it("exit code != 0 without error lines -> quickfix untouched", function()
+            h.project({ ["Game.uproject"] = {} })
+            run(6, { { "Cleaning GameEditor...\r", "" } })
+            assert.are.equal(0, vim.fn.getqflist({ nr = "$" }).nr)
+        end)
+    end)
+
     describe("EditUproject", function()
         local function current_file()
             return vim.api.nvim_buf_get_name(0)
