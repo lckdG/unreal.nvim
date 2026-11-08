@@ -152,33 +152,23 @@ function M.RebuildClangd()
                     :flatten()
                     :totable()
 
-                vim.cmd("botright new")
-                local termWin = vim.api.nvim_get_current_win()
+                require("unreal.job").Start(commandParts, function(code, errors)
+                    if code ~= 0 then
+                        log.Notify("Rebuild Clangd failed (" .. code .. ")", logLevel.ERROR)
+                        vim.fn.setqflist(errors, " ")
+                        return
+                    end
 
-                vim.fn.jobstart(commandParts, {
-                    term = true,
-                    on_exit = function(_, code)
-                        if vim.api.nvim_win_is_valid(termWin) then
-                            vim.api.nvim_set_current_win(termWin)
-                            vim.cmd("startinsert")
-                        end
+                    local sourceCC = vim.fs.joinpath(tools.RootDir, info.CCFile)
+                    local destCC = vim.fs.joinpath(vim.fs.dirname(uprojectPath), info.CCFile)
 
-                        if code ~= 0 then
-                            log.Notify("Rebuild Clangd failed (" .. code .. ")", logLevel.ERROR)
-                            return
-                        end
-
-                        local sourceCC = vim.fs.joinpath(tools.RootDir, info.CCFile)
-                        local destCC = vim.fs.joinpath(vim.fs.dirname(uprojectPath), info.CCFile)
-
-                        local ok, err = vim.uv.fs_copyfile(sourceCC, destCC)
-                        if ok then
-                            log.Notify("Rebuild database successfully!", logLevel.INFO)
-                        else
-                            log.Notify("Failed to copy compile_commands file: " .. tostring(err), logLevel.ERROR)
-                        end
-                    end,
-                })
+                    local ok, err = vim.uv.fs_copyfile(sourceCC, destCC)
+                    if ok then
+                        log.Notify("Rebuild database successfully!", logLevel.INFO)
+                    else
+                        log.Notify("Failed to copy compile_commands file: " .. tostring(err), logLevel.ERROR)
+                    end
+                end)
             else
                 log.Notify("Unable to retrieve engine tools!", logLevel.ERROR)
             end
@@ -263,6 +253,39 @@ function M.CreateBuildConfiguration(path)
             "</Configuration>",
         })
     end
+end
+
+function M.BuildEditor()
+    M.EnsureUproject(function()
+        local uprojectPath = M.UprojectPath
+        engine.FindEngineTools(uprojectPath, function(tools)
+            if tools and tools.UnrealBuildTool then
+                local projectName = vim.fn.fnamemodify(uprojectPath, ":t:r")
+                local projectEditor = projectName .. "Editor"
+
+                local buildTool = tools.UnrealBuildTool
+
+                local commandParts = {
+                    buildTool,
+                    projectEditor,
+                    system.GetPlatform(),
+                    "Development",
+                    "-project=" .. uprojectPath,
+                    "-WaitMutex",
+                }
+
+                require("unreal.job").Start(commandParts, function(code, errors)
+                    if code ~= 0 then
+                        log.Notify("Build editor failed (" .. code .. ")", logLevel.ERROR)
+                        vim.fn.setqflist(errors, " ")
+                        return
+                    end
+                end)
+            else
+                log.Notify("Unable to retrieve engine tools!", logLevel.ERROR)
+            end
+        end)
+    end)
 end
 
 return M
