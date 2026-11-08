@@ -149,6 +149,7 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 | `:Unreal Project Open` | Open the project in the Unreal editor |
 | `:Unreal Project Edit` | Open the `.uproject` in a buffer |
 | `:Unreal Project Select` | Choose which `.uproject` the other commands use |
+| `:Unreal Project BuildEditor` | Compile the project's editor target; compiler errors go to the quickfix list |
 | `:Unreal Build Clangd` | Regenerate `compile_commands.json` next to the `.uproject` |
 | `:Unreal Build Config` | Open a project, user or engine `BuildConfiguration.xml` |
 | `:Unreal Code SwitchSourceHeader` | Switch between the current header and its matching source file (falls back to clangd) |
