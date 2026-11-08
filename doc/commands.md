@@ -156,6 +156,22 @@ Output shows in a terminal split that follows the end of the output. `-WaitMutex
 
 If the build fails, shows an error with the exit code, puts the compiler errors (file, line, message) in the quickfix list and opens it. Warnings are left out. No compiler errors found (e.g. the failure was not in C++ code): the quickfix list is left as it was; read the terminal output.
 
+### Build CleanEditor
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                   *:Unreal-Build-CleanEditor*
+```
+-->
+
+Like `Build Editor`, but deletes the project's previous build output first and then compiles everything again. Use it when an incremental build behaves oddly, for example after moving files, changing `.Build.cs` modules or switching engine versions. Slower than `Build Editor`, because nothing is reused. UnrealBuildTool does both steps in one run:
+
+```sh
+RunUBT.sh <Project>Editor <Platform> Development -project=<uproject> -Rebuild -WaitMutex
+```
+
+Output, `-WaitMutex` and errors work as in `Build Editor`: if the clean or the build fails, shows an error with the exit code, puts the compiler errors in the quickfix list and opens it.
+
 ## Code
 
 ### Code Impl

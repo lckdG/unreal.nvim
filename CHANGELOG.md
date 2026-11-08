@@ -7,6 +7,7 @@ All notable changes to unreal.nvim are listed here. The format follows [Keep a C
 ### Added
 
 - `:Unreal Build Editor`: compile the project's `<Project>Editor` target in `Development` with UnrealBuildTool, in a terminal split. On failure, compiler errors go to the quickfix list, which opens.
+- `:Unreal Build CleanEditor`: like `Build Editor`, but deletes the previous build output first (UnrealBuildTool `-Rebuild`).
 
 ### Changed
 
