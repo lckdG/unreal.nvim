@@ -295,4 +295,38 @@ function M.BuildEditor()
     end)
 end
 
+function M.BuildEditorClean()
+    M.EnsureUproject(function()
+        local uprojectPath = M.UprojectPath
+        engine.FindEngineTools(uprojectPath, function(tools)
+            if tools and tools.UnrealBuildTool then
+                local projectName = vim.fn.fnamemodify(uprojectPath, ":t:r")
+                local projectEditor = projectName .. "Editor"
+
+                local buildTool = tools.UnrealBuildTool
+
+                local commandParts = {
+                    buildTool,
+                    projectEditor,
+                    system.GetPlatform(),
+                    "Development",
+                    "-project=" .. uprojectPath,
+                    "-Rebuild",
+                    "-WaitMutex",
+                }
+
+                require("unreal.job").Start(commandParts, function(code, errors)
+                    if code ~= 0 then
+                        log.Notify("Clean build editor failed (" .. code .. ")", logLevel.ERROR)
+                        sendToQuickfix(errors)
+                        return
+                    end
+                end)
+            else
+                log.Notify("Unable to retrieve engine tools!", logLevel.ERROR)
+            end
+        end)
+    end)
+end
+
 return M
