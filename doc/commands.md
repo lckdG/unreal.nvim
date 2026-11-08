@@ -107,24 +107,6 @@ Open the `.uproject` in a buffer. `.uproject` and `.uplugin` files open as `json
 
 Choose which `.uproject` the other commands use, e.g. when the project folder has several.
 
-### Project BuildEditor
-
-<!-- panvimdoc-include-comment
-```vimdoc
-                                                 *:Unreal-Project-BuildEditor*
-```
--->
-
-Compile the project's C++ code so the Unreal editor can open it, without the editor or an IDE. Builds the `<Project>Editor` target (the project plus its editor code) in the `Development` configuration with UnrealBuildTool:
-
-```sh
-RunUBT.sh <Project>Editor <Platform> Development -project=<uproject> -WaitMutex
-```
-
-Output shows in a terminal split that follows the end of the output. `-WaitMutex` makes the build wait instead of failing when another UnrealBuildTool build (for example from the editor) is already running.
-
-If the build fails, shows an error with the exit code, puts the compiler errors (file, line, message) in the quickfix list and opens it. Warnings are left out. No compiler errors found (e.g. the failure was not in C++ code): the quickfix list is left as it was; read the terminal output.
-
 ## Build
 
 ### Build Clangd
@@ -155,6 +137,24 @@ Pick a `BuildConfiguration.xml` (UnrealBuildTool settings) and open it:
 | Engine Config | `<engine>/Engine/Saved/UnrealBuildTool/BuildConfiguration.xml` |
 
 Project and Engine entries need a chosen `.uproject`. A missing file is created from a template after you confirm, and written when you save.
+
+### Build Editor
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                        *:Unreal-Build-Editor*
+```
+-->
+
+Compile the project's C++ code so the Unreal editor can open it, without the editor or an IDE. Builds the `<Project>Editor` target (the project plus its editor code) in the `Development` configuration with UnrealBuildTool:
+
+```sh
+RunUBT.sh <Project>Editor <Platform> Development -project=<uproject> -WaitMutex
+```
+
+Output shows in a terminal split that follows the end of the output. `-WaitMutex` makes the build wait instead of failing when another UnrealBuildTool build (for example from the editor) is already running.
+
+If the build fails, shows an error with the exit code, puts the compiler errors (file, line, message) in the quickfix list and opens it. Warnings are left out. No compiler errors found (e.g. the failure was not in C++ code): the quickfix list is left as it was; read the terminal output.
 
 ## Code
 
