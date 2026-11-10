@@ -15,6 +15,10 @@ M.defaults = {
         url = "https://github.com/taku25/tree-sitter-unreal-cpp",
         revision = "2d2d5c19a9a83e432e43c041252106995614b29a",
     },
+    engine_source = {
+        git_url = "https://github.com/EpicGames/UnrealEngine",
+        clone_dir = nil,
+    },
     command_lead = "Unreal",
     uproject_limits = 5,
     clangd_build_args = {
@@ -26,24 +30,6 @@ M.defaults = {
 
 function M.config(opts)
     M.opts = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), opts or {})
-
-    -- TODO: remove
-    if M.opts.telescope_extended_ignores ~= nil then
-        vim.deprecate(
-            "telescope_extended_ignores",
-            "extensions = { telescope = { ignores = ... } }",
-            "0.3.0",
-            M.info.PluginName,
-            false
-        )
-
-        local telescope = M.opts.extensions.telescope
-        if telescope == nil or telescope == true then
-            M.opts.extensions.telescope = { ignores = M.opts.telescope_extended_ignores }
-        elseif type(telescope) == "table" and telescope.ignores == nil then
-            telescope.ignores = M.opts.telescope_extended_ignores
-        end
-    end
 end
 
 function M.GetClangdBuildArgs()

@@ -46,17 +46,13 @@ describe("lsp", function()
         end)
 
         it("uri returned -> request for current buffer, counterpart opened escaped", function()
-            local root = h.project({ ["Source/My Mod #1/Foo%.h"] = {} })
-            h.edit("Source/My Mod #1/Foo%.h")
-            local before = #edits
-            local target = vim.fs.joinpath(root, "Source/My Mod #1/Foo%.cpp")
+            local target = vim.fs.joinpath(h.tmpdir(), "My Mod #1", "Foo%.cpp")
             local client = fake_client({ result = vim.uri_from_fname(target) })
             use_client(client)
             lsp.SwitchSourceHeader()
             assert.are.equal("textDocument/switchSourceHeader", client.requests[2].method)
             assert.are.same(vim.lsp.util.make_text_document_params(0), client.requests[2].params)
-            assert.are.equal(before + 1, #edits)
-            assert.are.same({ vim.fn.fnameescape(target) }, edits[#edits])
+            assert.are.same({ { vim.fn.fnameescape(target) } }, edits)
         end)
 
         for _, case in ipairs({

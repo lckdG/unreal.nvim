@@ -6,7 +6,7 @@
 ```
 -->
 
-All commands are `:Unreal <Group> <Action>` (see [command_lead](#command_lead)), with `<Tab>` completion for both words. If several `.uproject` files are found, the first command that needs one asks you to choose, and the choice is kept for the session (see [Engine path](#engine-path)).
+All commands are `:Unreal <Group> <Action>` (see [command_lead](#command_lead)), with `<Tab>` completion for both words. See [Engine path](#engine-path) for how the `.uproject` and engine are chosen.
 
 ## Engine
 
@@ -18,7 +18,7 @@ All commands are `:Unreal <Group> <Action>` (see [command_lead](#command_lead)),
 ```
 -->
 
-Prompt for an engine folder and use it for every command instead of the engine the `.uproject` asks for. It is kept until `Engine ClearPath`, a `:cd` to another project, or Neovim closes; it is not saved to disk. See [Engine path](#engine-path).
+Use an engine folder you type instead of the one the `.uproject` asks for. Lasts until `Engine ClearPath`, `:cd` to another project, or Neovim closes.
 
 ### Engine ClearPath
 
@@ -28,7 +28,52 @@ Prompt for an engine folder and use it for every command instead of the engine t
 ```
 -->
 
-Forget the folder set with `Engine SetPath`, so commands go back to the engine the `.uproject` asks for.
+Forget the `Engine SetPath` folder.
+
+### Engine Checkout
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                     *:Unreal-Engine-Checkout*
+```
+-->
+
+Pick an engine release tag (newest first) from [engine_source](#engine_source) `git_url` and clone it into `<clone_dir>/<tag>` in a terminal split. Only the tag's latest commit is downloaded (`git clone --depth 1`). Needs `git`, and access to the repository: Epic's repository is private until you link your GitHub account to your Epic Games account. Shows an error if `clone_dir` is not set or does not exist.
+
+### Engine Build
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                        *:Unreal-Engine-Build*
+```
+-->
+
+Build the Unreal editor from engine source code. The picker lists, in this order:
+
+1. the engine of the chosen `.uproject` (from its `EngineAssociation`), with its version.
+2. the `Engine SetPath` folder, with its version.
+3. every checkout under `<clone_dir>` made by `Engine Checkout`, by folder name.
+
+The first two are only listed when that engine was built from source: a launcher engine has no build scripts. The same folder can show up more than once, for example when `SetPath` points at the project's engine or at a checkout; every entry builds the same folder.
+
+Only folders that have the `Setup`, `GenerateProjectFiles` and `Build` scripts are listed. Pick one, confirm, and the build runs in a terminal split from that folder. A build can take hours and tens of GB of disk. The steps run one after another and stop at the first one that fails:
+
+1. `Setup.sh` / `Setup.bat`: downloads the engine's binary dependencies and installs prerequisites. It may ask for system packages or admin rights.
+2. `GenerateProjectFiles.sh` / `.bat`: writes the project files the build tools need.
+3. Build the `UnrealEditor` target in the `Development` configuration (optimized, with editor tools; the usual choice).
+
+The build step per platform:
+
+```sh
+# Linux
+Engine/Build/BatchFiles/Linux/Build.sh UnrealEditor Linux Development
+# Mac
+Engine/Build/BatchFiles/Mac/Build.sh UnrealEditor Mac Development
+# Windows
+Engine\Build\BatchFiles\Build.bat UnrealEditor Win64 Development -WaitMutex
+```
+
+Shows an error with the exit code if a step fails, an error if `clone_dir` does not exist, and a warning if there is nothing to build. `clone_dir` is optional here: without it, only the project's engine and the `SetPath` folder are offered.
 
 ## Project
 
@@ -40,7 +85,7 @@ Forget the folder set with `Engine SetPath`, so commands go back to the engine t
 ```
 -->
 
-Open the project's `.uproject` in the Unreal editor, using the engine the `.uproject` asks for. The editor runs in the background and keeps running if Neovim closes.
+Open the project in the Unreal editor. The editor keeps running if Neovim closes.
 
 ### Project Edit
 
@@ -50,7 +95,7 @@ Open the project's `.uproject` in the Unreal editor, using the engine the `.upro
 ```
 -->
 
-Open the project's `.uproject` in a buffer. No engine needed. `.uproject` and `.uplugin` files open as `json`, indented with tabs (4 wide) like Unreal writes them.
+Open the `.uproject` in a buffer. `.uproject` and `.uplugin` files open as `json` with 4-wide tabs.
 
 ### Project Select
 
@@ -60,7 +105,7 @@ Open the project's `.uproject` in a buffer. No engine needed. `.uproject` and `.
 ```
 -->
 
-Choose which `.uproject` the other commands use. Only needed when the project folder has several; with one, it is picked automatically.
+Choose which `.uproject` the other commands use, e.g. when the project folder has several.
 
 ## Build
 
@@ -72,7 +117,60 @@ Choose which `.uproject` the other commands use. Only needed when the project fo
 ```
 -->
 
-Regenerate `compile_commands.json` with UnrealBuildTool and copy it next to the `.uproject`. Only `dotnet` and UnrealBuildTool are needed, not the editor, so it also works on a source build before the editor is compiled. UnrealBuildTool runs with the engine's bundled `dotnet` when there is one, otherwise with the one from `$PATH` (see [Engine path](#engine-path)). Output is shown in a terminal split; press any key to close it when the build is done.
+Regenerate `compile_commands.json` with UnrealBuildTool and copy it next to the `.uproject`. Does not need the editor. Output shows in a terminal split; press any key to close it when done. If it fails, shows an error with the exit code, puts the compiler errors (file, line, message) in the quickfix list and opens it. Warnings are left out. No compiler errors found: the quickfix list is left as it was; read the terminal output.
+
+### Build Config
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                        *:Unreal-Build-Config*
+```
+-->
+
+Pick a `BuildConfiguration.xml` (UnrealBuildTool settings) and open it:
+
+| Entry | File |
+| --- | --- |
+| Project Config | `<project>/Saved/UnrealBuildTool/BuildConfiguration.xml` |
+| User Config | `~/.config/Unreal Engine/UnrealBuildTool/BuildConfiguration.xml` (Linux, Mac) |
+| User AppData / Document Config | `%APPDATA%\Unreal Engine\UnrealBuildTool\…` and `Documents\Unreal Engine\UnrealBuildTool\…` (Windows) |
+| Engine Config | `<engine>/Engine/Saved/UnrealBuildTool/BuildConfiguration.xml` |
+
+Project and Engine entries need a chosen `.uproject`. A missing file is created from a template after you confirm, and written when you save.
+
+### Build Editor
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                        *:Unreal-Build-Editor*
+```
+-->
+
+Compile the project's C++ code so the Unreal editor can open it, without the editor or an IDE. Builds the `<Project>Editor` target (the project plus its editor code) in the `Development` configuration with UnrealBuildTool:
+
+```sh
+RunUBT.sh <Project>Editor <Platform> Development -project=<uproject> -WaitMutex
+```
+
+Output shows in a terminal split that follows the end of the output. `-WaitMutex` makes the build wait instead of failing when another UnrealBuildTool build (for example from the editor) is already running.
+
+If the build fails, shows an error with the exit code, puts the compiler errors (file, line, message) in the quickfix list and opens it. Warnings are left out. No compiler errors found (e.g. the failure was not in C++ code): the quickfix list is left as it was; read the terminal output.
+
+### Build CleanEditor
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                   *:Unreal-Build-CleanEditor*
+```
+-->
+
+Like `Build Editor`, but deletes the project's previous build output first and then compiles everything again. Use it when an incremental build behaves oddly, for example after moving files, changing `.Build.cs` modules or switching engine versions. Slower than `Build Editor`, because nothing is reused. UnrealBuildTool does both steps in one run:
+
+```sh
+RunUBT.sh <Project>Editor <Platform> Development -project=<uproject> -Rebuild -WaitMutex
+```
+
+Output, `-WaitMutex` and errors work as in `Build Editor`: if the clean or the build fails, shows an error with the exit code, puts the compiler errors in the quickfix list and opens it.
 
 ## Code
 
@@ -150,18 +248,3 @@ Grep files with `rg`. Asks for the file type first (scopes are listed below), th
 | Build Files | `*.Build.cs`, `*.Target.cs` |
 
 With the built-in UI, the typed name only matches the part before the extension. For Build Files that is the module or target name: `Editor` finds `GameEditor.Target.cs`, `Target` finds nothing.
-
-## Deprecated names
-
-The old one-word commands still work until 0.3.0, with a deprecation warning:
-
-| Old | New |
-| --- | --- |
-| `SetEnginePath` | `Engine SetPath` |
-| `OpenProject` | `Project Open` |
-| `RebuildClangd` | `Build Clangd` |
-| `CreateImpl` | `Code Impl` |
-| `CompleteMacro` | `Code Macro` |
-| `SwitchSourceHeader` | `Code SwitchSourceHeader` |
-| `FindSource` | `Search Files` |
-| `GrepSource` | `Search Grep` |

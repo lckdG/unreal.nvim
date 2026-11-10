@@ -109,18 +109,10 @@ describe("macros.CompleteMacro", function()
     end)
     after_each(h.reset)
 
-    -- requests are sequential: [1] = macro namespace (UP::/UF::/...), [2] = UM:: (sent after [1] resolves)
     local function respond(i, result, err)
         local req = requests[i]
         assert.is_not_nil(req)
         return pcall(req.handler, err, result, { method = req.method, client_id = 1, bufnr = req.bufnr })
-    end
-
-    local function respondBoth(nsResult, metaResult)
-        local ok = respond(1, nsResult)
-        assert.is_true(ok)
-        ok = respond(2, metaResult)
-        assert.is_true(ok)
     end
 
     local function items(labels)
@@ -131,15 +123,22 @@ describe("macros.CompleteMacro", function()
         return list
     end
 
+    local function completions(...)
+        return { items = items({ ... }) }
+    end
+
     local function names(list)
         return vim.tbl_map(function(e)
             return e.name
         end, list)
     end
-    local function texts(list)
-        return vim.tbl_map(function(e)
-            return e.value.text
-        end, list)
+
+    local function complete(macroLine, nsResult, metaResult, decl)
+        open(macroLine, decl)
+        macros.CompleteMacro()
+        assert.is_true((respond(1, nsResult)))
+        assert.is_true((respond(2, metaResult)))
+        return pickers[1]
     end
 
     it("no clangd -> error notify", function()
@@ -160,11 +159,10 @@ describe("macros.CompleteMacro", function()
         assert.are.equal(0, #requests)
     end)
 
-    local namespaces = {
+    for _, case in ipairs({
         { "UFUNCTION()", "void Foo();", "UF::" },
         { "UPROPERTY()", nil, "UP::" },
-    }
-    for _, case in ipairs(namespaces) do
+    }) do
         it(case[1] .. " requests " .. case[3] .. " first, then UM::", function()
             open(case[1], case[2])
             macros.CompleteMacro()
@@ -195,73 +193,65 @@ describe("macros.CompleteMacro", function()
     end)
 
     it("nil responses -> no crash, picker not opened", function()
-        open("UPROPERTY()")
-        macros.CompleteMacro()
-        respondBoth(nil, nil)
-        assert.are.equal(0, #pickers)
+        assert.is_nil(complete("UPROPERTY()", nil, nil))
     end)
 
-    it("CompletionList and CompletionItem[] responses -> merged, namespace first", function()
-        open("UPROPERTY()")
-        macros.CompleteMacro()
-        respondBoth(
+    for _, case in ipairs({
+        {
+            "CompletionList and CompletionItem[] responses -> merged, namespace first",
+            "UPROPERTY()",
             { isIncomplete = false, items = items({ "EditAnywhere", "VisibleAnywhere" }) },
-            items({ "ClampMin" })
-        )
-        assert.are.same({ "UP::EditAnywhere", "UP::VisibleAnywhere", "UM::ClampMin" }, names(pickers[1].list))
-        assert.are.same({ "EditAnywhere", "VisibleAnywhere", "ClampMin" }, texts(pickers[1].list))
-    end)
-
-    it("only meta results -> picker still opened", function()
-        open("UPROPERTY()")
-        macros.CompleteMacro()
-        respondBoth(nil, { items = items({ "ClampMin" }) })
-        assert.are.same({ "UM::ClampMin" }, names(pickers[1].list))
-    end)
-
-    it("entries are flagged isMeta by namespace", function()
-        open("UPROPERTY()")
-        macros.CompleteMacro()
-        respondBoth({ items = items({ "EditAnywhere" }) }, { items = items({ "ClampMin" }) })
-        assert.is_false(pickers[1].list[1].value.isMeta)
-        assert.is_true(pickers[1].list[2].value.isMeta)
-    end)
+            items({ "ClampMin" }),
+            { "UP::EditAnywhere", "UP::VisibleAnywhere", "UM::ClampMin" },
+        },
+        {
+            "only meta results -> picker still opened",
+            "UPROPERTY()",
+            nil,
+            completions("ClampMin"),
+            { "UM::ClampMin" },
+        },
+        {
+            "labels are trimmed on both sides",
+            "UPROPERTY()",
+            completions(" Foo", "Bar ", "  Baz  ", "\tQux"),
+            nil,
+            { "UP::Foo", "UP::Bar", "UP::Baz", "UP::Qux" },
+        },
+        {
+            "namespace labels and existing specifiers/metas are excluded",
+            'UPROPERTY(VisibleAnywhere, meta=(ClampMin="0"))',
+            completions("UP", "VisibleAnywhere", "EditAnywhere"),
+            completions("UM", "ClampMin", "ClampMax"),
+            { "UP::EditAnywhere", "UM::ClampMax" },
+        },
+        {
+            "existing specifier does not exclude a meta of the same name",
+            "UPROPERTY(DisplayName)",
+            completions("DisplayName"),
+            completions("DisplayName"),
+            { "UM::DisplayName" },
+        },
+    }) do
+        it(case[1] .. ", text and isMeta follow the name", function()
+            local list = complete(case[2], case[3], case[4]).list
+            assert.are.same(case[5], names(list))
+            for _, entry in ipairs(list) do
+                assert.are.equal(entry.name:match("::(.*)$"), entry.value.text)
+                assert.are.equal(vim.startswith(entry.name, "UM::"), entry.value.isMeta)
+            end
+        end)
+    end
 
     it("LSP error -> error notify, picker not opened", function()
         open("UPROPERTY()")
         macros.CompleteMacro()
-        local ok = respond(1, nil, { code = -32603, message = "boom" })
-        assert.is_true(ok)
+        assert.is_true((respond(1, nil, { code = -32603, message = "boom" })))
         respond(2, nil)
         assert.are.equal(0, #pickers)
         assert.is_true(h.notified(notes, vim.log.levels.ERROR, "boom"))
     end)
 
-    it("labels are trimmed on both sides", function()
-        open("UPROPERTY()")
-        macros.CompleteMacro()
-        respondBoth({ items = items({ " Foo", "Bar ", "  Baz  ", "\tQux" }) }, nil)
-        assert.are.same({ "Foo", "Bar", "Baz", "Qux" }, texts(pickers[1].list))
-    end)
-
-    it("namespace labels and existing specifiers/metas are excluded", function()
-        open('UPROPERTY(VisibleAnywhere, meta=(ClampMin="0"))')
-        macros.CompleteMacro()
-        respondBoth(
-            { items = items({ "UP", "VisibleAnywhere", "EditAnywhere" }) },
-            { items = items({ "UM", "ClampMin", "ClampMax" }) }
-        )
-        assert.are.same({ "UP::EditAnywhere", "UM::ClampMax" }, names(pickers[1].list))
-    end)
-
-    it("existing specifier does not exclude a meta of the same name", function()
-        open("UPROPERTY(DisplayName)")
-        macros.CompleteMacro()
-        respondBoth({ items = items({ "DisplayName" }) }, { items = items({ "DisplayName" }) })
-        assert.are.same({ "UM::DisplayName" }, names(pickers[1].list))
-    end)
-
-    -- comma placement uses #existedVariables, so adding the namespace exclusion must not change that list
     it("exclusions do not mutate existedVariables from GetMacro", function()
         local existing
         local getMacro = treesitter.GetMacro
@@ -270,9 +260,11 @@ describe("macros.CompleteMacro", function()
             existing = ev
             return node, id, ev
         end)
-        open('UPROPERTY(VisibleAnywhere, meta=(ClampMin="0"))')
-        macros.CompleteMacro()
-        respondBoth({ items = items({ "EditAnywhere" }) }, { items = items({ "ClampMax" }) })
+        complete(
+            'UPROPERTY(VisibleAnywhere, meta=(ClampMin="0"))',
+            completions("EditAnywhere"),
+            completions("ClampMax")
+        )
         assert.are.same({ arguments = { "VisibleAnywhere" }, metas = { "ClampMin" } }, existing)
     end)
 
@@ -282,55 +274,47 @@ describe("macros.CompleteMacro", function()
             local node, id = getMacro()
             return node, id, { arguments = {}, metas = {} }
         end)
-        open("UPROPERTY(VisibleAnywhere)")
-        macros.CompleteMacro()
-        respondBoth({ items = items({ "EditAnywhere" }) }, nil)
-        pickers[1].cb({ text = "EditAnywhere", isMeta = false })
+        complete("UPROPERTY(VisibleAnywhere)", completions("EditAnywhere"), nil).cb({
+            text = "EditAnywhere",
+            isMeta = false,
+        })
         assert.are.equal("\tUPROPERTY(VisibleAnywhere, EditAnywhere)", vim.api.nvim_get_current_line())
     end)
 
     it("documentation: string, MarkupContent, none", function()
-        open("UPROPERTY()")
-        macros.CompleteMacro()
-        respondBoth({
+        local list = complete("UPROPERTY()", {
             items = {
                 { label = "A", documentation = "line1\nline2" },
                 { label = "B", documentation = { kind = "markdown", value = "md" } },
                 { label = "C" },
             },
-        }, nil)
-        local list = pickers[1].list
-        assert.are.same({ "line1", "line2" }, list[1].desc)
-        assert.are.same({ "md" }, list[2].desc)
-        assert.are.same({ "" }, list[3].desc)
+        }, nil).list
+        assert.are.same({ { "line1", "line2" }, { "md" }, { "" } }, {
+            list[1].desc,
+            list[2].desc,
+            list[3].desc,
+        })
     end)
 
     it("picker cancelled (nil entry) -> buffer unchanged", function()
-        open("UPROPERTY()")
-        macros.CompleteMacro()
-        respondBoth({ items = items({ "EditAnywhere" }) }, nil)
-        pickers[1].cb(nil)
+        complete("UPROPERTY()", completions("EditAnywhere"), nil).cb(nil)
         assert.are.equal("\tUPROPERTY()", vim.api.nvim_get_current_line())
     end)
 
     it("two calls before any response -> distinct temp buffers, no error", function()
         open("UPROPERTY()")
-        local ok = pcall(macros.CompleteMacro)
-        assert.is_true(ok)
-        ok = pcall(macros.CompleteMacro)
-        assert.is_true(ok)
+        assert.is_true((pcall(macros.CompleteMacro)))
+        assert.is_true((pcall(macros.CompleteMacro)))
         assert.are.equal(2, #requests)
         assert.are_not.equal(requests[1].bufnr, requests[2].bufnr)
         assert.are_not.equal(vim.api.nvim_buf_get_name(requests[1].bufnr), vim.api.nvim_buf_get_name(requests[2].bufnr))
     end)
 
     it("macro spanning several lines, cursor on first line -> inserted before ')'", function()
-        h.project({ [HEADER] = header("UPROPERTY(VisibleAnywhere,", '\tCategory="X")') })
-        h.edit(HEADER, MACRO_ROW)
-        macros.CompleteMacro()
-        respondBoth({ items = items({ "EditAnywhere" }) }, nil)
-        assert.are.equal(1, #pickers)
-        pickers[1].cb({ text = "EditAnywhere", isMeta = false })
+        complete("UPROPERTY(VisibleAnywhere,", completions("EditAnywhere"), nil, '\tCategory="X")').cb({
+            text = "EditAnywhere",
+            isMeta = false,
+        })
         assert.are.same(
             { "\tUPROPERTY(VisibleAnywhere,", '\t\tCategory="X", EditAnywhere)' },
             vim.api.nvim_buf_get_lines(0, MACRO_ROW - 1, MACRO_ROW + 1, false)
@@ -343,7 +327,7 @@ describe("macros.CompleteMacro", function()
     local meta = function(text)
         return { text = text, isMeta = true }
     end
-    local inserts = {
+    for _, case in ipairs({
         { "UPROPERTY()", spec("EditAnywhere"), "\tUPROPERTY(EditAnywhere)" },
         { "UPROPERTY()", meta("ClampMin"), "\tUPROPERTY(meta = (ClampMin))" },
         { "UPROPERTY(VisibleAnywhere)", spec("EditAnywhere"), "\tUPROPERTY(VisibleAnywhere, EditAnywhere)" },
@@ -359,15 +343,10 @@ describe("macros.CompleteMacro", function()
             '\tUPROPERTY(VisibleAnywhere, meta=(ClampMin="0", ClampMax))',
         },
         { 'UPROPERTY(meta=(ClampMin="0"))', spec("EditAnywhere"), '\tUPROPERTY(EditAnywhere, meta=(ClampMin="0"))' },
-    }
-    for _, case in ipairs(inserts) do
+    }) do
         it(("insert %s%s into %s"):format(case[2].isMeta and "meta " or "", case[2].text, case[1]), function()
-            open(case[1])
-            macros.CompleteMacro()
-            respondBoth({ items = items({ "EditAnywhere" }) }, nil)
-            pickers[1].cb(case[2])
+            complete(case[1], completions("EditAnywhere"), nil).cb(case[2])
             assert.are.equal(case[3], vim.api.nvim_get_current_line())
-            -- cursor lands right after the inserted content (text plus its closing paren / ", " separator, if any)
             local cursor = vim.api.nvim_win_get_cursor(0)
             assert.are.equal(MACRO_ROW, cursor[1])
             assert.is_truthy(case[3]:sub(1, cursor[2]):match(vim.pesc(case[2].text) .. "[,)]?%s?$"))

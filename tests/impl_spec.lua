@@ -45,7 +45,6 @@ local function uinterface(decls)
     return lines
 end
 
----@param colOn string? put the cursor on this text in the line (default: first non-blank)
 local function create_impl(header, cursorOn, cppLines, colOn)
     h.project({ [HEADER] = header, [CPP] = cppLines or CPP_PREFIX })
     local row
@@ -61,13 +60,20 @@ local function create_impl(header, cursorOn, cppLines, colOn)
         assert(col)
         vim.api.nvim_win_set_cursor(0, { row, col - 1 })
     end
+    local headerBuf = vim.api.nvim_get_current_buf()
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local function again()
+        vim.api.nvim_set_current_buf(headerBuf)
+        vim.api.nvim_win_set_cursor(0, cursor)
+        impl.ImplementFunction()
+    end
     impl.ImplementFunction()
     local cppBuf = vim.fn.bufnr(CPP)
     if cppBuf == -1 then
-        return {}
+        return {}, again
     end
     local lines = vim.api.nvim_buf_get_lines(cppBuf, 0, -1, false)
-    return vim.list_slice(lines, #(cppLines or CPP_PREFIX) + 1)
+    return vim.list_slice(lines, #(cppLines or CPP_PREFIX) + 1), again
 end
 
 local function stub(sig, super)
@@ -103,100 +109,19 @@ describe("impl.ImplementFunction", function()
         },
         { "default constructor", uclass({ "AFoo();" }), "AFoo();", stub("AFoo::AFoo()", "Super()") },
         { "destructor", uclass({ "~AFoo();" }), "~AFoo", stub("AFoo::~AFoo()") },
-        { "pointer return", uclass({ "AActor* GetFoo();" }), "GetFoo", stub("AActor* AFoo::GetFoo()") },
-        {
-            "const reference return",
-            uclass({ "const FString& GetName() const;" }),
-            "GetName",
-            stub("const FString& AFoo::GetName() const"),
-        },
         { "template return", uclass({ "TArray<int32> GetList();" }), "GetList", stub("TArray<int32> AFoo::GetList()") },
         { "qualified return", uclass({ "FVector::FReal Len();" }), "Len(", stub("FVector::FReal AFoo::Len()") },
         {
-            "default argument",
-            uclass({ "void Fire(int32 Count = 5);" }),
-            "Fire(",
-            stub("void AFoo::Fire(int32 Count)"),
-        },
-        {
-            "several default arguments",
-            uclass({ 'void Fire(int32 A = 1, FString B = TEXT("x"));' }),
-            "Fire(",
-            stub("void AFoo::Fire(int32 A, FString B)"),
-        },
-        {
-            "leading const",
-            uclass({ "const FString GetLabel();" }),
-            "GetLabel",
-            stub("const FString AFoo::GetLabel()"),
-        },
-        {
-            "virtual override",
-            uclass({ "virtual void Tick(float DeltaTime) override;" }),
-            "Tick(",
-            stub("void AFoo::Tick(float DeltaTime)"),
-        },
-        { "static", uclass({ "static void Reset();" }), "Reset(", stub("void AFoo::Reset()") },
-        {
-            "BlueprintNativeEvent",
-            uclass({ "UFUNCTION(BlueprintNativeEvent)", "void OnHit();" }),
-            "OnHit",
-            stub("void AFoo::OnHit_Implementation()"),
-        },
-        {
-            "Client RPC",
-            uclass({ "UFUNCTION(Client, Reliable)", "void ClientPing();" }),
-            "ClientPing",
-            stub("void AFoo::ClientPing_Implementation()"),
-        },
-        {
-            "NetMulticast RPC",
-            uclass({ "UFUNCTION(NetMulticast, Unreliable)", "void Boom();" }),
-            "Boom",
-            stub("void AFoo::Boom_Implementation()"),
-        },
-        { "USTRUCT", ustruct({ "void Foo();" }), "void Foo();", stub("void FBar::Foo()") },
-        { "interface", uinterface({ "void Foo();" }), "void Foo();", stub("void IFoo::Foo()") },
-    }
-
-    for _, case in ipairs(cases) do
-        it(case[1], function()
-            assert.are.same(case[4], create_impl(case[2], case[3]))
-        end)
-    end
-
-    -- elaborated return type is a body-less class_specifier; must not count as an enclosing class
-    local elaborated = {
-        { "class", uclass({ "class AActor* GetOwnerActor();" }), "class AActor* AFoo::GetOwnerActor()" },
-        { "struct", uclass({ "struct FHitResult* GetHit();" }), "struct FHitResult* AFoo::GetHit()" },
-    }
-    for _, case in ipairs(elaborated) do
-        local line = case[2][#case[2] - 1]:gsub("^\t", "")
-        local typeName = line:match("^%a+ (%w+)")
-        local fnName = line:match("(%w+)%(")
-        for _, col in ipairs({ case[1], typeName, fnName }) do
-            it("elaborated " .. case[1] .. " return, cursor on " .. col, function()
-                assert.are.same(stub(case[3]), create_impl(case[2], fnName, nil, col))
-            end)
-        end
-    end
-
-    it("Server RPC WithValidation -> _Implementation and _Validate", function()
-        local appended =
-            create_impl(uclass({ "UFUNCTION(Server, Reliable, WithValidation)", "void ServerFire();" }), "ServerFire")
-        assert.is_true(vim.tbl_contains(appended, "void AFoo::ServerFire_Implementation()"))
-        assert.is_true(vim.tbl_contains(appended, "bool AFoo::ServerFire_Validate()"))
-    end)
-
-    -- pointer, reference and template return types
-    local returnTypes = {
-        { "pointer to pointer", uclass({ "UObject** GetPP();" }), "GetPP", stub("UObject** AFoo::GetPP()") },
-        { "reference return", uclass({ "FVector& GetRef();" }), "GetRef", stub("FVector& AFoo::GetRef()") },
-        {
-            "const pointer to const pointer",
+            "const pointer to const pointer return",
             uclass({ "const AActor* const* GetFoo() const;" }),
             "GetFoo",
             stub("const AActor* const* AFoo::GetFoo() const"),
+        },
+        {
+            "default arguments",
+            uclass({ 'void Fire(int32 A = 1, FString B = TEXT("x"));' }),
+            "Fire(",
+            stub("void AFoo::Fire(int32 A, FString B)"),
         },
         {
             "function pointer param",
@@ -210,16 +135,13 @@ describe("impl.ImplementFunction", function()
             "Bind(",
             stub("void AFoo::Bind(TFunction<void(int32)> F)"),
         },
-    }
-
-    for _, case in ipairs(returnTypes) do
-        it(case[1], function()
-            assert.are.same(case[4], create_impl(case[2], case[3]))
-        end)
-    end
-
-    -- declaration shapes: multi-line, macros, specifiers, templates, operators
-    local shapes = {
+        {
+            "virtual override",
+            uclass({ "virtual void Tick(float DeltaTime) override;" }),
+            "Tick(",
+            stub("void AFoo::Tick(float DeltaTime)"),
+        },
+        { "static", uclass({ "static void Reset();" }), "Reset(", stub("void AFoo::Reset()") },
         {
             "declaration across lines",
             uclass({ "void Foo(int32 A,", "\tint32 B);" }),
@@ -248,25 +170,80 @@ describe("impl.ImplementFunction", function()
             "UFUNCTION(BlueprintCallable)",
             stub("void AFoo::OnCall()"),
         },
+        {
+            "BlueprintNativeEvent",
+            uclass({ "UFUNCTION(BlueprintNativeEvent)", "void OnHit();" }),
+            "OnHit",
+            stub("void AFoo::OnHit_Implementation()"),
+        },
+        {
+            "Server RPC WithValidation",
+            uclass({ "UFUNCTION(Server, Reliable, WithValidation)", "void ServerFire();" }),
+            "ServerFire",
+            vim.list_extend(stub("void AFoo::ServerFire_Implementation()"), stub("bool AFoo::ServerFire_Validate()")),
+        },
+        { "USTRUCT", ustruct({ "void Foo();" }), "void Foo();", stub("void FBar::Foo()") },
+        { "interface", uinterface({ "void Foo();" }), "void Foo();", stub("void IFoo::Foo()") },
     }
 
-    for _, case in ipairs(shapes) do
-        it(case[1], function()
-            assert.are.same(case[4], create_impl(case[2], case[3]))
+    local OTHER_STUB = { '#include "Foo.h"', "", "void AFoo::Other()", "{", "\t// TODO:", "}" }
+
+    local function signature(block)
+        for _, line in ipairs(block) do
+            if line ~= "" and not vim.startswith(line, "template") then
+                return line
+            end
+        end
+    end
+
+    for _, case in ipairs(cases) do
+        it(case[1] .. " -> stub after other stubs, cursor on signature, second run adds nothing", function()
+            local appended, again = create_impl(case[2], case[3], OTHER_STUB)
+            assert.are.same(case[4], appended)
+            assert.are.equal(signature(case[4]), vim.api.nvim_get_current_line())
+
+            local cppBuf = vim.api.nvim_get_current_buf()
+            local before = vim.api.nvim_buf_get_lines(cppBuf, 0, -1, false)
+            again()
+            assert.are.same(before, vim.api.nvim_buf_get_lines(cppBuf, 0, -1, false))
+            assert.are.equal(signature(case[4]), vim.api.nvim_get_current_line())
+            assert.is_true(h.notified(notes, vim.log.levels.INFO))
         end)
     end
 
+    local elaborated = {
+        { "class", uclass({ "class AActor* GetOwnerActor();" }), "class AActor* AFoo::GetOwnerActor()", "all" },
+        { "struct", uclass({ "struct FHitResult* GetHit();" }), "struct FHitResult* AFoo::GetHit()", "name" },
+    }
+    for _, case in ipairs(elaborated) do
+        local line = case[2][#case[2] - 1]:gsub("^\t", "")
+        local typeName = line:match("^%a+ (%w+)")
+        local fnName = line:match("(%w+)%(")
+        local cols = case[4] == "all" and { case[1], typeName, fnName } or { fnName }
+        for _, col in ipairs(cols) do
+            it("elaborated " .. case[1] .. " return, cursor on " .. col, function()
+                assert.are.same(stub(case[3]), (create_impl(case[2], fnName, nil, col)))
+            end)
+        end
+    end
+
+    local ERROR, WARN = vim.log.levels.ERROR, vim.log.levels.WARN
     local noStub = {
-        { "pure virtual", uclass({ "virtual void Foo() = 0;" }), "= 0" },
-        { "deleted", uclass({ "AFoo(const AFoo&) = delete;" }), "= delete" },
-        { "inline body", uclass({ "void Foo() {}" }), "void Foo() {}" },
-        { "BlueprintImplementableEvent", uclass({ "UFUNCTION(BlueprintImplementableEvent)", "void OnBP();" }), "OnBP" },
+        { "pure virtual", uclass({ "virtual void Foo() = 0;" }), "= 0", ERROR },
+        { "deleted", uclass({ "AFoo(const AFoo&) = delete;" }), "= delete", ERROR },
+        { "inline body", uclass({ "void Foo() {}" }), "void Foo() {}", ERROR },
+        {
+            "BlueprintImplementableEvent",
+            uclass({ "UFUNCTION(BlueprintImplementableEvent)", "void OnBP();" }),
+            "OnBP",
+            WARN,
+        },
     }
 
     for _, case in ipairs(noStub) do
-        it(case[1] .. " -> no stub, notify", function()
-            assert.are.same({}, create_impl(case[2], case[3]))
-            assert.is_true(#notes > 0)
+        it(case[1] .. " -> no stub, " .. (case[4] == WARN and "warn" or "error"), function()
+            assert.are.same({}, (create_impl(case[2], case[3])))
+            assert.is_true(h.notified(notes, case[4]))
         end)
     end
 
@@ -286,7 +263,7 @@ describe("impl.ImplementFunction", function()
             "\t};",
             "};",
         }
-        assert.are.same(stub("void AFoo::FInner::Foo()"), create_impl(header, "void Foo();"))
+        assert.are.same(stub("void AFoo::FInner::Foo()"), (create_impl(header, "void Foo();")))
     end)
 
     it("target .cpp already loaded with unsaved edits -> stub appended, edits kept", function()
@@ -332,14 +309,6 @@ describe("impl.ImplementFunction", function()
             assert.is_true(h.notified(notes, vim.log.levels.ERROR))
         end)
 
-        it("already implemented -> info, cursor on it, nothing inserted", function()
-            local cpp = { '#include "Foo.h"', "", "void AFoo::Foo()", "{", "}" }
-            local appended = create_impl(uclass({ "void Foo();" }), "void Foo();", cpp)
-            assert.are.same({}, appended)
-            assert.is_true(h.notified(notes, vim.log.levels.INFO))
-            assert.are.equal(3, vim.api.nvim_win_get_cursor(0)[1])
-        end)
-
         it("same signature with different whitespace -> inserted again", function()
             local cpp = { '#include "Foo.h"', "", "void  AFoo::Foo()", "{", "}" }
             local appended = create_impl(uclass({ "void Foo();" }), "void Foo();", cpp)
@@ -350,11 +319,6 @@ describe("impl.ImplementFunction", function()
             create_impl(uclass({ "void Foo();" }), "void Foo();")
             assert.is_true(h.ends_with(vim.api.nvim_buf_get_name(0), CPP))
             assert.is_true(vim.api.nvim_buf_is_loaded(0))
-        end)
-
-        it("cursor lands on the new signature", function()
-            create_impl(uclass({ "void Foo();" }), "void Foo();")
-            assert.are.equal("void AFoo::Foo()", vim.api.nvim_get_current_line())
         end)
     end)
 

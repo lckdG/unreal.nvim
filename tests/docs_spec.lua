@@ -4,27 +4,37 @@ local function read(rel)
     return table.concat(vim.fn.readfile(vim.fs.joinpath(h.repo_root, rel)), "\n")
 end
 
+local function command_tags()
+    local config = require("unreal.config")
+    config.config()
+    require("unreal.commands").init(config.opts)
+    local tags = {}
+    for _, group in ipairs(vim.fn.getcompletion("Unreal ", "cmdline")) do
+        for _, action in ipairs(vim.fn.getcompletion("Unreal " .. group .. " ", "cmdline")) do
+            table.insert(tags, ("*:Unreal-%s-%s*"):format(group, action))
+        end
+    end
+    vim.api.nvim_del_user_command("Unreal")
+    return tags
+end
+
 describe("help file", function()
     local help = read("doc/unreal.txt")
+    local commandTags = command_tags()
 
-    for _, tag in ipairs({
-        "*unreal.nvim*",
-        "*unreal-commands*",
-        "*unreal-config*",
-        "*unreal-extensions*",
-        "*:Unreal*",
-        "*:Unreal-Engine-SetPath*",
-        "*:Unreal-Engine-ClearPath*",
-        "*:Unreal-Project-Open*",
-        "*:Unreal-Project-Edit*",
-        "*:Unreal-Project-Select*",
-        "*:Unreal-Build-Clangd*",
-        "*:Unreal-Code-Impl*",
-        "*:Unreal-Code-Macro*",
-        "*:Unreal-Code-SwitchSourceHeader*",
-        "*:Unreal-Search-Files*",
-        "*:Unreal-Search-Grep*",
-    }) do
+    it("finds the :Unreal subcommands to check", function()
+        assert.is_true(#commandTags > 0)
+    end)
+
+    for _, tag in
+        ipairs(vim.list_extend({
+            "*unreal.nvim*",
+            "*unreal-commands*",
+            "*unreal-config*",
+            "*unreal-extensions*",
+            "*:Unreal*",
+        }, commandTags))
+    do
         it("has tag " .. tag, function()
             assert.is_truthy(help:find(tag, 1, true))
         end)
@@ -34,7 +44,6 @@ describe("help file", function()
         local dir = h.tmpdir()
         vim.fn.mkdir(dir .. "/doc", "p")
         vim.fn.writefile(vim.fn.readfile(vim.fs.joinpath(h.repo_root, "doc/unreal.txt")), dir .. "/doc/unreal.txt")
-        -- nightly :helptags is Lua and calls global assert(); luassert's returns extra values (E118)
         local luassert = _G.assert
         _G.assert = _PlenaryBustedOldAssert or luassert
         local ok = pcall(vim.cmd.helptags, vim.fn.fnameescape(dir .. "/doc"))

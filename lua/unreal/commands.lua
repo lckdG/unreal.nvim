@@ -1,23 +1,11 @@
---TODO: remove after 0.3.0
-local function getDeprecated()
-    return {
-        SetEnginePath = { "Engine", "SetPath" },
-        OpenProject = { "Project", "Open" },
-        RebuildClangd = { "Build", "Clangd" },
-        SwitchSourceHeader = { "Code", "SwitchSourceHeader" },
-        CreateImpl = { "Code", "Impl" },
-        CompleteMacro = { "Code", "Macro" },
-        FindSource = { "Search", "Files" },
-        GrepSource = { "Search", "Grep" },
-    }
-end
-
 ---@param config ConfigOpts
 local function createCommands(config)
     local subcommands = {
         Engine = {
             SetPath = require("unreal.engine").SetEnginePath_User,
             ClearPath = require("unreal.engine").ClearEnginePath_User,
+            Checkout = require("unreal.engine_builder").Checkout,
+            Build = require("unreal.engine_builder").Build,
         },
         Project = {
             Open = require("unreal.project").OpenUproject,
@@ -26,6 +14,9 @@ local function createCommands(config)
         },
         Build = {
             Clangd = require("unreal.project").RebuildClangd,
+            Config = require("unreal.project").EditBuildConfiguration,
+            Editor = require("unreal.project").BuildEditor,
+            CleanEditor = require("unreal.project").BuildEditorClean,
         },
         Code = {
             Impl = require("unreal.impl").ImplementFunction,
@@ -40,24 +31,6 @@ local function createCommands(config)
 
     vim.api.nvim_create_user_command(config.command_lead, function(opts)
         local args = opts.fargs
-
-        --TODO: remove after 0.3.0
-        if #args == 1 then
-            local oldCommad = args[1]
-            local deprecated = getDeprecated()
-
-            if deprecated[oldCommad] then
-                args = deprecated[oldCommad]
-
-                vim.deprecate(
-                    oldCommad,
-                    table.concat(args, " "),
-                    "0.3.0",
-                    require("unreal.config").info.PluginName,
-                    false
-                )
-            end
-        end
 
         local group = subcommands[args[1]]
         local func = group ~= nil and #args == 2 and group[args[2]] or nil

@@ -14,8 +14,13 @@
 ---@field url string
 ---@field revision string
 
+---@class (exact) unreal.EngineSource
+---@field git_url string
+---@field clone_dir string?
+
 ---@class (exact) ConfigOpts
 ---@field custom_treesitter CustomTreesitterOpts?
+---@field engine_source unreal.EngineSource
 ---@field command_lead string
 ---@field uproject_limits number
 ---@field cmd_abbreviations table?
@@ -42,9 +47,14 @@
 ---@class unreal.EngineTools
 ---@field RootDir string
 ---@field Version string?
+---@field BuildConfig string?
 ---@field EngineExe string[]?
----@field DotNetExe string?
 ---@field UnrealBuildTool string?
+
+---@class (exact) unreal.EngineSourceScripts
+---@field Setup string
+---@field GenerateProjectFile string
+---@field Build string
 
 --- Ui Classes
 ---@class unreal.UiEntry

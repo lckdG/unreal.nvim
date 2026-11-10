@@ -15,17 +15,13 @@ describe("config", function()
         assert.are.equal(config.defaults.custom_treesitter.url, config.opts.custom_treesitter.url)
     end)
 
-    it("GetClangdBuildArgs returns the configured list", function()
-        config.config({ clangd_build_args = { "-a", "-b" } })
-        local args = config.GetClangdBuildArgs()
-        assert.are.same({ "-a", "-b" }, args)
-    end)
-
-    it("GetClangdBuildArgs with nil -> {}", function()
-        config.config()
-        config.opts.clangd_build_args = nil
-        assert.are.same({}, config.GetClangdBuildArgs())
-    end)
+    for _, case in ipairs({ { { "-a", "-b" }, { "-a", "-b" } }, { vim.NIL, {} } }) do
+        it("GetClangdBuildArgs with " .. vim.inspect(case[1]) .. " -> " .. vim.inspect(case[2]), function()
+            config.config()
+            config.opts.clangd_build_args = case[1] ~= vim.NIL and case[1] or nil
+            assert.are.same(case[2], config.GetClangdBuildArgs())
+        end)
+    end
 
     describe("IsExtensionEnabled", function()
         for _, case in ipairs({ { true, true }, { {}, true }, { false, false } }) do
@@ -45,54 +41,19 @@ describe("config", function()
             assert.is_false(config.IsExtensionEnabled("telescope"))
         end)
     end)
-
-    describe("deprecated telescope_extended_ignores", function()
-        local deprecations
-
-        before_each(function()
-            deprecations = h.spy(vim, "deprecate")
-        end)
-
-        it("warns and moves ignores into extensions.telescope", function()
-            config.config({ telescope_extended_ignores = { "%.exe" } })
-            assert.are.equal(1, #deprecations)
-            assert.are.equal("telescope_extended_ignores", deprecations[1][1])
-            assert.are.same({ ignores = { "%.exe" } }, config.opts.extensions.telescope)
-        end)
-
-        it("telescope = true -> replaced by table with ignores", function()
-            config.config({ telescope_extended_ignores = { "%.exe" }, extensions = { telescope = true } })
-            assert.are.same({ ignores = { "%.exe" } }, config.opts.extensions.telescope)
-        end)
-
-        it("new ignores win over the old option", function()
-            config.config({
-                telescope_extended_ignores = { "%.exe" },
-                extensions = { telescope = { ignores = { "%.dll" } } },
-            })
-            assert.are.same({ "%.dll" }, config.opts.extensions.telescope.ignores)
-        end)
-
-        it("telescope = false -> stays disabled", function()
-            config.config({ telescope_extended_ignores = { "%.exe" }, extensions = { telescope = false } })
-            assert.is_false(config.opts.extensions.telescope)
-        end)
-
-        it("old option unset -> no warning", function()
-            config.config()
-            assert.are.equal(0, #deprecations)
-        end)
-    end)
 end)
 
 describe("commands", function()
     local subcommands = {
         ["Engine SetPath"] = { "unreal.engine", "SetEnginePath_User" },
         ["Engine ClearPath"] = { "unreal.engine", "ClearEnginePath_User" },
+        ["Engine Checkout"] = { "unreal.engine_builder", "Checkout" },
+        ["Engine Build"] = { "unreal.engine_builder", "Build" },
         ["Project Open"] = { "unreal.project", "OpenUproject" },
         ["Project Edit"] = { "unreal.project", "EditUproject" },
         ["Project Select"] = { "unreal.project", "SelectUproject_User" },
         ["Build Clangd"] = { "unreal.project", "RebuildClangd" },
+        ["Build Config"] = { "unreal.project", "EditBuildConfiguration" },
         ["Code Impl"] = { "unreal.impl", "ImplementFunction" },
         ["Code Macro"] = { "unreal.macros", "CompleteMacro" },
         ["Code SwitchSourceHeader"] = { "unreal.search", "SwitchSourceHeader" },
@@ -138,8 +99,11 @@ describe("commands", function()
     for _, case in ipairs({
         { "Unreal ", { "Build", "Code", "Engine", "Project", "Search" } },
         { "Unreal Bu", { "Build" } },
+        { "Unreal Build ", { "Clangd", "CleanEditor", "Config", "Editor" } },
         { "Unreal Code ", { "Impl", "Macro", "SwitchSourceHeader" } },
         { "Unreal Code M", { "Macro" } },
+        { "Unreal Engine ", { "Build", "Checkout", "ClearPath", "SetPath" } },
+        { "Unreal Project ", { "Edit", "Open", "Select" } },
         { "Unreal Search ", { "Files", "Grep" } },
         { "Unreal Foo ", {} },
         { "Unreal Code Impl ", {} },
@@ -178,17 +142,13 @@ describe("setup() extensions", function()
         package.loaded["telescope.config"] = nil
     end)
 
-    it("telescope = true -> extension set up with {}", function()
-        local got = h.spy(require("unreal.extensions.telescope"), "setup")
-        require("unreal").setup({ extensions = { telescope = true } })
-        assert.are.same({ { {} } }, got)
-    end)
-
-    it("telescope = false -> extension not set up", function()
-        local got = h.spy(require("unreal.extensions.telescope"), "setup")
-        require("unreal").setup({ extensions = { telescope = false } })
-        assert.are.equal(0, #got)
-    end)
+    for _, case in ipairs({ { true, { { {} } } }, { false, {} } }) do
+        it("telescope = " .. tostring(case[1]) .. " -> setup calls " .. vim.inspect(case[2]), function()
+            local got = h.spy(require("unreal.extensions.telescope"), "setup")
+            require("unreal").setup({ extensions = { telescope = case[1] } })
+            assert.are.same(case[2], got)
+        end)
+    end
 
     it("setup() twice -> telescope ignores applied once, still the provider", function()
         local calls = {}
@@ -261,4 +221,30 @@ describe("treesitter.Hijack", function()
         pcall(vim.api.nvim_del_user_command, "Unreal")
         assert.are.equal(1, tsupdate_autocmds())
     end)
+end)
+
+describe("setup() file types", function()
+    before_each(function()
+        h.stub(require("unreal.engine"), "init", function() end)
+        h.stub(require("unreal.project"), "init", function() end)
+        require("unreal").setup()
+    end)
+
+    after_each(function()
+        h.reset()
+        pcall(vim.api.nvim_del_user_command, "Unreal")
+        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim.treesitter")
+        pcall(vim.api.nvim_del_augroup_by_name, "unreal.nvim.ft")
+    end)
+
+    for _, name in ipairs({ "Game.uproject", "Plugin.uplugin" }) do
+        it(name .. " -> json, tabs 4 wide", function()
+            local root = h.project({ [name] = { "{}" } })
+            vim.cmd.edit(vim.fn.fnameescape(root .. "/" .. name))
+            assert.are.equal("json", vim.bo.filetype)
+            assert.is_false(vim.bo.expandtab)
+            assert.are.equal(4, vim.bo.tabstop)
+            assert.are.equal(4, vim.bo.shiftwidth)
+        end)
+    end
 end)

@@ -2,28 +2,53 @@
 
 All notable changes to unreal.nvim are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
-
-### Breaking
-
-- **The engine path is no longer saved.** `stdpath('data')/unreal.nvim/lock.dat` is not read or written anymore; you can delete it. Installed engines are found automatically, and each `.uproject`'s `EngineAssociation` picks the engine.
-- **`:Unreal Engine SetPath` only lasts for the session.** It overrides the engine for every command until `:Unreal Engine ClearPath`, a `:cd` to another project, or Neovim closes.
+## [0.3.1] - 2026-11-08
 
 ### Added
 
-- `:Unreal Engine ClearPath` forgets the folder set with `Engine SetPath`.
-- `:Unreal Project Select` chooses which `.uproject` the other commands use. The choice is kept for the session.
-- `:checkhealth unreal` shows the chosen `.uproject`, the engine it uses and the engine's version.
-- `uproject_limits` option: most `.uproject` files to look for under the project folder (default 5).
+- `:Unreal Build Editor`: compile the project's `<Project>Editor` target in `Development` with UnrealBuildTool, in a terminal split. On failure, compiler errors go to the quickfix list, which opens.
+- `:Unreal Build CleanEditor`: like `Build Editor`, but deletes the previous build output first (UnrealBuildTool `-Rebuild`).
 
 ### Changed
 
-- `:Unreal Project Open` starts `UnrealEditor.exe` directly on Windows instead of the `.uproject`'s default program.
-- `:Unreal Build Clangd` no longer needs the editor program, only `dotnet` and UnrealBuildTool.
+- `:Unreal Build Clangd`: on failure, compiler errors go to the quickfix list, which opens.
+- UnrealBuildTool terminal splits follow the end of the output.
+
+## [0.3.0] - 2026-11-08
+
+### Breaking
+
+- **Engine path no longer saved.** `lock.dat` is ignored and can be deleted; the engine comes from the `.uproject`'s `EngineAssociation`.
+- **`:Unreal Engine SetPath` lasts for the session only.**
+- **Engine path rules changed.** An engine path is accepted when it has a readable `Engine/Build/Build.version`. `UnrealBuildTool.dll` and `dotnet` are no longer checked; `Build Clangd` needs `Engine/Build/BatchFiles/RunUBT.sh` (`RunUBT.bat` on Windows).
+
+### Added
+
+- `:Unreal Engine ClearPath`: forget the `SetPath` folder.
+- `:Unreal Engine Checkout`: pick an engine release tag and shallow-clone it into `engine_source.clone_dir`.
+- `:Unreal Engine Build`: build the editor from a checkout under `engine_source.clone_dir`, the `.uproject`'s engine or the `Engine SetPath` folder, when built from source.
+- `engine_source` option (`git_url`, `clone_dir`) for `Engine Checkout` and `Engine Build`.
+- `:Unreal Project Select`: choose the `.uproject` for other commands.
+- `:Unreal Build Config`: open a project, user or engine `BuildConfiguration.xml`.
+- A `.uproject` in the project folder is chosen at startup.
+- `:checkhealth unreal` shows the `.uproject`, its engine and the engine version.
+- `uproject_limits` option (default 5).
+
+### Changed
+
+- `:Unreal Project Open` starts `UnrealEditor.exe` directly on Windows.
+- `:Unreal Build Clangd` no longer needs the editor.
+- `:Unreal Build Clangd` runs UnrealBuildTool through the engine's `RunUBT` script, which picks the engine's `dotnet` and rebuilds UnrealBuildTool when its source changed.
+- `:checkhealth unreal` no longer shows `dotnet`; it shows the `RunUBT` script instead of `UnrealBuildTool.dll`.
+
+### Removed
+
+- The old one-word command names (`RebuildClangd`, `OpenProject`, ...). Use the two-word names, e.g. `:Unreal Build Clangd`.
+- `telescope_extended_ignores`. Use `extensions = { telescope = { ignores = ... } }`.
 
 ### Fixed
 
-- `:Unreal Build Clangd` copies `compile_commands.json` next to the `.uproject`, not to the working directory. Opening Neovim above the project (e.g. repo root with `Game/Game.uproject`) no longer leaves the file where clangd can't pair it with the project.
+- `:Unreal Build Clangd` copies `compile_commands.json` next to the `.uproject`, not to the working directory.
 
 ## [0.2.0] - 2026-11-04
 

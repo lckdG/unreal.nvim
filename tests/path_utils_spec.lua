@@ -40,57 +40,49 @@ describe("path_utils", function()
     end)
 
     describe("GetSourceHeader", function()
-        it("header -> Private cpp", function()
-            h.project({ ["Source/Mod/Public/Foo.h"] = {}, ["Source/Mod/Private/Foo.cpp"] = {} })
-            h.edit("Source/Mod/Public/Foo.h")
-            assert.is_true(h.ends_with(pathUtils.GetSourceHeader(), "Source/Mod/Private/Foo.cpp"))
-        end)
-
-        it("cpp -> Public header", function()
-            h.project({ ["Source/Mod/Public/Foo.h"] = {}, ["Source/Mod/Private/Foo.cpp"] = {} })
-            h.edit("Source/Mod/Private/Foo.cpp")
-            assert.is_true(h.ends_with(pathUtils.GetSourceHeader(), "Source/Mod/Public/Foo.h"))
-        end)
-
-        it("does not match a longer name (MyActor.h from Actor.cpp)", function()
-            h.project({ ["Source/Mod/Public/MyActor.h"] = {}, ["Source/Mod/Private/Actor.cpp"] = {} })
-            h.edit("Source/Mod/Private/Actor.cpp")
-            assert.is_nil(pathUtils.GetSourceHeader())
-        end)
-
-        it("does not match another extension (Foo.hpp / Foo.html)", function()
-            h.project({
-                ["Source/Mod/Public/Foo.hpp"] = {},
-                ["Source/Mod/Public/Foo.html"] = {},
-                ["Source/Mod/Private/Foo.cpp"] = {},
-            })
-            h.edit("Source/Mod/Private/Foo.cpp")
-            assert.is_nil(pathUtils.GetSourceHeader())
-        end)
-
-        it("handles Lua magic characters in the name (My-Thing)", function()
-            h.project({ ["Source/Mod/Public/My-Thing.h"] = {}, ["Source/Mod/Private/My-Thing.cpp"] = {} })
-            h.edit("Source/Mod/Private/My-Thing.cpp")
-            assert.is_true(h.ends_with(pathUtils.GetSourceHeader(), "Source/Mod/Public/My-Thing.h"))
-        end)
-
-        it("no counterpart -> nil", function()
-            h.project({ ["Source/Mod/Private/Foo.cpp"] = {} })
-            h.edit("Source/Mod/Private/Foo.cpp")
-            assert.is_nil(pathUtils.GetSourceHeader())
-        end)
-
-        it("flat module layout finds the counterpart", function()
-            h.project({ ["Source/Mod/Foo.h"] = {}, ["Source/Mod/Foo.cpp"] = {} })
-            h.edit("Source/Mod/Foo.h")
-            assert.is_true(h.ends_with(pathUtils.GetSourceHeader(), "Source/Mod/Foo.cpp"))
-        end)
-
-        it("flat module layout does not pick a same-named file from another module", function()
-            h.project({ ["Source/Mod/Foo.h"] = {}, ["Source/Other/Foo.cpp"] = {} })
-            h.edit("Source/Mod/Foo.h")
-            assert.is_nil(pathUtils.GetSourceHeader())
-        end)
+        local PAIR = { "Source/Mod/Public/Foo.h", "Source/Mod/Private/Foo.cpp" }
+        for _, case in ipairs({
+            { "header -> Private cpp", PAIR, PAIR[1], PAIR[2] },
+            { "cpp -> Public header", PAIR, PAIR[2], PAIR[1] },
+            {
+                "does not match a longer name (MyActor.h from Actor.cpp)",
+                { "Source/Mod/Public/MyActor.h", "Source/Mod/Private/Actor.cpp" },
+                "Source/Mod/Private/Actor.cpp",
+            },
+            {
+                "does not match another extension (Foo.hpp / Foo.html)",
+                { "Source/Mod/Public/Foo.hpp", "Source/Mod/Public/Foo.html", "Source/Mod/Private/Foo.cpp" },
+                "Source/Mod/Private/Foo.cpp",
+            },
+            {
+                "handles Lua magic characters in the name (My-Thing)",
+                { "Source/Mod/Public/My-Thing.h", "Source/Mod/Private/My-Thing.cpp" },
+                "Source/Mod/Private/My-Thing.cpp",
+                "Source/Mod/Public/My-Thing.h",
+            },
+            { "no counterpart -> nil", { "Source/Mod/Private/Foo.cpp" }, "Source/Mod/Private/Foo.cpp" },
+            {
+                "flat module layout finds the counterpart",
+                { "Source/Mod/Foo.h", "Source/Mod/Foo.cpp" },
+                "Source/Mod/Foo.h",
+                "Source/Mod/Foo.cpp",
+            },
+            {
+                "flat module layout does not pick a same-named file from another module",
+                { "Source/Mod/Foo.h", "Source/Other/Foo.cpp" },
+                "Source/Mod/Foo.h",
+            },
+        }) do
+            it(case[1], function()
+                local tree = {}
+                for _, file in ipairs(case[2]) do
+                    tree[file] = {}
+                end
+                local root = h.project(tree)
+                h.edit(case[3])
+                assert.are.equal(case[4] and vim.fs.joinpath(root, case[4]), pathUtils.GetSourceHeader())
+            end)
+        end
     end)
 
     describe("FindUprojects", function()
@@ -136,13 +128,70 @@ describe("path_utils", function()
     end)
 
     describe("Exists", function()
-        it("file -> true", function()
-            local root = h.project({ ["a.txt"] = {} })
-            assert.is_true(pathUtils.Exists(root .. "/a.txt"))
+        for _, case in ipairs({
+            { "file", "a.txt", true },
+            { "missing", "nope", false },
+            { "nil", nil, false },
+        }) do
+            it(case[1] .. " -> " .. tostring(case[3]), function()
+                local root = h.project({ ["a.txt"] = {} })
+                assert.are.equal(case[3], pathUtils.Exists(case[2] and vim.fs.joinpath(root, case[2])))
+            end)
+        end
+    end)
+
+    describe("BuildConfiguration paths", function()
+        local saved
+
+        before_each(function()
+            saved = { HOME = vim.env.HOME, APPDATA = vim.env.APPDATA, USERPROFILE = vim.env.USERPROFILE }
+            vim.env.HOME = "/home/u"
+            vim.env.APPDATA = "C:/Users/u/AppData/Roaming"
+            vim.env.USERPROFILE = "C:/Users/u"
         end)
 
-        it("missing -> false", function()
-            assert.is_false(pathUtils.Exists(h.tmpdir() .. "/nope"))
+        after_each(function()
+            for key, value in pairs(saved) do
+                vim.env[key] = value
+            end
+        end)
+
+        local function on(platform)
+            h.stub(require("unreal.system"), "GetPlatform", function()
+                return platform
+            end)
+        end
+
+        local TAIL = "Unreal Engine/UnrealBuildTool/BuildConfiguration.xml"
+
+        it("project file sits next to the uproject", function()
+            assert.are.same({
+                name = "Project Config",
+                value = "/p/Game/Saved/UnrealBuildTool/BuildConfiguration.xml",
+            }, pathUtils.GetProjectBuildConfig("/p/Game/Game.uproject"))
+        end)
+
+        for _, platform in ipairs({ "Linux", "Mac" }) do
+            it(platform .. " -> ~/.config user file", function()
+                on(platform)
+                assert.are.same(
+                    { { name = "User Config", value = "/home/u/.config/" .. TAIL } },
+                    pathUtils.GetUserBuildConfig()
+                )
+            end)
+        end
+
+        it("Win64 -> AppData and Documents user files", function()
+            on("Win64")
+            assert.are.same({
+                { name = "User AppData Config", value = "C:/Users/u/AppData/Roaming/" .. TAIL },
+                { name = "User Document Config", value = "C:/Users/u/Documents/" .. TAIL },
+            }, pathUtils.GetUserBuildConfig())
+        end)
+
+        it("unknown platform -> nil", function()
+            on("Unknown")
+            assert.is_nil(pathUtils.GetUserBuildConfig())
         end)
     end)
 end)
