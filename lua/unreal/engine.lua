@@ -1,8 +1,10 @@
 local system = require("unreal.system")
 local pathUtils = require("unreal.path_utils")
+local listUtils = require("unreal.helpers.list_utils")
 local log = require("unreal.log")
 
-local ext = system.GetPlatform() == "Win64" and ".bat" or ".sh"
+local platform = system.GetPlatform()
+local ext = platform == "Win64" and ".bat" or ".sh"
 
 --#region Utility functions
 
@@ -101,21 +103,19 @@ M.NativeProjects = nil
 M.OverrideEnginePath = nil
 
 function M.init()
-    M.reset()
+    M.HandleNative()
 
     local files = pathUtils.FindEngineInstalledFiles()
     M.FindInstalled(files)
 end
 
-function M.reset()
-    M.OverrideEnginePath = nil
-
+function M.HandleNative()
     M.NativeEngine = nil
     M.NativeProjects = nil
 
-    local relativeEngineRoot = pathUtils.FindRelativeEngineRoot()
-    if relativeEngineRoot ~= nil then
-        M.NativeEngine = relativeEngineRoot
+    local nativeEngineRoot = pathUtils.FindNativeEngineRoot()
+    if nativeEngineRoot ~= nil then
+        M.NativeEngine = nativeEngineRoot
         M.ParseNativeProjects()
     end
 end
@@ -148,7 +148,8 @@ function M.DiscoverNativeProjects(directory)
     for name, type in vim.fs.dir(absoluteDir, { depth = 2 }) do
         if type == "file" and vim.fs.ext(name) == "uproject" then
             local projectDir = vim.fs.normalize(vim.fs.joinpath(absoluteDir, vim.fs.dirname(name)))
-            if not vim.list_contains(M.NativeProjects, projectDir) then
+
+            if not listUtils.StrContains(M.NativeProjects, projectDir, platform == "Linux") then
                 table.insert(M.NativeProjects, projectDir)
             end
         end
@@ -273,7 +274,6 @@ function M.GetEngineExecutable(engineDir)
         return false, nil
     end
 
-    local platform = system.GetPlatform()
     local binariesPath = vim.fs.joinpath(engineDir, "Engine", "Binaries")
 
     local exeName = engineExecutable[platform]
@@ -290,7 +290,6 @@ end
 ---@return boolean ok whether the editor program exists
 ---@return string[] cmd command and arguments, without the `.uproject` path
 function M.GetExecuteCmd(engineDir)
-    local platform = system.GetPlatform()
     local exists, executablePath = M.GetEngineExecutable(engineDir)
 
     if platform == "Win64" then
@@ -359,11 +358,6 @@ function M.FindEngineTools(uprojectPath, callback)
         return
     end
 
-    if M.NativeEngine and vim.list_contains(M.NativeProjects, vim.fs.dirname(uprojectPath)) then
-        callback(M.RetrieveTools(M.NativeEngine))
-        return
-    end
-
     local engineId = M.GetAssociatedEngine(uprojectPath)
     if engineId ~= nil then
         local engine = M.FindEngine(engineId)
@@ -371,6 +365,13 @@ function M.FindEngineTools(uprojectPath, callback)
             callback(M.RetrieveTools(engine.path))
             return
         end
+    end
+
+    if
+        M.NativeEngine and listUtils.StrContains(M.NativeProjects, vim.fs.dirname(uprojectPath), platform == "Linux")
+    then
+        callback(M.RetrieveTools(M.NativeEngine))
+        return
     end
 
     M.InputEnginePath(function(engineDir)

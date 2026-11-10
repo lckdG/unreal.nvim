@@ -159,12 +159,17 @@ function EngineBuilder.GetProjectEngine()
     local id = engine.GetAssociatedEngine(uproject)
     local engineEntry = engine.FindEngine(id)
 
-    if engineEntry == nil or not isSourceDirValid(engineEntry.path) then
-        return nil, nil
+    if engineEntry and isSourceDirValid(engineEntry.path) then
+        local engineDir = engineEntry.path
+        return engineDir, engine.GetEngineVersion(engineDir)
     end
 
-    local engineDir = engineEntry.path
-    return engineDir, engine.GetEngineVersion(engineDir)
+    local nativeEngine = engine.NativeEngine
+    if nativeEngine and isSourceDirValid(nativeEngine) then
+        return nativeEngine, engine.GetEngineVersion(nativeEngine)
+    end
+
+    return nil, nil
 end
 
 function EngineBuilder.GetOverrideEngine()

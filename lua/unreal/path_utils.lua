@@ -22,7 +22,7 @@ function M.GetProjectRoot()
     return root or cwd
 end
 
-function M.FindRelativeEngineRoot()
+function M.FindNativeEngineRoot()
     local cwd = vim.fn.getcwd()
     local function isUprojectdirs(name)
         return vim.fs.ext(name) == "uprojectdirs"

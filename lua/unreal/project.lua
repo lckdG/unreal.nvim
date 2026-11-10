@@ -33,7 +33,8 @@ function M.init()
                 M.UprojectPath = nil
                 M.FindDefaultUproject()
 
-                engine.reset()
+                engine.HandleNative()
+                engine.ClearEnginePath_User()
             end
         end,
     })
