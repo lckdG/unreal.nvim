@@ -1,5 +1,5 @@
 *unreal.txt*                      Neovim plugin for Unreal Engine C++ projects
-                               For NVIM v0.12    Last change: 2026 November 08
+                               For NVIM v0.12    Last change: 2026 November 10
 
 ==============================================================================
 Table of Contents                                   *unreal-table-of-contents*
@@ -573,7 +573,8 @@ Commands use, in order:
 
 1. the folder from `:Unreal Engine SetPath`
 2. the engine named by the `.uproject`’s `EngineAssociation` (e.g. `"5.4"` or a source build ID)
-3. a prompt for the engine folder (not remembered)
+3. the native engine: when Neovim’s working directory is inside an engine source tree, and the `.uproject` is in a folder listed by that engine’s `.uprojectdirs` files (e.g. `Default.uprojectdirs`)
+4. a prompt for the engine folder (not remembered)
 
 
 ENGINE FROM SOURCE                     *unreal-engine-path-engine-from-source*
@@ -615,8 +616,15 @@ Run `:checkhealth unreal` to check:
 - clangd is enabled with `vim.lsp.enable("clangd")`
 - `setup()` was called
 - the chosen `.uproject`
-- its engine (a `SetPath` folder shows as a warning) and the engine version
-- the engine’s editor and its `RunUBT` script (UnrealBuildTool)
+- its engine, found in the same order as the commands use (a `SetPath` folder shows as a warning), and the engine version
+- the engine type:
+    - `launcher-installed`: listed by the Epic Games Launcher
+    - `source build, native engine`: the project sits inside the engine, in a folder listed by its `.uprojectdirs` files
+    - `source build, cloned into configured clone dir`: a checkout directly inside |unreal-config-engine_source| `clone_dir`
+    - `source build`: any other source build registered on this machine (`Install.ini` on Linux, the registry on Windows)
+    - `unknown`: a `SetPath` folder none of the above knows about (shown as info)
+- the engine’s editor and its `RunUBT` script (UnrealBuildTool); for a launcher engine, the advice is to verify it in the launcher
+- for source builds, the `Setup`, `GenerateProjectFiles` and `Build` scripts that `Engine Build` runs
 - |unreal-config-engine_source| `clone_dir` exists (only shown as info when not set) and `git` is installed, for `Engine Checkout` and `Engine Build`
 
 Each problem comes with advice on how to fix it.
