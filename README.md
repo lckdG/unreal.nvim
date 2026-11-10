@@ -159,7 +159,7 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 | `:Unreal Search Files` | Find header/cpp, `.ini` or `Build.cs`/`Target.cs` files (quickfix list, or live with an extension) |
 | `:Unreal Search Grep` | Grep header/cpp, `.ini` or `Build.cs`/`Target.cs` files (quickfix list, or live with an extension) |
 
-The `.uproject` and engine are found automatically: the engine comes from the `.uproject`'s `EngineAssociation` and your installed engines. If something is not found, the command asks. Nothing is saved to disk; see `:help unreal-engine-path`.
+The `.uproject` and engine are found automatically: the engine comes from the `.uproject`'s `EngineAssociation` and your installed engines, or, for a project inside an engine source tree (a native project), from that engine. If something is not found, the command asks. Nothing is saved to disk; see `:help unreal-engine-path`.
 
 Run `:checkhealth unreal` to check dependencies, the `.uproject` and its engine. See `:help unreal.nvim` or the [doc](doc/) directory for the full reference.
 

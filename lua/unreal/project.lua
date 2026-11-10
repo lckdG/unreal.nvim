@@ -31,8 +31,10 @@ function M.init()
 
             if M.ProjectRoot ~= lastRoot then
                 M.UprojectPath = nil
-                engine.ClearEnginePath_User()
                 M.FindDefaultUproject()
+
+                engine.RefreshNativeProjects()
+                engine.ClearEnginePath_User()
             end
         end,
     })

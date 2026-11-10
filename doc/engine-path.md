@@ -17,7 +17,8 @@ Commands use, in order:
 
 1. the folder from `:Unreal Engine SetPath`
 2. the engine named by the `.uproject`'s `EngineAssociation` (e.g. `"5.4"` or a source build ID)
-3. a prompt for the engine folder (not remembered)
+3. the native engine: when Neovim's working directory is inside an engine source tree, and the `.uproject` is in a folder listed by that engine's `.uprojectdirs` files (e.g. `Default.uprojectdirs`)
+4. a prompt for the engine folder (not remembered)
 
 ## Engine from source
 

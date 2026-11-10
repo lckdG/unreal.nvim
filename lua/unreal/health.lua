@@ -89,35 +89,73 @@ local function check_project_path()
     end
 end
 
+local KIND_TEXT = {
+    launcher = "launcher-installed",
+    native = "source build, native engine",
+    cloned = "source build, cloned into configured clone dir",
+    source = "source build",
+}
+
+---Check the scripts `:Unreal Engine Build` runs. Only for source builds:
+---a launcher engine comes prebuilt and has none.
+local function check_build_scripts(enginePath)
+    local health = vim.health
+    local pathUtils = require("unreal.path_utils")
+    local scripts = require("unreal.engine_builder").GetBuildScripts(enginePath)
+
+    local missing = {}
+    for _, key in ipairs({ "Setup", "GenerateProjectFile", "Build" }) do
+        if not pathUtils.Exists(scripts[key]) then
+            table.insert(missing, vim.fs.basename(scripts[key]))
+        end
+    end
+
+    if #missing == 0 then
+        health.ok("Build scripts: found")
+    else
+        health.warn(
+            "Build scripts: missing " .. table.concat(missing, ", "),
+            "Needed by :Unreal Engine Build; is this a full source checkout?"
+        )
+    end
+end
+
+---Report the project's engine: where it was found (same order as the commands use, see
+---`engine.ResolveEngine`), what kind of engine it is (launcher-installed or a source build),
+---its version, editor and UnrealBuildTool, and for source builds the build scripts.
 local function check_engine_path(uprojectPath)
     local health = vim.health
     local engine = require("unreal.engine")
 
-    local enginePath = engine.OverrideEnginePath
+    local enginePath, foundBy = engine.ResolveEngine(uprojectPath)
+    local engineId = engine.GetAssociatedEngine(uprojectPath)
 
-    if enginePath ~= nil then
+    if foundBy == "override" then
         health.warn(
             "Engine: " .. enginePath .. " (from :Unreal Engine SetPath, not the .uproject)",
             "Run :Unreal Engine ClearPath to use the .uproject's engine"
         )
+    elseif foundBy == "associated" then
+        health.ok("Engine: " .. engineId .. " at " .. enginePath)
+    elseif foundBy == "native" then
+        health.ok("Engine: native engine at " .. enginePath)
+    elseif engineId == nil or engineId == "" then
+        health.error(
+            "Engine: the .uproject has no EngineAssociation",
+            "Open the project once in the Unreal editor, or run :Unreal Engine SetPath"
+        )
     else
-        local engineId = engine.GetAssociatedEngine(uprojectPath)
-        local engineInfo = engine.FindEngine(engineId)
-        enginePath = engineInfo and engineInfo.path or nil
+        health.error(
+            "Engine: " .. engineId .. " (EngineAssociation) is not installed",
+            "Check EngineAssociation in the .uproject, or run :Unreal Engine SetPath"
+        )
+    end
 
-        if engineInfo then
-            health.ok("Engine: " .. engineId .. " at " .. enginePath)
-        elseif engineId == nil or engineId == "" then
-            health.error(
-                "Engine: the .uproject has no EngineAssociation",
-                "Open the project once in the Unreal editor, or run :Unreal Engine SetPath"
-            )
-        else
-            health.error(
-                "Engine: " .. engineId .. " (EngineAssociation) is not installed",
-                "Check EngineAssociation in the .uproject, or run :Unreal Engine SetPath"
-            )
-        end
+    local kind = enginePath and engine.GetEngineKind(enginePath)
+    if kind then
+        health.ok("Engine type: " .. KIND_TEXT[kind])
+    elseif enginePath then
+        health.info("Engine type: unknown (not registered as installed, not native, not in clone_dir)")
     end
 
     local engineVersion = engine.GetEngineVersion(enginePath)
@@ -127,9 +165,16 @@ local function check_engine_path(uprojectPath)
         health.warn("Engine version: unknown", "Engine/Build/Build.version is missing or unreadable")
     end
 
+    local isSource = kind == "native" or kind == "cloned" or kind == "source"
+    local reinstall = "verify the engine in the Epic Games Launcher"
+
     local exeExists, exePath = engine.GetEngineExecutable(enginePath)
     if exeExists then
         health.ok("Editor: " .. exePath)
+    elseif kind == "launcher" then
+        health.warn("Editor: not found", "Needed by :Unreal Project Open; " .. reinstall)
+    elseif isSource then
+        health.warn("Editor: not found", "Needed by :Unreal Project Open; build it with :Unreal Engine Build")
     else
         health.warn("Editor: not found", "Needed by :Unreal Project Open; build the editor first")
     end
@@ -137,8 +182,14 @@ local function check_engine_path(uprojectPath)
     local ubtOk, ubtPath = engine.ParseUbtPath(enginePath)
     if ubtOk then
         health.ok("UnrealBuildTool: " .. ubtPath)
+    elseif kind == "launcher" then
+        health.warn("UnrealBuildTool: not found", "Needed by :Unreal Build Clangd; " .. reinstall)
     else
         health.warn("UnrealBuildTool: not found", "Needed by :Unreal Build Clangd; is the engine built?")
+    end
+
+    if isSource then
+        check_build_scripts(enginePath)
     end
 end
 

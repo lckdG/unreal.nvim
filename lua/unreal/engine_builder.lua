@@ -89,6 +89,10 @@ local function getBuildScripts(sourceDir)
     }
 end
 
+---Paths of the scripts `:Unreal Engine Build` runs in a source checkout
+---(`Setup`, `GenerateProjectFiles`, `Build`), whether they exist or not.
+EngineBuilder.GetBuildScripts = getBuildScripts
+
 local function isSourceDirValid(sourceDir)
     local pathUtils = require("unreal.path_utils")
 
@@ -155,16 +159,13 @@ function EngineBuilder.GetProjectEngine()
     end
 
     local engine = require("unreal.engine")
+    local engineDir, _ = engine.ResolveEngine(uproject)
 
-    local id = engine.GetAssociatedEngine(uproject)
-    local engineEntry = engine.FindEngine(id)
-
-    if engineEntry == nil or not isSourceDirValid(engineEntry.path) then
-        return nil, nil
+    if engineDir and isSourceDirValid(engineDir) then
+        return engineDir, engine.GetEngineVersion(engineDir)
     end
 
-    local engineDir = engineEntry.path
-    return engineDir, engine.GetEngineVersion(engineDir)
+    return nil, nil
 end
 
 function EngineBuilder.GetOverrideEngine()

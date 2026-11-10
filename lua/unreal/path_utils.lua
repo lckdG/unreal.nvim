@@ -22,6 +22,34 @@ function M.GetProjectRoot()
     return root or cwd
 end
 
+function M.FindNativeEngineRoot()
+    local cwd = vim.fn.getcwd()
+    local function isUprojectdirs(name)
+        return vim.fs.ext(name) == "uprojectdirs"
+    end
+
+    return vim.fs.root(
+        cwd,
+        { isUprojectdirs, { "Setup.bat", "Setup.sh", "GenerateProjectFiles.bat", "GenerateProjectFiles.sh" } }
+    )
+end
+
+---@param engineRoot string?
+function M.GetUprojectdirsFiles(engineRoot)
+    if not engineRoot then
+        return {}
+    end
+
+    local results = {}
+    for name, type in vim.fs.dir(engineRoot) do
+        if type == "file" and vim.fs.ext(name) == "uprojectdirs" then
+            table.insert(results, vim.fs.joinpath(engineRoot, name))
+        end
+    end
+
+    return results
+end
+
 ---Find `.uproject` files (Unreal project files) in `opts.path` and all folders below it.
 ---Without `opts` it searches the project folder (see `GetProjectRoot`).
 ---Stops after `uproject_limits` files (5 by default), so a huge folder such as your home directory

@@ -50,11 +50,11 @@ Pick an engine release tag (newest first) from [engine_source](#engine_source) `
 
 Build the Unreal editor from engine source code. The picker lists, in this order:
 
-1. the engine of the chosen `.uproject` (from its `EngineAssociation`), with its version.
+1. the engine of the chosen `.uproject`, found in the same order as other commands use (see [engine path](#engine-path): the `SetPath` folder, its `EngineAssociation`, or the native engine), with its version.
 2. the `Engine SetPath` folder, with its version.
 3. every checkout under `<clone_dir>` made by `Engine Checkout`, by folder name.
 
-The first two are only listed when that engine was built from source: a launcher engine has no build scripts. The same folder can show up more than once, for example when `SetPath` points at the project's engine or at a checkout; every entry builds the same folder.
+The first two are only listed when that engine was built from source: a launcher engine has no build scripts. The same folder can show up more than once, for example while `SetPath` is set (it is then both entries) or points at a checkout; every entry builds the same folder.
 
 Only folders that have the `Setup`, `GenerateProjectFiles` and `Build` scripts are listed. Pick one, confirm, and the build runs in a terminal split from that folder. A build can take hours and tens of GB of disk. The steps run one after another and stop at the first one that fails:
 

@@ -127,6 +127,63 @@ describe("path_utils", function()
         end)
     end)
 
+    describe("FindNativeEngineRoot", function()
+        for _, marker in ipairs({
+            "Default.uprojectdirs",
+            "Setup.sh",
+            "Setup.bat",
+            "GenerateProjectFiles.sh",
+            "GenerateProjectFiles.bat",
+        }) do
+            it("cwd at a folder with " .. marker .. " -> that folder", function()
+                local root = h.project({ [marker] = {} })
+                assert.are.equal(root, pathUtils.FindNativeEngineRoot())
+            end)
+        end
+
+        it("cwd deep inside the engine -> engine root", function()
+            local root = h.project({ ["Default.uprojectdirs"] = {}, ["Games/MyGame/Source/x.h"] = {} })
+            vim.cmd.cd("Games/MyGame/Source")
+            assert.are.equal(root, pathUtils.FindNativeEngineRoot())
+        end)
+
+        it("setup script closer than a .uprojectdirs -> .uprojectdirs folder wins", function()
+            local root = h.project({ ["Default.uprojectdirs"] = {}, ["Tools/Setup.sh"] = {} })
+            vim.cmd.cd("Tools")
+            assert.are.equal(root, pathUtils.FindNativeEngineRoot())
+        end)
+
+        it("no marker above cwd -> nil", function()
+            h.project({ ["Game.uproject"] = {} })
+            assert.is_nil(pathUtils.FindNativeEngineRoot())
+        end)
+    end)
+
+    describe("GetUprojectdirsFiles", function()
+        it("nil engine root -> empty", function()
+            assert.are.same({}, pathUtils.GetUprojectdirsFiles(nil))
+        end)
+
+        it("files in the root -> full paths of each", function()
+            local root = h.project({
+                ["Default.uprojectdirs"] = {},
+                ["Studio.uprojectdirs"] = {},
+                ["Setup.sh"] = {},
+            })
+            local files = pathUtils.GetUprojectdirsFiles(root)
+            table.sort(files)
+            assert.are.same({
+                vim.fs.joinpath(root, "Default.uprojectdirs"),
+                vim.fs.joinpath(root, "Studio.uprojectdirs"),
+            }, files)
+        end)
+
+        it("file in a subfolder or folder named .uprojectdirs -> ignored", function()
+            local root = h.project({ ["Engine/Other.uprojectdirs"] = {}, ["Odd.uprojectdirs/x"] = {} })
+            assert.are.same({}, pathUtils.GetUprojectdirsFiles(root))
+        end)
+    end)
+
     describe("Exists", function()
         for _, case in ipairs({
             { "file", "a.txt", true },
@@ -156,12 +213,6 @@ describe("path_utils", function()
             end
         end)
 
-        local function on(platform)
-            h.stub(require("unreal.system"), "GetPlatform", function()
-                return platform
-            end)
-        end
-
         local TAIL = "Unreal Engine/UnrealBuildTool/BuildConfiguration.xml"
 
         it("project file sits next to the uproject", function()
@@ -173,7 +224,7 @@ describe("path_utils", function()
 
         for _, platform in ipairs({ "Linux", "Mac" }) do
             it(platform .. " -> ~/.config user file", function()
-                on(platform)
+                h.fake_platform(platform)
                 assert.are.same(
                     { { name = "User Config", value = "/home/u/.config/" .. TAIL } },
                     pathUtils.GetUserBuildConfig()
@@ -182,7 +233,7 @@ describe("path_utils", function()
         end
 
         it("Win64 -> AppData and Documents user files", function()
-            on("Win64")
+            h.fake_platform("Win64")
             assert.are.same({
                 { name = "User AppData Config", value = "C:/Users/u/AppData/Roaming/" .. TAIL },
                 { name = "User Document Config", value = "C:/Users/u/Documents/" .. TAIL },
@@ -190,7 +241,9 @@ describe("path_utils", function()
         end)
 
         it("unknown platform -> nil", function()
-            on("Unknown")
+            h.stub(require("unreal.system"), "GetPlatform", function()
+                return "Unknown"
+            end)
             assert.is_nil(pathUtils.GetUserBuildConfig())
         end)
     end)
