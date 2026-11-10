@@ -159,18 +159,10 @@ function EngineBuilder.GetProjectEngine()
     end
 
     local engine = require("unreal.engine")
+    local engineDir, _ = engine.ResolveEngine(uproject)
 
-    local id = engine.GetAssociatedEngine(uproject)
-    local engineEntry = engine.FindEngine(id)
-
-    if engineEntry and isSourceDirValid(engineEntry.path) then
-        local engineDir = engineEntry.path
+    if engineDir and isSourceDirValid(engineDir) then
         return engineDir, engine.GetEngineVersion(engineDir)
-    end
-
-    local nativeEngine = engine.NativeEngine
-    if nativeEngine and isSourceDirValid(nativeEngine) then
-        return nativeEngine, engine.GetEngineVersion(nativeEngine)
     end
 
     return nil, nil
