@@ -111,13 +111,13 @@ M.NativeProjects = nil
 M.OverrideEnginePath = nil
 
 function M.init()
-    M.HandleNative()
+    M.RefreshNativeProjects()
 
     local files = pathUtils.FindEngineInstalledFiles()
     M.FindInstalled(files)
 end
 
-function M.HandleNative()
+function M.RefreshNativeProjects()
     M.NativeEngine = nil
     M.NativeProjects = nil
 
