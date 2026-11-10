@@ -57,6 +57,8 @@ describe("health", function()
             project = require("unreal.project")
             h.stub(engine, "InstalledEngines", {})
             h.stub(engine, "OverrideEnginePath", nil)
+            h.stub(engine, "NativeEngine", nil)
+            h.stub(engine, "NativeProjects", nil)
             h.stub(project, "UprojectPath", nil)
             h.stub(vim.lsp, "is_enabled", function()
                 return true
@@ -70,20 +72,38 @@ describe("health", function()
             project.UprojectPath = h.write_uproject(h.tmpdir(), association)
         end
 
-        local function engine_with(files)
+        local SCRIPTS = { "Setup.sh", "GenerateProjectFiles.sh", "Engine/Build/BatchFiles/Linux/Build.sh" }
+        local SOURCE_TREE = vim.list_extend({ UBT, EDITOR }, SCRIPTS)
+
+        local function engine_with(files, root)
             h.fake_platform("Linux")
-            local root = h.tmpdir()
-            for _, f in ipairs(files) do
+            root = root or h.tmpdir()
+            for _, f in ipairs(files or {}) do
                 h.write(root, f)
             end
             return root
         end
 
-        local function installed(files)
+        local function installed(files, kind)
             local root = engine_with(files)
-            h.stub(engine, "InstalledEngines", { { id = "UE_5.4", path = root } })
+            h.stub(engine, "InstalledEngines", { { id = "UE_5.4", path = root, kind = kind or "launcher" } })
             choose_uproject("5.4")
             return root
+        end
+
+        local function native(files, association)
+            local root = engine_with(files)
+            local dir = vim.fs.joinpath(root, "Games/MyGame")
+            project.UprojectPath = h.write_uproject(dir, association)
+            h.stub(engine, "NativeEngine", root)
+            h.stub(engine, "NativeProjects", { dir })
+            return root
+        end
+
+        local function cloned(files)
+            local cloneDir = h.tmpdir()
+            require("unreal.config").config({ engine_source = { clone_dir = cloneDir } })
+            return engine_with(files, vim.fs.joinpath(cloneDir, "5.4.4-release"))
         end
 
         it("setup() called -> ok", function()
@@ -100,31 +120,72 @@ describe("health", function()
 
         for _, case in ipairs({
             {
-                name = "installed engine, all tools and version",
+                name = "launcher engine, all tools and version",
                 files = { UBT, EDITOR },
                 version = true,
-                kinds = { "warn", "ok", "ok", "ok", "ok", "ok" },
-                texts = { [4] = "5.4.2", [6] = "RunUBT" },
+                kinds = { "warn", "ok", "ok", "ok", "ok", "ok", "ok" },
+                texts = { [4] = "launcher-installed", [5] = "5.4.2", [7] = "RunUBT" },
             },
             {
-                name = "installed engine, UBT only",
+                name = "launcher engine, UBT only",
                 files = { UBT },
-                kinds = { "warn", "ok", "ok", "warn", "warn", "ok" },
-                texts = { [4] = "version" },
+                kinds = { "warn", "ok", "ok", "ok", "warn", "warn", "ok" },
+                texts = { [5] = "version", [6] = "Epic Games Launcher" },
+            },
+            {
+                name = "registered source build, all tools and build scripts",
+                files = SOURCE_TREE,
+                kind = "source",
+                version = true,
+                kinds = { "warn", "ok", "ok", "ok", "ok", "ok", "ok", "ok" },
+                texts = { [4] = "source build", [8] = "Build scripts: found" },
+            },
+            {
+                name = "registered source build, nothing built",
+                files = {},
+                kind = "source",
+                kinds = { "warn", "ok", "ok", "ok", "warn", "warn", "warn", "warn" },
+                texts = {
+                    [6] = ":Unreal Engine Build",
+                    [7] = "is the engine built?",
+                    [8] = "Setup.sh, GenerateProjectFiles.sh, Build.sh",
+                },
             },
             {
                 name = "override with all tools",
                 files = { UBT, EDITOR },
                 override = true,
-                kinds = { "warn", "ok", "warn", "warn", "ok", "ok" },
-                texts = { [3] = "Engine SetPath" },
+                kinds = { "warn", "ok", "warn", "info", "warn", "ok", "ok" },
+                texts = { [3] = "Engine SetPath", [4] = "unknown" },
             },
             {
                 name = "override with editor only",
                 files = { EDITOR },
                 override = true,
-                kinds = { "warn", "ok", "warn", "warn", "ok", "warn" },
+                kinds = { "warn", "ok", "warn", "info", "warn", "ok", "warn" },
                 texts = {},
+            },
+            {
+                name = "override into clone_dir checkout",
+                files = SOURCE_TREE,
+                override = true,
+                cloned = true,
+                kinds = { "warn", "ok", "warn", "ok", "warn", "ok", "ok", "ok" },
+                texts = { [3] = "Engine SetPath", [4] = "cloned" },
+            },
+            {
+                name = "native project, associated engine not installed",
+                files = SOURCE_TREE,
+                native = "5.4",
+                kinds = { "warn", "ok", "ok", "ok", "warn", "ok", "ok", "ok" },
+                texts = { [3] = "native engine", [4] = "native" },
+            },
+            {
+                name = "native project without EngineAssociation",
+                files = SOURCE_TREE,
+                native = true,
+                kinds = { "warn", "ok", "ok", "ok", "warn", "ok", "ok", "ok" },
+                texts = { [3] = "native engine", [4] = "native" },
             },
             {
                 name = "associated engine not installed",
@@ -134,12 +195,14 @@ describe("health", function()
         }) do
             it(case.name .. " -> " .. table.concat(case.kinds, " "), function()
                 local root
-                if case.override then
-                    root = engine_with(case.files)
+                if case.native then
+                    root = native(case.files, case.native ~= true and case.native or nil)
+                elseif case.override then
+                    root = case.cloned and cloned(case.files) or engine_with(case.files)
                     engine.OverrideEnginePath = root
                     choose_uproject("5.4")
                 elseif case.files then
-                    root = installed(case.files)
+                    root = installed(case.files, case.kind)
                 else
                     choose_uproject("5.4")
                 end
@@ -158,6 +221,17 @@ describe("health", function()
                 end
             end)
         end
+
+        it("native project with associated launcher engine installed -> launcher engine shown", function()
+            native(SOURCE_TREE, "5.4")
+            local launcher = engine_with({ UBT, EDITOR })
+            h.stub(engine, "InstalledEngines", { { id = "UE_5.4", path = launcher, kind = "launcher" } })
+            require("unreal.health").check()
+            local core = section(CORE)
+            assert.is_not_nil(core[3].msg:find(launcher, 1, true))
+            assert.is_not_nil(core[4].msg:find("launcher-installed", 1, true))
+            assert.are.equal(7, #core)
+        end)
 
         it("uproject without EngineAssociation -> error, no crash", function()
             choose_uproject(nil)

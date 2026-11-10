@@ -170,6 +170,60 @@ describe("engine", function()
         end)
     end)
 
+    describe("GetEngineKind", function()
+        local launcher, registered
+
+        before_each(function()
+            launcher, registered = fake_engine(), fake_engine()
+            h.stub(engine, "InstalledEngines", {
+                { id = "UE_5.4", path = launcher, kind = "launcher" },
+                { id = "{11111111-1111-1111-1111-111111111111}", path = registered, kind = "source" },
+            })
+        end)
+
+        it("listed by the launcher -> launcher", function()
+            assert.are.equal("launcher", engine.GetEngineKind(launcher))
+        end)
+
+        it("registered source build -> source", function()
+            assert.are.equal("source", engine.GetEngineKind(registered))
+        end)
+
+        it("native engine -> native, even when also registered", function()
+            h.stub(engine, "NativeEngine", registered)
+            assert.are.equal("native", engine.GetEngineKind(registered))
+        end)
+
+        it("checkout directly inside clone_dir -> cloned, even when also registered", function()
+            local cloneDir = vim.fs.dirname(registered)
+            config.config({ engine_source = { clone_dir = cloneDir } })
+            assert.are.equal("cloned", engine.GetEngineKind(registered))
+        end)
+
+        it("checkout nested deeper inside clone_dir -> not cloned", function()
+            local cloneDir = h.tmpdir()
+            config.config({ engine_source = { clone_dir = cloneDir } })
+            assert.is_nil(engine.GetEngineKind(vim.fs.joinpath(cloneDir, "group", "5.4.4-release")))
+        end)
+
+        it("path with trailing slash -> still matched", function()
+            assert.are.equal("launcher", engine.GetEngineKind(launcher .. "/"))
+        end)
+
+        it("unknown folder -> nil", function()
+            assert.is_nil(engine.GetEngineKind(fake_engine()))
+        end)
+
+        for _, case in ipairs({ { "win32", "launcher" }, { "mac", "launcher" }, { "linux", nil } }) do
+            it(case[1] .. ", path in other case -> " .. tostring(case[2]), function()
+                local installed = engine.InstalledEngines
+                fake_platform(case[1])
+                h.stub(engine, "InstalledEngines", installed)
+                assert.are.equal(case[2], engine.GetEngineKind(launcher:upper()))
+            end)
+        end
+    end)
+
     describe("GetAssociatedEngine", function()
         it("EngineAssociation field -> its value", function()
             assert.are.equal("5.4", engine.GetAssociatedEngine(h.write_uproject(h.tmpdir(), "5.4")))
@@ -597,7 +651,7 @@ describe("engine", function()
             local a = fake_engine()
             use_sources({ launcher_json({ ["UE_5.4"] = a }) })
             engine.init()
-            assert.are.same({ { id = "UE_5.4", path = a } }, engine.InstalledEngines)
+            assert.are.same({ { id = "UE_5.4", path = a, kind = "launcher" } }, engine.InstalledEngines)
         end)
 
         it("Install.ini with 2 valid installs -> both paths", function()
@@ -606,6 +660,13 @@ describe("engine", function()
             engine.init()
             assert.are.equal(2, #engine.InstalledEngines)
             assert.are.same(sorted({ a, b }), installed_paths())
+        end)
+
+        it("Install.ini entries -> kind source", function()
+            local a = fake_engine()
+            use_sources({ install_ini({ ["{6F3B1A2C-0000-0000-0000-000000000000}"] = a }) })
+            engine.init()
+            assert.are.equal("source", engine.InstalledEngines[1].kind)
         end)
 
         it("invalid engine dir -> hidden, valid one kept", function()
@@ -673,6 +734,7 @@ describe("engine", function()
                 init_and_wait()
                 assert.are.same(sorted({ a, b }), installed_paths())
                 assert.are.equal(a, engine.FindEngine(guidA).path)
+                assert.are.equal("source", engine.FindEngine(guidA).kind)
             end)
 
             it("build path with spaces -> kept whole", function()
