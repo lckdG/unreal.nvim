@@ -1,6 +1,7 @@
 local system = require("unreal.system")
 local pathUtils = require("unreal.path_utils")
-local listUtils = require("unreal.helpers.list_utils")
+local jsonUtils = require("unreal.helpers.json_utils")
+local fsUtils = require("unreal.helpers.fs_utils")
 local log = require("unreal.log")
 
 local platform = system.GetPlatform()
@@ -13,26 +14,19 @@ local function readInstalledJson(path)
     local result = {}
 
     if pathUtils.Exists(path) then
-        local file = io.open(path, "r")
-        if file then
-            local content = file:read("*a")
-            file:close()
+        local ok, data = jsonUtils.ReadJson(path)
 
-            local ok, data =
-                pcall(vim.json.decode, content, { luanil = { object = true, array = true }, skip_comments = true })
+        if not ok then
+            return result
+        end
 
-            if not ok then
-                return result
-            end
+        local list = data["InstallationList"]
+        if list then
+            for _, item in ipairs(list) do
+                local name = item["AppName"]
+                local location = item["InstallLocation"]
 
-            local list = data["InstallationList"]
-            if list then
-                for _, item in ipairs(list) do
-                    local name = item["AppName"]
-                    local location = item["InstallLocation"]
-
-                    table.insert(result, { id = name, path = location, kind = "launcher" })
-                end
+                table.insert(result, { id = name, path = location, kind = "launcher" })
             end
         end
     end
@@ -157,7 +151,7 @@ function M.DiscoverNativeProjects(directory)
         if type == "file" and vim.fs.ext(name) == "uproject" then
             local projectDir = vim.fs.normalize(vim.fs.joinpath(absoluteDir, vim.fs.dirname(name)))
 
-            if not listUtils.StrContains(M.NativeProjects, projectDir, platform == "Linux") then
+            if not fsUtils.ContainsPath(M.NativeProjects, projectDir) then
                 table.insert(M.NativeProjects, projectDir)
             end
         end
@@ -330,20 +324,13 @@ function M.GetEngineVersion(engineDir)
         return default
     end
 
-    local file = io.open(versionFile, "r")
-    if file then
-        local content = file:read("*a")
-        file:close()
+    local ok, jsonData = jsonUtils.ReadJson(versionFile)
+    if ok and type(jsonData) == "table" then
+        local major = jsonData.MajorVersion or "0"
+        local minor = jsonData.MinorVersion or "0"
+        local patch = jsonData.PatchVersion or "0"
 
-        local ok, jsonData =
-            pcall(vim.json.decode, content, { luanil = { object = true, array = true }, skip_comments = true })
-        if ok and type(jsonData) == "table" then
-            local major = jsonData.MajorVersion or "0"
-            local minor = jsonData.MinorVersion or "0"
-            local patch = jsonData.PatchVersion or "0"
-
-            return table.concat({ major, minor, patch }, ".")
-        end
+        return table.concat({ major, minor, patch }, ".")
     end
 
     return default
@@ -372,9 +359,7 @@ function M.ResolveEngine(uprojectPath)
         return installed.path, "associated"
     end
 
-    if
-        M.NativeEngine and listUtils.StrContains(M.NativeProjects, vim.fs.dirname(uprojectPath), platform == "Linux")
-    then
+    if M.NativeEngine and fsUtils.ContainsPath(M.NativeProjects, vim.fs.dirname(uprojectPath)) then
         return M.NativeEngine, "native"
     end
 
@@ -392,16 +377,12 @@ end
 ---@param engineDir string
 ---@return ("native"|"launcher"|"cloned"|"source")?
 function M.GetEngineKind(engineDir)
-    local function same(a, b)
-        return listUtils.StrContains({ vim.fs.normalize(a) }, vim.fs.normalize(b), platform == "Linux")
-    end
-
-    if M.NativeEngine and same(M.NativeEngine, engineDir) then
+    if M.NativeEngine and fsUtils.PathEquals(M.NativeEngine, engineDir) then
         return "native"
     end
 
     local entry = vim.iter(M.InstalledEngines or {}):find(function(item)
-        return same(item.path, engineDir)
+        return fsUtils.PathEquals(item.path, engineDir)
     end)
     if entry and entry.kind == "launcher" then
         return "launcher"
@@ -409,7 +390,7 @@ function M.GetEngineKind(engineDir)
 
     local config = require("unreal.config")
     local cloneDir = (config.opts or config.defaults).engine_source.clone_dir
-    if cloneDir and same(cloneDir, vim.fs.dirname(vim.fs.normalize(engineDir))) then
+    if cloneDir and fsUtils.PathEquals(cloneDir, vim.fs.dirname(vim.fs.normalize(engineDir))) then
         return "cloned"
     end
 
@@ -439,17 +420,9 @@ function M.FindEngineTools(uprojectPath, callback)
 end
 
 function M.GetAssociatedEngine(uprojectPath)
-    local file = io.open(uprojectPath, "r")
-    if file then
-        local content = file:read("*a")
-        file:close()
-
-        local ok, data =
-            pcall(vim.json.decode, content, { luanil = { object = true, array = true }, skip_comments = true })
-
-        if ok then
-            return data.EngineAssociation
-        end
+    local ok, data = jsonUtils.ReadJson(uprojectPath)
+    if ok then
+        return data.EngineAssociation
     end
 
     return nil
