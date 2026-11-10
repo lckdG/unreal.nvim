@@ -338,6 +338,72 @@ describe("engine", function()
             answer(h.tmpdir())
             assert.is_nil(find())
         end)
+
+        describe("native engine", function()
+            local native
+
+            before_each(function()
+                native = fake_engine()
+                local project = vim.fs.joinpath(native, "Games/MyGame")
+                uproject = h.write_uproject(project, "5.4")
+                h.stub(engine, "NativeEngine", native)
+                h.stub(engine, "NativeProjects", { project })
+            end)
+
+            it("uproject in native project -> native engine tools, no prompt", function()
+                assert.are.equal(native, find().RootDir)
+                assert.are.equal(0, #prompts)
+            end)
+
+            it("no EngineAssociation in native project -> native engine tools, no prompt", function()
+                uproject = h.write_uproject(vim.fs.dirname(uproject), nil)
+                assert.are.equal(native, find().RootDir)
+                assert.are.equal(0, #prompts)
+            end)
+
+            it("associated launcher engine also installed -> native engine wins", function()
+                h.stub(engine, "InstalledEngines", { { id = "UE_5.4", path = fake_engine() } })
+                assert.are.equal(native, find().RootDir)
+            end)
+
+            it("override set -> override wins over native engine", function()
+                local root = fake_engine()
+                engine.OverrideEnginePath = root
+                assert.are.equal(root, find().RootDir)
+            end)
+
+            it("uproject outside native projects -> associated launcher engine", function()
+                local root = fake_engine()
+                h.stub(engine, "InstalledEngines", { { id = "UE_5.4", path = root } })
+                uproject = h.write_uproject(h.tmpdir(), "5.4")
+                assert.are.equal(root, find().RootDir)
+                assert.are.equal(0, #prompts)
+            end)
+
+            it("uproject in unlisted folder inside engine -> prompt", function()
+                uproject = h.write_uproject(vim.fs.joinpath(native, "Unlisted/Other"), nil)
+                assert.is_nil(find())
+                assert.are.equal(1, #prompts)
+            end)
+
+            it("no native projects found -> prompt", function()
+                engine.NativeProjects = {}
+                uproject = h.write_uproject(vim.fs.dirname(uproject), nil)
+                assert.is_nil(find())
+                assert.are.equal(1, #prompts)
+            end)
+
+            it("found by init from inside the native project -> native engine tools", function()
+                h.stub(pathUtils, "FindEngineInstalledFiles", function()
+                    return {}
+                end)
+                h.write(native, "Default.uprojectdirs", { "Games/" })
+                vim.cmd.cd(vim.fn.fnameescape(vim.fs.dirname(uproject)))
+                engine.init()
+                assert.are.equal(native, find().RootDir)
+                assert.are.equal(0, #prompts)
+            end)
+        end)
     end)
 
     describe("GetExecuteCmd", function()
@@ -615,6 +681,197 @@ describe("engine", function()
             engine.init()
             engine.init()
             assert.are.same({ a }, installed_paths())
+        end)
+    end)
+
+    describe("native engine", function()
+        before_each(function()
+            h.stub(engine, "NativeEngine", nil)
+            h.stub(engine, "NativeProjects", nil)
+            h.stub(pathUtils, "FindEngineInstalledFiles", function()
+                return {}
+            end)
+        end)
+
+        describe("NativeEngine", function()
+            for _, marker in ipairs({
+                "Default.uprojectdirs",
+                "Setup.sh",
+                "Setup.bat",
+                "GenerateProjectFiles.sh",
+                "GenerateProjectFiles.bat",
+            }) do
+                it("cwd at engine root with " .. marker .. " -> engine root", function()
+                    local root = h.project({ [marker] = {} })
+                    engine.init()
+                    assert.are.equal(root, engine.NativeEngine)
+                end)
+            end
+
+            it("cwd inside native project -> engine root", function()
+                local source = "Games/MyGame/Source/MyGame"
+                local root = h.project({
+                    ["Default.uprojectdirs"] = { "Games/" },
+                    [source .. "/MyGame.cpp"] = {},
+                })
+                vim.cmd.cd(vim.fn.fnameescape(vim.fs.joinpath(root, source)))
+                engine.init()
+                assert.are.equal(root, engine.NativeEngine)
+            end)
+
+            it("cwd outside any engine -> nil", function()
+                h.project({})
+                engine.init()
+                assert.is_nil(engine.NativeEngine)
+            end)
+        end)
+
+        describe("NativeProjects", function()
+            local function sorted_projects()
+                local projects = engine.NativeProjects
+                table.sort(projects)
+                return projects
+            end
+
+            local function absolute(root, dirs)
+                return vim.tbl_map(function(dir)
+                    return vim.fs.joinpath(root, dir)
+                end, dirs)
+            end
+
+            local function parse(files)
+                local root = files and h.project(files)
+                engine.NativeEngine = root
+                engine.ParseNativeProjects()
+                return sorted_projects(), root
+            end
+
+            for _, case in ipairs({
+                {
+                    "entry folder with 2 projects -> both, absolute paths",
+                    {
+                        ["Default.uprojectdirs"] = { "Games/" },
+                        ["Games/MyGame/MyGame.uproject"] = { "{}" },
+                        ["Games/Other/Other.uproject"] = { "{}" },
+                    },
+                    { "Games/MyGame", "Games/Other" },
+                },
+                {
+                    "entry without trailing slash -> same result",
+                    { ["Default.uprojectdirs"] = { "Games" }, ["Games/MyGame/MyGame.uproject"] = { "{}" } },
+                    { "Games/MyGame" },
+                },
+                {
+                    "./ entry -> project folders at engine root",
+                    { ["Default.uprojectdirs"] = { "./" }, ["MyGame/MyGame.uproject"] = { "{}" } },
+                    { "MyGame" },
+                },
+                {
+                    "several entries -> projects from all",
+                    {
+                        ["Default.uprojectdirs"] = { "Games/", "Samples/" },
+                        ["Games/MyGame/MyGame.uproject"] = { "{}" },
+                        ["Samples/Lyra/Lyra.uproject"] = { "{}" },
+                    },
+                    { "Games/MyGame", "Samples/Lyra" },
+                },
+                {
+                    "several .uprojectdirs files -> projects from all",
+                    {
+                        ["Default.uprojectdirs"] = { "Games/" },
+                        ["Studio.uprojectdirs"] = { "Samples/" },
+                        ["Games/MyGame/MyGame.uproject"] = { "{}" },
+                        ["Samples/Lyra/Lyra.uproject"] = { "{}" },
+                    },
+                    { "Games/MyGame", "Samples/Lyra" },
+                },
+                {
+                    "same folder listed twice -> project listed once",
+                    {
+                        ["Default.uprojectdirs"] = { "Games/", "Games/" },
+                        ["Studio.uprojectdirs"] = { "Games/" },
+                        ["Games/MyGame/MyGame.uproject"] = { "{}" },
+                    },
+                    { "Games/MyGame" },
+                },
+                {
+                    "comments, blank lines and whitespace -> skipped or trimmed",
+                    {
+                        ["Default.uprojectdirs"] = {
+                            "; These folders will be searched for .uproject files",
+                            "",
+                            "   ",
+                            "; Samples/",
+                            "  Games/\t",
+                        },
+                        ["Games/MyGame/MyGame.uproject"] = { "{}" },
+                        ["Samples/Lyra/Lyra.uproject"] = { "{}" },
+                    },
+                    { "Games/MyGame" },
+                },
+                {
+                    "folders without .uproject -> skipped",
+                    {
+                        ["Default.uprojectdirs"] = { "Games/" },
+                        ["Games/MyGame/MyGame.uproject"] = { "{}" },
+                        ["Games/Assets/README.md"] = {},
+                        ["Games/Notes.txt"] = {},
+                    },
+                    { "Games/MyGame" },
+                },
+                {
+                    "project nested deeper than one folder -> not found",
+                    {
+                        ["Default.uprojectdirs"] = { "Games/" },
+                        ["Games/Group/MyGame/MyGame.uproject"] = { "{}" },
+                    },
+                    {},
+                },
+                {
+                    "listed folder missing on disk -> skipped",
+                    {
+                        ["Default.uprojectdirs"] = { "Missing/", "Games/" },
+                        ["Games/MyGame/MyGame.uproject"] = { "{}" },
+                    },
+                    { "Games/MyGame" },
+                },
+                {
+                    ".uprojectdirs in a subfolder -> ignored",
+                    {
+                        ["Engine/Other.uprojectdirs"] = { "Games/" },
+                        ["Games/MyGame/MyGame.uproject"] = { "{}" },
+                    },
+                    {},
+                },
+                {
+                    "engine without .uprojectdirs -> empty",
+                    { ["Setup.sh"] = {}, ["Games/MyGame/MyGame.uproject"] = { "{}" } },
+                    {},
+                },
+                { "no native engine -> empty", nil, {} },
+            }) do
+                it(case[1], function()
+                    local projects, root = parse(case[2])
+                    assert.are.same(absolute(root, case[3]), projects)
+                end)
+            end
+
+            it("init from inside a native project -> absolute paths under engine root", function()
+                local root = h.project({
+                    ["Default.uprojectdirs"] = { "Games/" },
+                    ["Games/MyGame/MyGame.uproject"] = { "{}" },
+                    ["Games/MyGame/Source/MyGame/MyGame.cpp"] = {},
+                })
+                vim.cmd.cd(vim.fn.fnameescape(vim.fs.joinpath(root, "Games/MyGame/Source/MyGame")))
+                engine.init()
+                assert.are.same({ vim.fs.joinpath(root, "Games/MyGame") }, sorted_projects())
+            end)
+
+            it("init outside any engine -> nil", function()
+                h.project({ ["Games/MyGame/MyGame.uproject"] = { "{}" } })
+                engine.init()
+                assert.is_nil(engine.NativeProjects)
+            end)
         end)
     end)
 end)
