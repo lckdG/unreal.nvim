@@ -95,11 +95,64 @@ end
 --#endregion
 
 local M = {}
+M.NativeEngine = nil
+M.NativeProjects = nil
+
 M.OverrideEnginePath = nil
 
 function M.init()
+    M.reset()
+
     local files = pathUtils.FindEngineInstalledFiles()
     M.FindInstalled(files)
+end
+
+function M.reset()
+    M.OverrideEnginePath = nil
+
+    M.NativeEngine = nil
+    M.NativeProjects = nil
+
+    local relativeEngineRoot = pathUtils.FindRelativeEngineRoot()
+    if relativeEngineRoot ~= nil then
+        M.NativeEngine = relativeEngineRoot
+        M.ParseNativeProjects()
+    end
+end
+
+function M.ParseNativeProjects()
+    M.NativeProjects = {}
+
+    local filePaths = pathUtils.GetUprojectdirsFiles(M.NativeEngine)
+    for _, filePath in ipairs(filePaths) do
+        local file = io.open(filePath, "r")
+        if file then
+            for line in file:lines() do
+                line = vim.trim(line)
+                if line ~= "" and line:sub(1, 1) ~= ";" then
+                    M.DiscoverNativeProjects(line)
+                end
+            end
+
+            file:close()
+        end
+    end
+end
+
+function M.DiscoverNativeProjects(directory)
+    if not M.NativeEngine then
+        return
+    end
+
+    local absoluteDir = vim.fs.normalize(vim.fs.joinpath(M.NativeEngine, directory))
+    for name, type in vim.fs.dir(absoluteDir, { depth = 2 }) do
+        if type == "file" and vim.fs.ext(name) == "uproject" then
+            local projectDir = vim.fs.normalize(vim.fs.joinpath(absoluteDir, vim.fs.dirname(name)))
+            if not vim.list_contains(M.NativeProjects, projectDir) then
+                table.insert(M.NativeProjects, projectDir)
+            end
+        end
+    end
 end
 
 ---Find installed engine directories from config/registry files
@@ -299,8 +352,15 @@ end
 ---@param uprojectPath string
 ---@param callback fun(tools: unreal.EngineTools?)
 function M.FindEngineTools(uprojectPath, callback)
+    uprojectPath = vim.fs.normalize(uprojectPath)
+
     if M.OverrideEnginePath ~= nil then
         callback(M.RetrieveTools(M.OverrideEnginePath))
+        return
+    end
+
+    if M.NativeEngine and vim.list_contains(M.NativeProjects, vim.fs.dirname(uprojectPath)) then
+        callback(M.RetrieveTools(M.NativeEngine))
         return
     end
 
