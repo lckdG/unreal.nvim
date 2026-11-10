@@ -31,7 +31,7 @@ local function readInstalledJson(path)
                     local name = item["AppName"]
                     local location = item["InstallLocation"]
 
-                    table.insert(result, { id = name, path = location })
+                    table.insert(result, { id = name, path = location, kind = "launcher" })
                 end
             end
         end
@@ -57,7 +57,7 @@ local function readInstalledIni(path)
                 elseif startRead then
                     local key, val = line:match("^([^=]+)=(.*)$")
                     if key and val then
-                        table.insert(result, { id = key, path = val })
+                        table.insert(result, { id = key, path = val, kind = "source" })
                     end
                 end
             end
@@ -84,7 +84,7 @@ local function readInstalledReg(path, cb)
                     -- Line format: <BUILD_ID> REG_SZ <LOCATION>
                     local id, location = line:match("^(%S+)%s+REG_SZ%s+(.*)$")
                     if id then
-                        table.insert(result, { id = id, path = location })
+                        table.insert(result, { id = id, path = location, kind = "source" })
                     end
                 end
             end
@@ -343,34 +343,81 @@ end
 
 -----------------------------------
 
----Find the engine tools (editor, UnrealBuildTool's `RunUBT` script) for a project and pass them to `callback`.
----Order: the folder from `:Unreal Engine SetPath`; then the installed engine named by the
----`.uproject`'s `EngineAssociation` field (e.g. `"5.4"`, matching the launcher's `UE_5.4`);
----otherwise it asks for a folder. The typed folder is not remembered.
----`callback(nil)` when the prompt is cancelled or the folder is not a valid engine.
+---Which engine folder a project uses, without asking. Order:
+---1. the folder from `:Unreal Engine SetPath`;
+---2. the installed engine named by the `.uproject`'s `EngineAssociation` field
+---   (e.g. `"5.4"`, matching the launcher's `UE_5.4`, or a source build's ID);
+---3. the native engine: the engine the working directory is inside, when the `.uproject`'s
+---   folder is one of the projects listed through its `.uprojectdirs` files.
 ---@param uprojectPath string
----@param callback fun(tools: unreal.EngineTools?)
-function M.FindEngineTools(uprojectPath, callback)
-    uprojectPath = vim.fs.normalize(uprojectPath)
-
+---@return string? engineDir nil when none of the three applies
+---@return ("override"|"associated"|"native")? foundBy which step found it
+function M.ResolveEngine(uprojectPath)
     if M.OverrideEnginePath ~= nil then
-        callback(M.RetrieveTools(M.OverrideEnginePath))
-        return
+        return M.OverrideEnginePath, "override"
     end
 
-    local engineId = M.GetAssociatedEngine(uprojectPath)
-    if engineId ~= nil then
-        local engine = M.FindEngine(engineId)
-        if engine then
-            callback(M.RetrieveTools(engine.path))
-            return
-        end
+    uprojectPath = vim.fs.normalize(uprojectPath)
+
+    local installed = M.FindEngine(M.GetAssociatedEngine(uprojectPath))
+    if installed then
+        return installed.path, "associated"
     end
 
     if
         M.NativeEngine and listUtils.StrContains(M.NativeProjects, vim.fs.dirname(uprojectPath), platform == "Linux")
     then
-        callback(M.RetrieveTools(M.NativeEngine))
+        return M.NativeEngine, "native"
+    end
+
+    return nil, nil
+end
+
+---How an engine folder got onto this machine:
+---- `"native"`: source build that the working directory is inside (see `NativeEngine`);
+---- `"launcher"`: installed by the Epic Games Launcher (listed in `LauncherInstalled.dat`);
+---- `"cloned"`: source checkout directly inside `engine_source.clone_dir`,
+---  e.g. one made by `:Unreal Engine Checkout`;
+---- `"source"`: any other source build registered on this machine
+---  (`Install.ini` on Linux, the registry on Windows);
+---- `nil`: none of the above, e.g. a `:Unreal Engine SetPath` folder nothing knows about.
+---@param engineDir string
+---@return ("native"|"launcher"|"cloned"|"source")?
+function M.GetEngineKind(engineDir)
+    local function same(a, b)
+        return listUtils.StrContains({ vim.fs.normalize(a) }, vim.fs.normalize(b), platform == "Linux")
+    end
+
+    if M.NativeEngine and same(M.NativeEngine, engineDir) then
+        return "native"
+    end
+
+    local entry = vim.iter(M.InstalledEngines or {}):find(function(item)
+        return same(item.path, engineDir)
+    end)
+    if entry and entry.kind == "launcher" then
+        return "launcher"
+    end
+
+    local config = require("unreal.config")
+    local cloneDir = (config.opts or config.defaults).engine_source.clone_dir
+    if cloneDir and same(cloneDir, vim.fs.dirname(vim.fs.normalize(engineDir))) then
+        return "cloned"
+    end
+
+    return entry and "source" or nil
+end
+
+---Find the engine tools (editor, UnrealBuildTool's `RunUBT` script) for a project and pass them to `callback`.
+---Uses the engine from `ResolveEngine`; when there is none, it asks for a folder.
+---The typed folder is not remembered.
+---`callback(nil)` when the prompt is cancelled or the folder is not a valid engine.
+---@param uprojectPath string
+---@param callback fun(tools: unreal.EngineTools?)
+function M.FindEngineTools(uprojectPath, callback)
+    local engineDir = M.ResolveEngine(uprojectPath)
+    if engineDir then
+        callback(M.RetrieveTools(engineDir))
         return
     end
 

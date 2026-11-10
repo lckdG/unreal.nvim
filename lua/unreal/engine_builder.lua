@@ -89,6 +89,10 @@ local function getBuildScripts(sourceDir)
     }
 end
 
+---Paths of the scripts `:Unreal Engine Build` runs in a source checkout
+---(`Setup`, `GenerateProjectFiles`, `Build`), whether they exist or not.
+EngineBuilder.GetBuildScripts = getBuildScripts
+
 local function isSourceDirValid(sourceDir)
     local pathUtils = require("unreal.path_utils")
 
