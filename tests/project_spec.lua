@@ -1,8 +1,8 @@
 local h = dofile("tests/helpers.lua")
+h.fake_platform("Linux")
 local config = require("unreal.config")
 local engine = require("unreal.engine")
 local project = require("unreal.project")
-local system = require("unreal.system")
 local realFindEngineTools = engine.FindEngineTools
 
 local ERROR = vim.log.levels.ERROR
@@ -143,9 +143,7 @@ describe("project", function()
         it("real engine tree missing editor binary on Linux -> error, no jobstart", function()
             h.project({ ["Game.uproject"] = {} })
             real_engine({ UBT })
-            h.stub(system, "GetPlatform", function()
-                return "Linux"
-            end)
+            h.fake_platform("Linux")
             local jobs = h.spy(vim.fn, "jobstart", 1)
             project.OpenUproject()
             assert.are.equal(0, #jobs)
@@ -228,9 +226,7 @@ describe("project", function()
 
         it("runs RunUBT via jobstart in a terminal with an argument list", function()
             local root = h.project({ ["Game.uproject"] = {} })
-            h.stub(system, "GetPlatform", function()
-                return "Linux"
-            end)
+            h.fake_platform("Linux")
             config.opts.clangd_build_args = { "-NoExecCodeGenActions" }
             local state = run(0)
             assert.are.same({
@@ -324,9 +320,7 @@ describe("project", function()
     describe("BuildEditor", function()
         before_each(function()
             vim.fn.setqflist({}, "f")
-            h.stub(system, "GetPlatform", function()
-                return "Linux"
-            end)
+            h.fake_platform("Linux")
         end)
 
         local function run(code, chunks)
@@ -452,9 +446,7 @@ describe("project", function()
         end)
 
         it("Win64 -> MSVC error lines in quickfix", function()
-            h.stub(system, "GetPlatform", function()
-                return "Win64"
-            end)
+            h.fake_platform("Win64")
             h.project({ ["Game.uproject"] = {} })
             run(6, {
                 {
@@ -474,9 +466,7 @@ describe("project", function()
     describe("BuildEditorClean", function()
         before_each(function()
             vim.fn.setqflist({}, "f")
-            h.stub(system, "GetPlatform", function()
-                return "Linux"
-            end)
+            h.fake_platform("Linux")
         end)
 
         local function run(code, chunks)

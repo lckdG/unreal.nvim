@@ -156,12 +156,6 @@ describe("path_utils", function()
             end
         end)
 
-        local function on(platform)
-            h.stub(require("unreal.system"), "GetPlatform", function()
-                return platform
-            end)
-        end
-
         local TAIL = "Unreal Engine/UnrealBuildTool/BuildConfiguration.xml"
 
         it("project file sits next to the uproject", function()
@@ -173,7 +167,7 @@ describe("path_utils", function()
 
         for _, platform in ipairs({ "Linux", "Mac" }) do
             it(platform .. " -> ~/.config user file", function()
-                on(platform)
+                h.fake_platform(platform)
                 assert.are.same(
                     { { name = "User Config", value = "/home/u/.config/" .. TAIL } },
                     pathUtils.GetUserBuildConfig()
@@ -182,7 +176,7 @@ describe("path_utils", function()
         end
 
         it("Win64 -> AppData and Documents user files", function()
-            on("Win64")
+            h.fake_platform("Win64")
             assert.are.same({
                 { name = "User AppData Config", value = "C:/Users/u/AppData/Roaming/" .. TAIL },
                 { name = "User Document Config", value = "C:/Users/u/Documents/" .. TAIL },
@@ -190,7 +184,9 @@ describe("path_utils", function()
         end)
 
         it("unknown platform -> nil", function()
-            on("Unknown")
+            h.stub(require("unreal.system"), "GetPlatform", function()
+                return "Unknown"
+            end)
             assert.is_nil(pathUtils.GetUserBuildConfig())
         end)
     end)

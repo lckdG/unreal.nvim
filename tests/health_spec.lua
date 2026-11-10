@@ -1,4 +1,6 @@
 local h = dofile("tests/helpers.lua")
+h.fake_platform("Linux")
+require("unreal.engine")
 
 describe("health", function()
     local report
@@ -69,9 +71,7 @@ describe("health", function()
         end
 
         local function engine_with(files)
-            h.stub(require("unreal.system"), "GetPlatform", function()
-                return "Linux"
-            end)
+            h.fake_platform("Linux")
             local root = h.tmpdir()
             for _, f in ipairs(files) do
                 h.write(root, f)

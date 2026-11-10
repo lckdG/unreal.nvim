@@ -1,7 +1,7 @@
 local M = {}
 
 M.repo_root = vim.fn.getcwd()
-M.UBT = "Engine/Build/BatchFiles/RunUBT" .. (vim.fn.has("win32") == 1 and ".bat" or ".sh")
+M.UBT = "Engine/Build/BatchFiles/RunUBT.sh"
 M.VERSION_FILE = "Engine/Build/Build.version"
 
 local stubs = {}
@@ -22,6 +22,19 @@ function M.spy(tbl, key, ret)
         return ret
     end)
     return calls
+end
+
+local has = vim.fn.has
+local FEATURES = { Linux = "linux", Mac = "mac", Win64 = "win32" }
+
+function M.fake_platform(platform)
+    local feature = FEATURES[platform] or platform
+    M.stub(vim.fn, "has", function(name)
+        if name == "win32" or name == "linux" or name == "mac" then
+            return name == feature and 1 or 0
+        end
+        return has(name)
+    end)
 end
 
 function M.notifications()

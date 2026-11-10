@@ -1,4 +1,6 @@
 local h = dofile("tests/helpers.lua")
+h.fake_platform("Linux")
+require("unreal.engine")
 local config = require("unreal.config")
 local system = require("unreal.system")
 local builder = require("unreal.engine_builder")
@@ -289,9 +291,7 @@ describe("engine_builder.Build", function()
         cloneDir = h.tmpdir()
         config.config({ engine_source = { clone_dir = cloneDir } })
         notes = h.notifications()
-        h.stub(system, "GetPlatform", function()
-            return "Linux"
-        end)
+        h.fake_platform("Linux")
         initCalls = h.spy(require("unreal.engine"), "init")
         use_confirm(1)
     end)
@@ -366,9 +366,7 @@ describe("engine_builder.Build", function()
 
     for _, platform in ipairs({ "Linux", "Mac", "Win64" }) do
         it(platform .. " -> Setup && GenerateProjectFiles && Build UnrealEditor, run from the checkout", function()
-            h.stub(system, "GetPlatform", function()
-                return platform
-            end)
+            h.fake_platform(platform)
             local dir = checkout("5.4.4-release", platform)
             use_select(1)
             local state = run()

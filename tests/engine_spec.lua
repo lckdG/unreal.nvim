@@ -1,11 +1,18 @@
 local h = dofile("tests/helpers.lua")
 
 local config = require("unreal.config")
-local engine = require("unreal.engine")
 local system = require("unreal.system")
 local pathUtils = require("unreal.path_utils")
 
 local UBT = h.UBT
+
+local engine
+
+local function fake_platform(feature)
+    h.fake_platform(feature)
+    package.loaded["unreal.engine"] = nil
+    engine = require("unreal.engine")
+end
 
 local function fake_engine()
     local root = h.tmpdir()
@@ -18,6 +25,7 @@ describe("engine", function()
     local notes
 
     before_each(function()
+        fake_platform("linux")
         config.config()
         notes = h.notifications()
         h.stub(engine, "OverrideEnginePath", nil)
@@ -190,9 +198,6 @@ describe("engine", function()
         end
 
         before_each(function()
-            h.stub(system, "GetPlatform", function()
-                return "Linux"
-            end)
             h.stub(vim.fn, "executable", function()
                 return 0
             end)
@@ -350,7 +355,7 @@ describe("engine", function()
                 h.stub(engine, "NativeProjects", { project })
             end)
 
-            it("uproject in native project -> native engine tools, no prompt", function()
+            it("associated engine not installed -> native engine tools, no prompt", function()
                 assert.are.equal(native, find().RootDir)
                 assert.are.equal(0, #prompts)
             end)
@@ -361,10 +366,38 @@ describe("engine", function()
                 assert.are.equal(0, #prompts)
             end)
 
-            it("associated launcher engine also installed -> native engine wins", function()
-                h.stub(engine, "InstalledEngines", { { id = "UE_5.4", path = fake_engine() } })
-                assert.are.equal(native, find().RootDir)
+            it("associated launcher engine installed -> associated engine wins over native", function()
+                local root = fake_engine()
+                h.stub(engine, "InstalledEngines", { { id = "UE_5.4", path = root } })
+                assert.are.equal(root, find().RootDir)
+                assert.are.equal(0, #prompts)
             end)
+
+            it("associated source build registered -> associated engine wins over native", function()
+                local root = fake_engine()
+                local guid = "{11111111-1111-1111-1111-111111111111}"
+                h.stub(engine, "InstalledEngines", { { id = guid, path = root } })
+                uproject = h.write_uproject(vim.fs.dirname(uproject), guid)
+                assert.are.equal(root, find().RootDir)
+            end)
+
+            for _, case in ipairs({ { "win32", true }, { "mac", true }, { "linux", false } }) do
+                local feature, matched = case[1], case[2]
+                it(
+                    feature .. ", uproject path in other case -> " .. (matched and "native engine" or "prompt"),
+                    function()
+                        local projects = engine.NativeProjects
+                        fake_platform(feature)
+                        h.stub(engine, "NativeEngine", native)
+                        h.stub(engine, "NativeProjects", projects)
+                        h.stub(engine, "InstalledEngines", {})
+                        uproject = vim.fs.joinpath(native, "GAMES/MYGAME/Game.uproject")
+                        local tools = find()
+                        assert.are.equal(matched and native or nil, tools and tools.RootDir)
+                        assert.are.equal(matched and 0 or 1, #prompts)
+                    end
+                )
+            end
 
             it("override set -> override wins over native engine", function()
                 local root = fake_engine()
@@ -414,9 +447,7 @@ describe("engine", function()
         }
 
         local function on(feature, systemdRun)
-            h.stub(vim.fn, "has", function(name)
-                return name == feature and 1 or 0
-            end)
+            fake_platform(feature)
             h.stub(vim.fn, "executable", function(name)
                 return (systemdRun and name == "systemd-run") and 1 or 0
             end)
@@ -853,6 +884,18 @@ describe("engine", function()
                 it(case[1], function()
                     local projects, root = parse(case[2])
                     assert.are.same(absolute(root, case[3]), projects)
+                end)
+            end
+
+            for _, case in ipairs({ { "linux", 2 }, { "win32", 1 }, { "mac", 1 } }) do
+                it(case[1] .. ", folders differing only in case -> " .. case[2] .. " project(s)", function()
+                    fake_platform(case[1])
+                    local projects = parse({
+                        ["Default.uprojectdirs"] = { "Games/" },
+                        ["Games/MyGame/MyGame.uproject"] = { "{}" },
+                        ["Games/mygame/mygame.uproject"] = { "{}" },
+                    })
+                    assert.are.equal(case[2], #projects)
                 end)
             end
 
