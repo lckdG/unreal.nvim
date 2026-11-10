@@ -97,7 +97,15 @@ end
 --#endregion
 
 local M = {}
+
+---Engine source tree the working directory is inside; its projects (native projects)
+---use it without needing `EngineAssociation`. nil outside an engine tree.
+---@type string?
 M.NativeEngine = nil
+
+---Absolute folders of the native projects, found through the engine's `.uprojectdirs` files
+---(e.g. `/ue/Games/MyGame`). nil without a native engine.
+---@type string[]?
 M.NativeProjects = nil
 
 M.OverrideEnginePath = nil
