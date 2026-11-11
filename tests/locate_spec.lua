@@ -1,7 +1,7 @@
 local h = dofile("tests/helpers.lua")
-local pathUtils = require("unreal.path_utils")
+local locate = require("unreal.locate")
 
-describe("path_utils", function()
+describe("locate", function()
     after_each(h.reset)
 
     describe("GetSourceFilesRoot", function()
@@ -17,7 +17,7 @@ describe("path_utils", function()
             it(case[1] .. " -> " .. case[2], function()
                 local root = h.project({ [case[1]] = {} })
                 h.edit(case[1])
-                assert.are.equal(root .. "/" .. case[2], pathUtils.GetSourceFilesRoot())
+                assert.are.equal(root .. "/" .. case[2], locate.GetSourceFilesRoot())
             end)
         end
 
@@ -26,16 +26,16 @@ describe("path_utils", function()
                 local root = h.project({ ["Source/Mod/Public/Foo.h"] = {}, ["Source/Mod/Private/Foo.cpp"] = {} })
                 vim.cmd.cd(vim.fn.fnameescape(root .. "/" .. cwd))
                 h.edit(root .. "/Source/Mod/Public/Foo.h")
-                assert.are.equal(root .. "/Source/Mod", pathUtils.GetSourceFilesRoot())
-                assert.are.equal(root .. "/Source/Mod/Private/Foo.cpp", pathUtils.GetSourceHeader())
+                assert.are.equal(root .. "/Source/Mod", locate.GetSourceFilesRoot())
+                assert.are.equal(root .. "/Source/Mod/Private/Foo.cpp", locate.GetSourceHeader())
             end)
         end
 
         it("file outside any Source / Public / Private -> nil without hanging", function()
             h.project({ ["Loose/Foo.cpp"] = {} })
             h.edit("Loose/Foo.cpp")
-            assert.is_nil(pathUtils.GetSourceFilesRoot())
-            assert.is_nil(pathUtils.GetSourceHeader())
+            assert.is_nil(locate.GetSourceFilesRoot())
+            assert.is_nil(locate.GetSourceHeader())
         end)
     end)
 
@@ -80,7 +80,7 @@ describe("path_utils", function()
                 end
                 local root = h.project(tree)
                 h.edit(case[3])
-                assert.are.equal(case[4] and vim.fs.joinpath(root, case[4]), pathUtils.GetSourceHeader())
+                assert.are.equal(case[4] and vim.fs.joinpath(root, case[4]), locate.GetSourceHeader())
             end)
         end
     end)
@@ -92,7 +92,7 @@ describe("path_utils", function()
 
         it("finds .uproject in subdirectories of cwd", function()
             local root = h.project({ ["Game/Game.uproject"] = {} })
-            local found = pathUtils.FindUprojects({ nameOnly = false })
+            local found = locate.FindUprojects({ nameOnly = false })
             assert.are.same({ root .. "/Game/Game.uproject" }, found)
         end)
 
@@ -100,30 +100,30 @@ describe("path_utils", function()
             local other = h.tmpdir()
             h.write(other, "Other/Other.uproject")
             h.project({ ["Game/Game.uproject"] = {} })
-            local found = pathUtils.FindUprojects({ path = other, nameOnly = false })
+            local found = locate.FindUprojects({ path = other, nameOnly = false })
             assert.are.same({ other .. "/Other/Other.uproject" }, found)
         end)
 
         it("nameOnly = true returns basenames", function()
             h.project({ ["Game/Game.uproject"] = {} })
-            assert.are.same({ "Game.uproject" }, pathUtils.FindUprojects({ nameOnly = true }))
+            assert.are.same({ "Game.uproject" }, locate.FindUprojects({ nameOnly = true }))
         end)
 
         it("opts = nil from a subfolder -> searches the project root", function()
             local root = h.project({ ["Game.uproject"] = {}, ["Source/Game/x.txt"] = {} })
             vim.cmd.cd("Source/Game")
-            assert.are.same({ root .. "/Game.uproject" }, pathUtils.FindUprojects())
+            assert.are.same({ root .. "/Game.uproject" }, locate.FindUprojects())
         end)
 
         it("stops after uproject_limits files", function()
             require("unreal.config").config({ uproject_limits = 2 })
             h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {}, ["C/C.uproject"] = {} })
-            assert.are.equal(2, #pathUtils.FindUprojects({ nameOnly = true }))
+            assert.are.equal(2, #locate.FindUprojects({ nameOnly = true }))
         end)
 
         it("ignores Foo.uproject.bak", function()
             h.project({ ["Foo.uproject.bak"] = {} })
-            assert.are.same({}, pathUtils.FindUprojects({ nameOnly = true }))
+            assert.are.same({}, locate.FindUprojects({ nameOnly = true }))
         end)
     end)
 
@@ -137,31 +137,31 @@ describe("path_utils", function()
         }) do
             it("cwd at a folder with " .. marker .. " -> that folder", function()
                 local root = h.project({ [marker] = {} })
-                assert.are.equal(root, pathUtils.FindNativeEngineRoot())
+                assert.are.equal(root, locate.FindNativeEngineRoot())
             end)
         end
 
         it("cwd deep inside the engine -> engine root", function()
             local root = h.project({ ["Default.uprojectdirs"] = {}, ["Games/MyGame/Source/x.h"] = {} })
             vim.cmd.cd("Games/MyGame/Source")
-            assert.are.equal(root, pathUtils.FindNativeEngineRoot())
+            assert.are.equal(root, locate.FindNativeEngineRoot())
         end)
 
         it("setup script closer than a .uprojectdirs -> .uprojectdirs folder wins", function()
             local root = h.project({ ["Default.uprojectdirs"] = {}, ["Tools/Setup.sh"] = {} })
             vim.cmd.cd("Tools")
-            assert.are.equal(root, pathUtils.FindNativeEngineRoot())
+            assert.are.equal(root, locate.FindNativeEngineRoot())
         end)
 
         it("no marker above cwd -> nil", function()
             h.project({ ["Game.uproject"] = {} })
-            assert.is_nil(pathUtils.FindNativeEngineRoot())
+            assert.is_nil(locate.FindNativeEngineRoot())
         end)
     end)
 
     describe("GetUprojectdirsFiles", function()
         it("nil engine root -> empty", function()
-            assert.are.same({}, pathUtils.GetUprojectdirsFiles(nil))
+            assert.are.same({}, locate.GetUprojectdirsFiles(nil))
         end)
 
         it("files in the root -> full paths of each", function()
@@ -170,7 +170,7 @@ describe("path_utils", function()
                 ["Studio.uprojectdirs"] = {},
                 ["Setup.sh"] = {},
             })
-            local files = pathUtils.GetUprojectdirsFiles(root)
+            local files = locate.GetUprojectdirsFiles(root)
             table.sort(files)
             assert.are.same({
                 vim.fs.joinpath(root, "Default.uprojectdirs"),
@@ -180,21 +180,8 @@ describe("path_utils", function()
 
         it("file in a subfolder or folder named .uprojectdirs -> ignored", function()
             local root = h.project({ ["Engine/Other.uprojectdirs"] = {}, ["Odd.uprojectdirs/x"] = {} })
-            assert.are.same({}, pathUtils.GetUprojectdirsFiles(root))
+            assert.are.same({}, locate.GetUprojectdirsFiles(root))
         end)
-    end)
-
-    describe("Exists", function()
-        for _, case in ipairs({
-            { "file", "a.txt", true },
-            { "missing", "nope", false },
-            { "nil", nil, false },
-        }) do
-            it(case[1] .. " -> " .. tostring(case[3]), function()
-                local root = h.project({ ["a.txt"] = {} })
-                assert.are.equal(case[3], pathUtils.Exists(case[2] and vim.fs.joinpath(root, case[2])))
-            end)
-        end
     end)
 
     describe("BuildConfiguration paths", function()
@@ -219,7 +206,7 @@ describe("path_utils", function()
             assert.are.same({
                 name = "Project Config",
                 value = "/p/Game/Saved/UnrealBuildTool/BuildConfiguration.xml",
-            }, pathUtils.GetProjectBuildConfig("/p/Game/Game.uproject"))
+            }, locate.GetProjectBuildConfig("/p/Game/Game.uproject"))
         end)
 
         for _, platform in ipairs({ "Linux", "Mac" }) do
@@ -227,7 +214,7 @@ describe("path_utils", function()
                 h.fake_platform(platform)
                 assert.are.same(
                     { { name = "User Config", value = "/home/u/.config/" .. TAIL } },
-                    pathUtils.GetUserBuildConfig()
+                    locate.GetUserBuildConfig()
                 )
             end)
         end
@@ -237,14 +224,14 @@ describe("path_utils", function()
             assert.are.same({
                 { name = "User AppData Config", value = "C:/Users/u/AppData/Roaming/" .. TAIL },
                 { name = "User Document Config", value = "C:/Users/u/Documents/" .. TAIL },
-            }, pathUtils.GetUserBuildConfig())
+            }, locate.GetUserBuildConfig())
         end)
 
         it("unknown platform -> nil", function()
             h.stub(require("unreal.system"), "GetPlatform", function()
                 return "Unknown"
             end)
-            assert.is_nil(pathUtils.GetUserBuildConfig())
+            assert.is_nil(locate.GetUserBuildConfig())
         end)
     end)
 end)

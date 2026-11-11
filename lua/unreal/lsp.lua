@@ -1,4 +1,4 @@
-local log = require("unreal.log")
+local log = require("unreal.helpers.log")
 local logLevel = vim.log.levels
 
 local LSP_NOT_FOUND_ERROR = "Cannot find clangd client"
@@ -29,6 +29,11 @@ end
 
 local M = {}
 
+function M.HasClangdEnabled()
+    local clients = vim.lsp.get_clients({ name = "clangd", bufnr = 0 })
+    return #clients > 0
+end
+
 ---@return vim.lsp.Client? client nil when clangd is not attached to the current buffer
 local function GetClangdClient()
     ---@type vim.lsp.Client?
@@ -49,7 +54,7 @@ function M.GetMacroCompletions(request)
         return {}
     end
 
-    local tempBufnr = require("unreal.system").CreateTempBuffer()
+    local tempBufnr = require("unreal.helpers.buffer").CreateTemp()
 
     local namespace = string.sub(request.identifier, 1, 2)
     local insertTerm = namespace .. "::"

@@ -651,7 +651,7 @@ describe("project", function()
 
         it("does not search subfolders or notify", function()
             h.project({})
-            local finds = h.spy(require("unreal.path_utils"), "FindUprojects", {})
+            local finds = h.spy(require("unreal.locate"), "FindUprojects", {})
             project.init()
             assert.are.equal(0, #finds)
             assert.are.equal(0, #notes)
@@ -778,7 +778,7 @@ describe("project", function()
 
         before_each(function()
             userFile = vim.fs.joinpath(h.tmpdir(), "Unreal Engine", "UnrealBuildTool", "BuildConfiguration.xml")
-            h.stub(require("unreal.path_utils"), "GetUserBuildConfig", function()
+            h.stub(require("unreal.locate"), "GetUserBuildConfig", function()
                 return { { name = "User Config", value = userFile } }
             end)
             answer(1)

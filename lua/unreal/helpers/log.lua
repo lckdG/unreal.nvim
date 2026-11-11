@@ -1,19 +1,20 @@
-local M = {}
+---@class unreal.helpers.Log
+local Log = {}
 
-M.LogPrefix = ""
+Log.LogPrefix = ""
 
 ---Set the prefix put before every message.
 ---@param info {PluginName: string}
-function M.init(info)
+function Log.init(info)
     local pluginName = info.PluginName
-    M.LogPrefix = "[" .. pluginName .. "]" .. " "
+    Log.LogPrefix = "[" .. pluginName .. "]" .. " "
 end
 
 ---`vim.notify` with the plugin name prefix.
 ---@param msg string
 ---@param level vim.log.levels
-function M.Notify(msg, level)
-    vim.notify(M.LogPrefix .. msg, level)
+function Log.Notify(msg, level)
+    vim.notify(Log.LogPrefix .. msg, level)
 end
 
-return M
+return Log

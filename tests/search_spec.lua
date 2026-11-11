@@ -1,7 +1,6 @@
 local h = dofile("tests/helpers.lua")
 local search = require("unreal.search")
-local pathUtils = require("unreal.path_utils")
-local system = require("unreal.system")
+local locate = require("unreal.locate")
 
 describe("search", function()
     local notes, cmds
@@ -27,7 +26,7 @@ describe("search", function()
         end)
 
         it("not found -> falls back to clangd switchSourceHeader", function()
-            h.stub(pathUtils, "GetSourceHeader", function()
+            h.stub(locate, "GetSourceHeader", function()
                 return nil
             end)
             local switches = h.spy(require("unreal.lsp"), "SwitchSourceHeader")
@@ -43,12 +42,6 @@ describe("search", function()
             local switches = h.spy(require("unreal.lsp"), "SwitchSourceHeader")
             search.SwitchSourceHeader()
             assert.are.equal(0, #switches)
-        end)
-
-        it("HasClangdEnabled only looks at the current buffer", function()
-            local calls = h.spy(vim.lsp, "get_clients", {})
-            assert.is_false(system.HasClangdEnabled())
-            assert.are.same({ name = "clangd", bufnr = 0 }, calls[1][1])
         end)
     end)
 

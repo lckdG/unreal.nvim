@@ -1,3 +1,5 @@
+local helpers = require("unreal.helpers")
+
 local M = {}
 
 local function get_version(name)
@@ -62,7 +64,7 @@ local function check_source_dir()
         health.info("clone_dir: not set (only needed by :Unreal Engine Checkout and Build)")
     else
         cloneDir = vim.fs.normalize(cloneDir)
-        if require("unreal.path_utils").Exists(cloneDir) then
+        if helpers.path.Exists(cloneDir) then
             health.ok("clone_dir: " .. cloneDir)
         else
             health.error(
@@ -100,12 +102,11 @@ local KIND_TEXT = {
 ---a launcher engine comes prebuilt and has none.
 local function check_build_scripts(enginePath)
     local health = vim.health
-    local pathUtils = require("unreal.path_utils")
     local scripts = require("unreal.engine_builder").GetBuildScripts(enginePath)
 
     local missing = {}
     for _, key in ipairs({ "Setup", "GenerateProjectFile", "Build" }) do
-        if not pathUtils.Exists(scripts[key]) then
+        if not helpers.path.Exists(scripts[key]) then
             table.insert(missing, vim.fs.basename(scripts[key]))
         end
     end

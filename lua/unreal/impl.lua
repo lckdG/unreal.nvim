@@ -1,8 +1,7 @@
 local config = require("unreal.config")
-local system = require("unreal.system")
-local pathUtils = require("unreal.path_utils")
+local locate = require("unreal.locate")
 local treesitter = require("unreal.treesitter")
-local log = require("unreal.log")
+local log = require("unreal.helpers.log")
 
 local info = config.info
 local logLevel = vim.log.levels
@@ -59,7 +58,7 @@ function M.ImplementFunction()
     end
 
     local parsed, signalIndex = M.ParseImplementation(declarationTemplate)
-    local buf = system.OpenBuffer(cppFile)
+    local buf = require("unreal.helpers.buffer").OpenBuffer(cppFile)
 
     local implLine = require("unreal.search").FindImplementation(buf, parsed[signalIndex])
     if implLine == -1 then
@@ -96,7 +95,7 @@ function M.PrepareForFunctionImpl()
         }
     end
 
-    local cppFile = pathUtils.GetSourceHeader()
+    local cppFile = locate.GetSourceHeader()
     if cppFile == nil then
         return {
             success = false,

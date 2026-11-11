@@ -34,7 +34,7 @@ function NativeUiProvider.FileSearch(searchArgs, opts)
         vim.system(searchArgs, function(exitInfo)
             vim.schedule(function()
                 if exitInfo.code > 1 then
-                    require("unreal.log").Notify(exitInfo.stderr, vim.log.levels.ERROR)
+                    require("unreal.helpers.log").Notify(exitInfo.stderr, vim.log.levels.ERROR)
                     return
                 end
 
@@ -61,7 +61,7 @@ function NativeUiProvider.GrepSearch(searchArgs, opts)
         vim.system(searchArgs, function(exitInfo)
             vim.schedule(function()
                 if exitInfo.code > 1 then
-                    require("unreal.log").Notify(exitInfo.stderr, vim.log.levels.ERROR)
+                    require("unreal.helpers.log").Notify(exitInfo.stderr, vim.log.levels.ERROR)
                     return
                 end
 

@@ -1,7 +1,6 @@
 local system = require("unreal.system")
-local pathUtils = require("unreal.path_utils")
-local listUtils = require("unreal.helpers.list_utils")
-local log = require("unreal.log")
+local locate = require("unreal.locate")
+local helpers = require("unreal.helpers")
 
 local platform = system.GetPlatform()
 local ext = platform == "Win64" and ".bat" or ".sh"
@@ -12,7 +11,7 @@ local ext = platform == "Win64" and ".bat" or ".sh"
 local function readInstalledJson(path)
     local result = {}
 
-    if pathUtils.Exists(path) then
+    if helpers.path.Exists(path) then
         local file = io.open(path, "r")
         if file then
             local content = file:read("*a")
@@ -44,7 +43,7 @@ end
 local function readInstalledIni(path)
     local result = {}
 
-    if pathUtils.Exists(path) then
+    if helpers.path.Exists(path) then
         local startRead = false
 
         for line in io.lines(path) do
@@ -73,7 +72,7 @@ local function readInstalledReg(path, cb)
     vim.system({ "reg", "query", path }, { text = true }, function(exitInfo)
         vim.schedule(function()
             if exitInfo.code ~= 0 then
-                log.Notify(
+                helpers.log.Notify(
                     "Error when reading Unreal's Registry(" .. exitInfo.code .. "): " .. exitInfo.stderr,
                     vim.log.levels.ERROR
                 )
@@ -113,7 +112,7 @@ M.OverrideEnginePath = nil
 function M.init()
     M.RefreshNativeProjects()
 
-    local files = pathUtils.FindEngineInstalledFiles()
+    local files = locate.FindEngineInstalledFiles()
     M.FindInstalled(files)
 end
 
@@ -121,7 +120,7 @@ function M.RefreshNativeProjects()
     M.NativeEngine = nil
     M.NativeProjects = nil
 
-    local nativeEngineRoot = pathUtils.FindNativeEngineRoot()
+    local nativeEngineRoot = locate.FindNativeEngineRoot()
     if nativeEngineRoot ~= nil then
         M.NativeEngine = nativeEngineRoot
         M.ParseNativeProjects()
@@ -131,7 +130,7 @@ end
 function M.ParseNativeProjects()
     M.NativeProjects = {}
 
-    local filePaths = pathUtils.GetUprojectdirsFiles(M.NativeEngine)
+    local filePaths = locate.GetUprojectdirsFiles(M.NativeEngine)
     for _, filePath in ipairs(filePaths) do
         local file = io.open(filePath, "r")
         if file then
@@ -157,7 +156,7 @@ function M.DiscoverNativeProjects(directory)
         if type == "file" and vim.fs.ext(name) == "uproject" then
             local projectDir = vim.fs.normalize(vim.fs.joinpath(absoluteDir, vim.fs.dirname(name)))
 
-            if not listUtils.StrContains(M.NativeProjects, projectDir, platform == "Linux") then
+            if not helpers.list.StrContains(M.NativeProjects, projectDir, platform == "Linux") then
                 table.insert(M.NativeProjects, projectDir)
             end
         end
@@ -213,9 +212,9 @@ function M.SetEnginePath_User()
     M.InputEnginePath(function(path)
         if path and M.IsRootEngineDirValid(path) then
             M.OverrideEnginePath = path
-            log.Notify("Override engine path is set!", vim.log.levels.INFO)
+            helpers.log.Notify("Override engine path is set!", vim.log.levels.INFO)
         else
-            log.Notify("Input path is invalid, aborting...", vim.log.levels.WARN)
+            helpers.log.Notify("Input path is invalid, aborting...", vim.log.levels.WARN)
         end
     end)
 end
@@ -224,7 +223,7 @@ end
 ---so commands go back to the engine the `.uproject` asks for.
 function M.ClearEnginePath_User()
     M.OverrideEnginePath = nil
-    log.Notify("Override engine path is cleared!", vim.log.levels.INFO)
+    helpers.log.Notify("Override engine path is cleared!", vim.log.levels.INFO)
 end
 
 ---Build the path of the script that runs UnrealBuildTool inside an engine root:
@@ -238,7 +237,7 @@ function M.ParseUbtPath(engineDir)
     end
 
     local path = vim.fs.joinpath(engineDir, "Engine", "Build", "BatchFiles", "RunUBT" .. ext)
-    return pathUtils.Exists(path), path
+    return helpers.path.Exists(path), path
 end
 
 function M.IsRootEngineDirValid(engineDir)
@@ -286,7 +285,7 @@ function M.GetEngineExecutable(engineDir)
 
     local exeName = engineExecutable[platform]
     local exePath = vim.fs.joinpath(binariesPath, platform, exeName)
-    local exists = pathUtils.Exists(exePath)
+    local exists = helpers.path.Exists(exePath)
 
     return exists, exePath
 end
@@ -326,7 +325,7 @@ function M.GetEngineVersion(engineDir)
     end
 
     local versionFile = vim.fs.joinpath(engineDir, "Engine", "Build", "Build.version")
-    if not pathUtils.Exists(versionFile) then
+    if not helpers.path.Exists(versionFile) then
         return default
     end
 
@@ -373,7 +372,7 @@ function M.ResolveEngine(uprojectPath)
     end
 
     if
-        M.NativeEngine and listUtils.StrContains(M.NativeProjects, vim.fs.dirname(uprojectPath), platform == "Linux")
+        M.NativeEngine and helpers.list.StrContains(M.NativeProjects, vim.fs.dirname(uprojectPath), platform == "Linux")
     then
         return M.NativeEngine, "native"
     end
@@ -393,7 +392,7 @@ end
 ---@return ("native"|"launcher"|"cloned"|"source")?
 function M.GetEngineKind(engineDir)
     local function same(a, b)
-        return listUtils.StrContains({ vim.fs.normalize(a) }, vim.fs.normalize(b), platform == "Linux")
+        return helpers.list.StrContains({ vim.fs.normalize(a) }, vim.fs.normalize(b), platform == "Linux")
     end
 
     if M.NativeEngine and same(M.NativeEngine, engineDir) then
@@ -429,9 +428,9 @@ function M.FindEngineTools(uprojectPath, callback)
         return
     end
 
-    M.InputEnginePath(function(engineDir)
-        if M.IsRootEngineDirValid(engineDir) then
-            callback(M.RetrieveTools(engineDir))
+    M.InputEnginePath(function(input)
+        if input and M.IsRootEngineDirValid(input) then
+            callback(M.RetrieveTools(input))
         else
             callback(nil)
         end

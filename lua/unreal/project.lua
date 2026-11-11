@@ -1,8 +1,8 @@
 local config = require("unreal.config")
 local system = require("unreal.system")
 local engine = require("unreal.engine")
-local pathUtils = require("unreal.path_utils")
-local log = require("unreal.log")
+local locate = require("unreal.locate")
+local helpers = require("unreal.helpers")
 
 local info = config.info
 local logLevel = vim.log.levels
@@ -19,7 +19,7 @@ local function sendToQuickfix(errors)
 end
 
 function M.init()
-    M.ProjectRoot = pathUtils.GetProjectRoot()
+    M.ProjectRoot = locate.GetProjectRoot()
     M.FindDefaultUproject()
 
     local augroup = vim.api.nvim_create_augroup("unreal.nvim.project", { clear = true })
@@ -27,7 +27,7 @@ function M.init()
         group = augroup,
         callback = function()
             local lastRoot = M.ProjectRoot
-            M.ProjectRoot = pathUtils.GetProjectRoot()
+            M.ProjectRoot = locate.GetProjectRoot()
 
             if M.ProjectRoot ~= lastRoot then
                 M.UprojectPath = nil
@@ -56,14 +56,14 @@ function M.FindDefaultUproject()
     end
 end
 
----Find `.uproject` files under the project folder (see `path_utils.GetProjectRoot`)
+---Find `.uproject` files under the project folder (see `locate.GetProjectRoot`)
 ---and call `cb` with one of them.
 ---Errors if none, prompts if several, skips `cb` if the prompt is dismissed.
 ---@param cb fun(uprojectPath: string?)
 function M.SelectUproject(cb)
-    local files = pathUtils.FindUprojects({ path = M.ProjectRoot, nameOnly = false })
+    local files = locate.FindUprojects({ path = M.ProjectRoot, nameOnly = false })
     if #files == 0 then
-        log.Notify("No uproject file found!", logLevel.ERROR)
+        helpers.log.Notify("No uproject file found!", logLevel.ERROR)
     elseif #files == 1 then
         cb(files[1])
     else
@@ -80,10 +80,10 @@ end
 ---The choice is kept until Neovim closes or the working directory moves to another project.
 function M.SelectUproject_User()
     M.SelectUproject(function(path)
-        if pathUtils.Exists(path) then
+        if helpers.path.Exists(path) then
             M.UprojectPath = path
         else
-            log.Notify("Selected path is invalid", logLevel.WARN)
+            helpers.log.Notify("Selected path is invalid", logLevel.WARN)
         end
     end)
 end
@@ -98,7 +98,7 @@ function M.EnsureUproject(callback)
                 M.UprojectPath = path
                 callback()
             else
-                log.Notify("Unable to determine .uproject file\nSet it manually", logLevel.WARN)
+                helpers.log.Notify("Unable to determine .uproject file\nSet it manually", logLevel.WARN)
             end
         end)
     else
@@ -118,7 +118,7 @@ function M.OpenUproject()
                 table.insert(executeCmd, uprojectPath)
                 vim.fn.jobstart(executeCmd, { detach = true })
             else
-                log.Notify("Unable to retrieve engine tools!", logLevel.ERROR)
+                helpers.log.Notify("Unable to retrieve engine tools!", logLevel.ERROR)
             end
         end)
     end)
@@ -163,7 +163,7 @@ function M.RebuildClangd()
 
                 require("unreal.job").Start(commandParts, function(code, errors)
                     if code ~= 0 then
-                        log.Notify("Rebuild Clangd failed (" .. code .. ")", logLevel.ERROR)
+                        helpers.log.Notify("Rebuild Clangd failed (" .. code .. ")", logLevel.ERROR)
                         sendToQuickfix(errors)
                         return
                     end
@@ -173,13 +173,13 @@ function M.RebuildClangd()
 
                     local ok, err = vim.uv.fs_copyfile(sourceCC, destCC)
                     if ok then
-                        log.Notify("Rebuild database successfully!", logLevel.INFO)
+                        helpers.log.Notify("Rebuild database successfully!", logLevel.INFO)
                     else
-                        log.Notify("Failed to copy compile_commands file: " .. tostring(err), logLevel.ERROR)
+                        helpers.log.Notify("Failed to copy compile_commands file: " .. tostring(err), logLevel.ERROR)
                     end
                 end)
             else
-                log.Notify("Unable to retrieve engine tools!", logLevel.ERROR)
+                helpers.log.Notify("Unable to retrieve engine tools!", logLevel.ERROR)
             end
         end)
     end)
@@ -215,11 +215,11 @@ function M.ChooseBuildConfigFile(engineTools)
     local availablePaths = {}
 
     if M.UprojectPath then
-        local item = pathUtils.GetProjectBuildConfig(M.UprojectPath)
+        local item = locate.GetProjectBuildConfig(M.UprojectPath)
         table.insert(availablePaths, item)
     end
 
-    local userBuildConfigs = pathUtils.GetUserBuildConfig()
+    local userBuildConfigs = locate.GetUserBuildConfig()
     if userBuildConfigs then
         vim.list_extend(availablePaths, userBuildConfigs)
     end
@@ -232,7 +232,7 @@ function M.ChooseBuildConfigFile(engineTools)
     ui.Select(availablePaths, { prompt = "Choose configuration file to edit: " }, function(item)
         if item then
             local path = item.value
-            if pathUtils.Exists(path) then
+            if helpers.path.Exists(path) then
                 vim.cmd.edit(vim.fn.fnameescape(path))
             else
                 local choice = vim.fn.confirm("File does not exist, do you want to create one?", "Yes\nNo", 1)
@@ -285,13 +285,13 @@ function M.BuildEditor()
 
                 require("unreal.job").Start(commandParts, function(code, errors)
                     if code ~= 0 then
-                        log.Notify("Build editor failed (" .. code .. ")", logLevel.ERROR)
+                        helpers.log.Notify("Build editor failed (" .. code .. ")", logLevel.ERROR)
                         sendToQuickfix(errors)
                         return
                     end
                 end)
             else
-                log.Notify("Unable to retrieve engine tools!", logLevel.ERROR)
+                helpers.log.Notify("Unable to retrieve engine tools!", logLevel.ERROR)
             end
         end)
     end)
@@ -319,13 +319,13 @@ function M.BuildEditorClean()
 
                 require("unreal.job").Start(commandParts, function(code, errors)
                     if code ~= 0 then
-                        log.Notify("Clean build editor failed (" .. code .. ")", logLevel.ERROR)
+                        helpers.log.Notify("Clean build editor failed (" .. code .. ")", logLevel.ERROR)
                         sendToQuickfix(errors)
                         return
                     end
                 end)
             else
-                log.Notify("Unable to retrieve engine tools!", logLevel.ERROR)
+                helpers.log.Notify("Unable to retrieve engine tools!", logLevel.ERROR)
             end
         end)
     end)

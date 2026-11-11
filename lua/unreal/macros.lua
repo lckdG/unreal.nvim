@@ -1,4 +1,4 @@
-local log = require("unreal.log")
+local log = require("unreal.helpers.log")
 local treesitter = require("unreal.treesitter")
 
 local logLevel = vim.log.levels
@@ -46,7 +46,8 @@ local M = {}
 ---strip it, which gives an empty list. It is a helpful subset, not complete:
 ---see https://unreal-garden.com for every specifier.
 function M.CompleteMacro()
-    if require("unreal.system").HasClangdEnabled() == false then
+    local lsp = require("unreal.lsp")
+    if lsp.HasClangdEnabled() == false then
         log.Notify("Clangd is not enabled for current buffer!", logLevel.ERROR)
         return
     end
@@ -58,8 +59,6 @@ function M.CompleteMacro()
         log.Notify(errorMsg, logLevel.ERROR)
         return
     end
-
-    local lsp = require("unreal.lsp")
 
     local async = require("plenary.async")
     async.run(function()

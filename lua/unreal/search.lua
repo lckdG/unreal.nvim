@@ -1,4 +1,4 @@
-local pathUtils = require("unreal.path_utils")
+local locate = require("unreal.locate")
 
 local M = {}
 
@@ -6,7 +6,7 @@ local M = {}
 ---Looks in the module's `Public/`/`Private/` folders first; if that finds nothing,
 ---asks clangd, which also knows files outside the usual layout.
 function M.SwitchSourceHeader()
-    local switchingFile = pathUtils.GetSourceHeader()
+    local switchingFile = locate.GetSourceHeader()
     if switchingFile ~= nil then
         vim.cmd.edit(vim.fn.fnameescape(switchingFile))
     else
