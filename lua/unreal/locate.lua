@@ -1,3 +1,5 @@
+local helpers = require("unreal.helpers")
+
 local M = {}
 
 ---The folder that counts as "this project": `.uproject` files are searched under it, and moving
@@ -228,6 +230,40 @@ function M.GetUserBuildConfig()
 
     local platform = require("unreal.system").GetPlatform()
     return filesMap[platform]
+end
+
+local function FindFiles(dir, fileExt)
+    local result = {}
+
+    if helpers.path.IsDir(dir) then
+        for name, type in vim.fs.dir(dir, { depth = 1 }) do
+            if type == "file" and vim.fs.ext(name) == fileExt then
+                local filePath = vim.fs.joinpath(dir, name)
+                local stat = vim.uv.fs_stat(filePath)
+
+                table.insert(result, {
+                    name = name,
+                    value = filePath,
+                    mtime = stat and stat.mtime.sec or 0,
+                })
+            end
+        end
+
+        table.sort(result, function(a, b)
+            return a.mtime > b.mtime
+        end)
+    end
+
+    return result
+end
+
+function M.FindLogFiles(projectRoot)
+    if projectRoot == nil then
+        return {}
+    end
+
+    local logDir = vim.fs.joinpath(projectRoot, "Saved", "Logs")
+    return FindFiles(logDir, "log")
 end
 
 return M

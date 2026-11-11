@@ -331,4 +331,17 @@ function M.BuildEditorClean()
     end)
 end
 
+function M.ReadLogs()
+    local logFiles = locate.FindLogFiles(M.ProjectRoot)
+    require("unreal.ui").Select(logFiles, { prompt = "Select Log File: " }, function(item)
+        if not item or not item.value then
+            return
+        end
+
+        local filePath = item.value
+        vim.cmd.tabedit(vim.fn.fnameescape(filePath))
+        vim.cmd("checktime | normal! G")
+    end)
+end
+
 return M
