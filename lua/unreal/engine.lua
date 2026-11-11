@@ -428,9 +428,9 @@ function M.FindEngineTools(uprojectPath, callback)
         return
     end
 
-    M.InputEnginePath(function(engineDir)
-        if M.IsRootEngineDirValid(engineDir) then
-            callback(M.RetrieveTools(engineDir))
+    M.InputEnginePath(function(input)
+        if input and M.IsRootEngineDirValid(input) then
+            callback(M.RetrieveTools(input))
         else
             callback(nil)
         end
