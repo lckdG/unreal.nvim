@@ -1,5 +1,5 @@
 *unreal.txt*                      Neovim plugin for Unreal Engine C++ projects
-                               For NVIM v0.12    Last change: 2026 November 10
+                               For NVIM v0.12    Last change: 2026 November 11
 
 ==============================================================================
 Table of Contents                                   *unreal-table-of-contents*
@@ -387,6 +387,15 @@ PROJECT SELECT ~
 
 Choose which `.uproject` the other commands use, e.g. when the project folder
 has several.
+
+
+PROJECT LOG ~
+
+                                                         *:Unreal-Project-Log*
+
+Pick a log from `Saved/Logs` in the project folder, newest first, and open it
+in a new tab at the last line. A log that is already open is reloaded first, so
+new lines show.
 
 
 BUILD                                                  *unreal-commands-build*
