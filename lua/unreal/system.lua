@@ -24,11 +24,6 @@ function M.GetArch()
     return map[uname.machine]
 end
 
-function M.HasClangdEnabled()
-    local clients = vim.lsp.get_clients({ name = "clangd", bufnr = 0 })
-    return #clients > 0
-end
-
 function M.OpenBuffer(fileName)
     local buf = vim.fn.bufnr(fileName)
     if buf == -1 or not vim.api.nvim_buf_is_loaded(buf) then

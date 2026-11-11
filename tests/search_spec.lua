@@ -47,7 +47,7 @@ describe("search", function()
 
         it("HasClangdEnabled only looks at the current buffer", function()
             local calls = h.spy(vim.lsp, "get_clients", {})
-            assert.is_false(system.HasClangdEnabled())
+            assert.is_false(require("unreal.lsp").HasClangdEnabled())
             assert.are.same({ name = "clangd", bufnr = 0 }, calls[1][1])
         end)
     end)

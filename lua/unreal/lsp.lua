@@ -29,6 +29,11 @@ end
 
 local M = {}
 
+function M.HasClangdEnabled()
+    local clients = vim.lsp.get_clients({ name = "clangd", bufnr = 0 })
+    return #clients > 0
+end
+
 ---@return vim.lsp.Client? client nil when clangd is not attached to the current buffer
 local function GetClangdClient()
     ---@type vim.lsp.Client?
