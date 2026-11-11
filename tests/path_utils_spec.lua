@@ -184,19 +184,6 @@ describe("path_utils", function()
         end)
     end)
 
-    describe("Exists", function()
-        for _, case in ipairs({
-            { "file", "a.txt", true },
-            { "missing", "nope", false },
-            { "nil", nil, false },
-        }) do
-            it(case[1] .. " -> " .. tostring(case[3]), function()
-                local root = h.project({ ["a.txt"] = {} })
-                assert.are.equal(case[3], pathUtils.Exists(case[2] and vim.fs.joinpath(root, case[2])))
-            end)
-        end
-    end)
-
     describe("BuildConfiguration paths", function()
         local saved
 

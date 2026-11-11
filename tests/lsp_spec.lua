@@ -27,6 +27,19 @@ describe("lsp", function()
         return client
     end
 
+    describe("HasClangdEnabled", function()
+        it("no client -> false, only current buffer asked", function()
+            local calls = use_client(nil)
+            assert.is_false(lsp.HasClangdEnabled())
+            assert.are.same({ name = "clangd", bufnr = 0 }, calls[1][1])
+        end)
+
+        it("client attached -> true", function()
+            use_client({ id = 1, name = "clangd" })
+            assert.is_true(lsp.HasClangdEnabled())
+        end)
+    end)
+
     describe("SwitchSourceHeader", function()
         it("no clangd client -> error notify, no edit", function()
             local calls = use_client(nil)
