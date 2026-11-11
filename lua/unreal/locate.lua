@@ -236,7 +236,7 @@ end
 ---@param fileExt string
 ---@param depth? number
 ---@param labelFunc? fun(name: string): string
----@return string[] files
+---@return any[] files
 local function FindFiles(dir, fileExt, depth, labelFunc)
     depth = depth or 1
     labelFunc = labelFunc or function(name)
