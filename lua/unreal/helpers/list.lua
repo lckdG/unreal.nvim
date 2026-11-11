@@ -1,12 +1,13 @@
-local ListUtils = {}
+---@class unreal.helpers.List
+local List = {}
 
-ListUtils.Contains = vim.list_contains
+List.Contains = vim.list_contains
 
 ---@param list string[]
 ---@param value string
 ---@param matchCase boolean
 ---@return boolean
-function ListUtils.StrContains(list, value, matchCase)
+function List.StrContains(list, value, matchCase)
     vim.validate("list", list, "table")
     local function strTransform(v)
         return matchCase and v or string.lower(v)
@@ -21,4 +22,4 @@ function ListUtils.StrContains(list, value, matchCase)
     return false
 end
 
-return ListUtils
+return List

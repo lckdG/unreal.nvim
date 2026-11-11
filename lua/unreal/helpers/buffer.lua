@@ -1,3 +1,4 @@
+---@class unreal.helpers.Buffer
 local Buffer = {}
 
 local function randString(length)

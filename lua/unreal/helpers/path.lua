@@ -1,10 +1,11 @@
-local PathUtils = {}
+---@class unreal.helpers.Path
+local Path = {}
 
-function PathUtils.Exists(path)
+function Path.Exists(path)
     if path == nil then
         return false
     end
     return vim.uv.fs_stat(path) ~= nil
 end
 
-return PathUtils
+return Path
