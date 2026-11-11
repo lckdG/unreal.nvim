@@ -150,6 +150,8 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 | `:Unreal Project Edit` | Open the `.uproject` in a buffer |
 | `:Unreal Project Select` | Choose which `.uproject` the other commands use |
 | `:Unreal Project Log` | Open a project log from `Saved/Logs`, newest first, in a new tab |
+| `:Unreal Project CrashLog` | Open the log of a crash from `Saved/Crashes`, newest first, in a new tab |
+| `:Unreal Project CrashTrace` | Put a crash's call stack in the quickfix list, newest crash first |
 | `:Unreal Build Clangd` | Regenerate `compile_commands.json` next to the `.uproject` |
 | `:Unreal Build Config` | Open a project, user or engine `BuildConfiguration.xml` |
 | `:Unreal Build Editor` | Compile the project's editor target; compiler errors go to the quickfix list |

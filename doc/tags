@@ -10,6 +10,8 @@
 :Unreal-Engine-Checkout	unreal.txt	/*:Unreal-Engine-Checkout*
 :Unreal-Engine-ClearPath	unreal.txt	/*:Unreal-Engine-ClearPath*
 :Unreal-Engine-SetPath	unreal.txt	/*:Unreal-Engine-SetPath*
+:Unreal-Project-CrashLog	unreal.txt	/*:Unreal-Project-CrashLog*
+:Unreal-Project-CrashTrace	unreal.txt	/*:Unreal-Project-CrashTrace*
 :Unreal-Project-Edit	unreal.txt	/*:Unreal-Project-Edit*
 :Unreal-Project-Log	unreal.txt	/*:Unreal-Project-Log*
 :Unreal-Project-Open	unreal.txt	/*:Unreal-Project-Open*
