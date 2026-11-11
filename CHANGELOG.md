@@ -7,6 +7,7 @@ All notable changes to unreal.nvim are listed here. The format follows [Keep a C
 ### Added
 
 - `:Unreal Project Log`: pick a log from the project's `Saved/Logs`, newest first, and open it in a new tab at the last line.
+- `unreallog` filetype for files under `Saved/Logs`, with highlighting for timestamps, categories, verbosity and source paths.
 
 ## [0.3.1] - 2026-11-08
 
