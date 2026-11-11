@@ -1,6 +1,6 @@
 local h = dofile("tests/helpers.lua")
 local search = require("unreal.search")
-local pathUtils = require("unreal.path_utils")
+local locate = require("unreal.locate")
 
 describe("search", function()
     local notes, cmds
@@ -26,7 +26,7 @@ describe("search", function()
         end)
 
         it("not found -> falls back to clangd switchSourceHeader", function()
-            h.stub(pathUtils, "GetSourceHeader", function()
+            h.stub(locate, "GetSourceHeader", function()
                 return nil
             end)
             local switches = h.spy(require("unreal.lsp"), "SwitchSourceHeader")

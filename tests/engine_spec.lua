@@ -2,7 +2,7 @@ local h = dofile("tests/helpers.lua")
 
 local config = require("unreal.config")
 local system = require("unreal.system")
-local pathUtils = require("unreal.path_utils")
+local locate = require("unreal.locate")
 
 local UBT = h.UBT
 
@@ -481,7 +481,7 @@ describe("engine", function()
             end)
 
             it("found by init from inside the native project -> native engine tools", function()
-                h.stub(pathUtils, "FindEngineInstalledFiles", function()
+                h.stub(locate, "FindEngineInstalledFiles", function()
                     return {}
                 end)
                 h.write(native, "Default.uprojectdirs", { "Games/" })
@@ -583,7 +583,7 @@ describe("engine", function()
 
     describe("InstalledEngines", function()
         local function use_sources(sources)
-            h.stub(pathUtils, "FindEngineInstalledFiles", function()
+            h.stub(locate, "FindEngineInstalledFiles", function()
                 return sources
             end)
         end
@@ -781,7 +781,7 @@ describe("engine", function()
         before_each(function()
             h.stub(engine, "NativeEngine", nil)
             h.stub(engine, "NativeProjects", nil)
-            h.stub(pathUtils, "FindEngineInstalledFiles", function()
+            h.stub(locate, "FindEngineInstalledFiles", function()
                 return {}
             end)
         end)
