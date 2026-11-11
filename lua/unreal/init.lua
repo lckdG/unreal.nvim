@@ -17,6 +17,9 @@ local function hookFileTypes()
             uproject = "json",
             uplugin = "json",
         },
+        pattern = {
+            [".*/Saved/Logs/.*%.log"] = "unreallog",
+        },
     })
 
     local augroup = vim.api.nvim_create_augroup("unreal.nvim.ft", { clear = true })
