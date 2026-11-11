@@ -1,5 +1,5 @@
 local system = require("unreal.system")
-local pathUtils = require("unreal.path_utils")
+local locate = require("unreal.locate")
 local helpers = require("unreal.helpers")
 
 local platform = system.GetPlatform()
@@ -112,7 +112,7 @@ M.OverrideEnginePath = nil
 function M.init()
     M.RefreshNativeProjects()
 
-    local files = pathUtils.FindEngineInstalledFiles()
+    local files = locate.FindEngineInstalledFiles()
     M.FindInstalled(files)
 end
 
@@ -120,7 +120,7 @@ function M.RefreshNativeProjects()
     M.NativeEngine = nil
     M.NativeProjects = nil
 
-    local nativeEngineRoot = pathUtils.FindNativeEngineRoot()
+    local nativeEngineRoot = locate.FindNativeEngineRoot()
     if nativeEngineRoot ~= nil then
         M.NativeEngine = nativeEngineRoot
         M.ParseNativeProjects()
@@ -130,7 +130,7 @@ end
 function M.ParseNativeProjects()
     M.NativeProjects = {}
 
-    local filePaths = pathUtils.GetUprojectdirsFiles(M.NativeEngine)
+    local filePaths = locate.GetUprojectdirsFiles(M.NativeEngine)
     for _, filePath in ipairs(filePaths) do
         local file = io.open(filePath, "r")
         if file then

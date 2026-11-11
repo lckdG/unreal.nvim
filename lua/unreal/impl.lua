@@ -1,6 +1,5 @@
 local config = require("unreal.config")
-local system = require("unreal.system")
-local pathUtils = require("unreal.path_utils")
+local locate = require("unreal.locate")
 local treesitter = require("unreal.treesitter")
 local log = require("unreal.helpers.log")
 
@@ -96,7 +95,7 @@ function M.PrepareForFunctionImpl()
         }
     end
 
-    local cppFile = pathUtils.GetSourceHeader()
+    local cppFile = locate.GetSourceHeader()
     if cppFile == nil then
         return {
             success = false,

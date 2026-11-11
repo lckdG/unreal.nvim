@@ -1,7 +1,7 @@
 local config = require("unreal.config")
 local system = require("unreal.system")
 local engine = require("unreal.engine")
-local pathUtils = require("unreal.path_utils")
+local locate = require("unreal.locate")
 local helpers = require("unreal.helpers")
 
 local info = config.info
@@ -19,7 +19,7 @@ local function sendToQuickfix(errors)
 end
 
 function M.init()
-    M.ProjectRoot = pathUtils.GetProjectRoot()
+    M.ProjectRoot = locate.GetProjectRoot()
     M.FindDefaultUproject()
 
     local augroup = vim.api.nvim_create_augroup("unreal.nvim.project", { clear = true })
@@ -27,7 +27,7 @@ function M.init()
         group = augroup,
         callback = function()
             local lastRoot = M.ProjectRoot
-            M.ProjectRoot = pathUtils.GetProjectRoot()
+            M.ProjectRoot = locate.GetProjectRoot()
 
             if M.ProjectRoot ~= lastRoot then
                 M.UprojectPath = nil
@@ -61,7 +61,7 @@ end
 ---Errors if none, prompts if several, skips `cb` if the prompt is dismissed.
 ---@param cb fun(uprojectPath: string?)
 function M.SelectUproject(cb)
-    local files = pathUtils.FindUprojects({ path = M.ProjectRoot, nameOnly = false })
+    local files = locate.FindUprojects({ path = M.ProjectRoot, nameOnly = false })
     if #files == 0 then
         helpers.log.Notify("No uproject file found!", logLevel.ERROR)
     elseif #files == 1 then
@@ -215,11 +215,11 @@ function M.ChooseBuildConfigFile(engineTools)
     local availablePaths = {}
 
     if M.UprojectPath then
-        local item = pathUtils.GetProjectBuildConfig(M.UprojectPath)
+        local item = locate.GetProjectBuildConfig(M.UprojectPath)
         table.insert(availablePaths, item)
     end
 
-    local userBuildConfigs = pathUtils.GetUserBuildConfig()
+    local userBuildConfigs = locate.GetUserBuildConfig()
     if userBuildConfigs then
         vim.list_extend(availablePaths, userBuildConfigs)
     end
