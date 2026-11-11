@@ -11,6 +11,7 @@ local function createCommands(config)
             Open = require("unreal.project").OpenUproject,
             Edit = require("unreal.project").EditUproject,
             Select = require("unreal.project").SelectUproject_User,
+            Log = require("unreal.project").ReadLogs,
         },
         Build = {
             Clangd = require("unreal.project").RebuildClangd,

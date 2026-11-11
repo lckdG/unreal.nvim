@@ -107,6 +107,18 @@ Open the `.uproject` in a buffer. `.uproject` and `.uplugin` files open as `json
 
 Choose which `.uproject` the other commands use, e.g. when the project folder has several.
 
+### Project Log
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                         *:Unreal-Project-Log*
+```
+-->
+
+Pick a log from `Saved/Logs` in the project folder, newest first, and open it in a new tab at the last line. A log that is already open is reloaded first, so new lines show.
+
+Files under `Saved/Logs` get the `unreallog` filetype: timestamps, categories, and `Error`, `Warning`, `Fatal`, `Display` and `Verbose` lines are highlighted, and `Foo.cpp(42)` paths can be opened with `gF`. The groups (`unrealLogError`, `unrealLogWarning`, ...) link to standard highlights, so a colorscheme or `:hi` can change them.
+
 ## Build
 
 ### Build Clangd

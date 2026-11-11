@@ -1,6 +1,8 @@
 :Unreal	unreal.txt	/*:Unreal*
 :Unreal-Build-Clangd	unreal.txt	/*:Unreal-Build-Clangd*
+:Unreal-Build-CleanEditor	unreal.txt	/*:Unreal-Build-CleanEditor*
 :Unreal-Build-Config	unreal.txt	/*:Unreal-Build-Config*
+:Unreal-Build-Editor	unreal.txt	/*:Unreal-Build-Editor*
 :Unreal-Code-Impl	unreal.txt	/*:Unreal-Code-Impl*
 :Unreal-Code-Macro	unreal.txt	/*:Unreal-Code-Macro*
 :Unreal-Code-SwitchSourceHeader	unreal.txt	/*:Unreal-Code-SwitchSourceHeader*
@@ -9,6 +11,7 @@
 :Unreal-Engine-ClearPath	unreal.txt	/*:Unreal-Engine-ClearPath*
 :Unreal-Engine-SetPath	unreal.txt	/*:Unreal-Engine-SetPath*
 :Unreal-Project-Edit	unreal.txt	/*:Unreal-Project-Edit*
+:Unreal-Project-Log	unreal.txt	/*:Unreal-Project-Log*
 :Unreal-Project-Open	unreal.txt	/*:Unreal-Project-Open*
 :Unreal-Project-Select	unreal.txt	/*:Unreal-Project-Select*
 :Unreal-Search-Files	unreal.txt	/*:Unreal-Search-Files*
@@ -16,7 +19,6 @@
 unreal-commands	unreal.txt	/*unreal-commands*
 unreal-commands-build	unreal.txt	/*unreal-commands-build*
 unreal-commands-code	unreal.txt	/*unreal-commands-code*
-unreal-commands-deprecated-names	unreal.txt	/*unreal-commands-deprecated-names*
 unreal-commands-engine	unreal.txt	/*unreal-commands-engine*
 unreal-commands-project	unreal.txt	/*unreal-commands-project*
 unreal-commands-search	unreal.txt	/*unreal-commands-search*
@@ -27,7 +29,6 @@ unreal-config-command_lead	unreal.txt	/*unreal-config-command_lead*
 unreal-config-custom_treesitter	unreal.txt	/*unreal-config-custom_treesitter*
 unreal-config-engine_source	unreal.txt	/*unreal-config-engine_source*
 unreal-config-extensions	unreal.txt	/*unreal-config-extensions*
-unreal-config-telescope_extended_ignores	unreal.txt	/*unreal-config-telescope_extended_ignores*
 unreal-config-uproject_limits	unreal.txt	/*unreal-config-uproject_limits*
 unreal-engine-path	unreal.txt	/*unreal-engine-path*
 unreal-engine-path-engine-from-source	unreal.txt	/*unreal-engine-path-engine-from-source*

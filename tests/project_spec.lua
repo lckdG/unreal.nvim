@@ -869,4 +869,73 @@ describe("project", function()
             assert.are.equal(0, #confirms)
         end)
     end)
+
+    describe("ReadLogs", function()
+        local root
+
+        local function current_file()
+            return vim.api.nvim_buf_get_name(0)
+        end
+
+        local function tabs()
+            return #vim.api.nvim_list_tabpages()
+        end
+
+        before_each(function()
+            root = h.project({ ["Game.uproject"] = {} })
+            project.ProjectRoot = root
+        end)
+
+        it("logs in Saved/Logs -> picker lists them newest first", function()
+            h.touch(root, "Saved/Logs/Game.log", 1000)
+            h.touch(root, "Saved/Logs/Game-backup-2026.11.01-10.00.00.log", 2000)
+            local selects = h.use_select(nil)
+            project.ReadLogs()
+            assert.are.equal(1, #selects)
+            assert.are.equal("Select Log File: ", selects[1].opts.prompt)
+            assert.are.same(
+                { "Game-backup-2026.11.01-10.00.00.log", "Game.log" },
+                vim.tbl_map(function(item)
+                    return item.name
+                end, selects[1].items)
+            )
+        end)
+
+        it("log picked -> opened in a new tab, cursor on last line", function()
+            local file = h.touch(root, "Saved/Logs/Game.log", 1000, { "a", "b", "c" })
+            h.use_select(1)
+            local before = tabs()
+            project.ReadLogs()
+            assert.are.equal(before + 1, tabs())
+            assert.are.equal(file, current_file())
+            assert.are.equal(3, vim.api.nvim_win_get_cursor(0)[1])
+        end)
+
+        it("path with spaces and % -> opened literally", function()
+            project.ProjectRoot = root .. "/My Game%"
+            local file = h.touch(root, "My Game%/Saved/Logs/My Game%.log", 1000)
+            h.use_select(1)
+            project.ReadLogs()
+            assert.are.equal(file, current_file())
+        end)
+
+        it("already open and file grew -> new lines shown, cursor on new last line", function()
+            local file = h.touch(root, "Saved/Logs/Game.log", 1000, { "a" })
+            h.use_select(1)
+            project.ReadLogs()
+            h.touch(root, "Saved/Logs/Game.log", 2000, { "a", "b", "c" })
+            project.ReadLogs()
+            assert.are.equal(file, current_file())
+            assert.are.same({ "a", "b", "c" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+            assert.are.equal(3, vim.api.nvim_win_get_cursor(0)[1])
+        end)
+
+        it("list dismissed -> no tab opened", function()
+            h.touch(root, "Saved/Logs/Game.log", 1000)
+            h.use_select(nil)
+            local before = tabs()
+            project.ReadLogs()
+            assert.are.equal(before, tabs())
+        end)
+    end)
 end)
