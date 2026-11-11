@@ -1,4 +1,5 @@
 ---@class unreal.Helpers
+---@field xml unreal.helpers.Xml
 ---@field path unreal.helpers.Path
 ---@field buffer unreal.helpers.Buffer
 ---@field list unreal.helpers.List

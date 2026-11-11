@@ -938,4 +938,168 @@ describe("project", function()
             assert.are.equal(before, tabs())
         end)
     end)
+
+    describe("ReadCrashLog", function()
+        local root
+
+        local function tabs()
+            return #vim.api.nvim_list_tabpages()
+        end
+
+        before_each(function()
+            root = h.project({ ["Game.uproject"] = {} })
+            project.ProjectRoot = root
+        end)
+
+        it("crash logs -> picker lists crash folders newest first", function()
+            h.touch(root, "Saved/Crashes/UECC-Old/Game.log", 1000)
+            h.touch(root, "Saved/Crashes/UECC-New/Game.log", 2000)
+            local selects = h.use_select(nil)
+            project.ReadCrashLog()
+            assert.are.equal("Select Crash Log: ", selects[1].opts.prompt)
+            assert.are.same(
+                { "UECC-New", "UECC-Old" },
+                vim.tbl_map(function(item)
+                    return item.name
+                end, selects[1].items)
+            )
+        end)
+
+        it("log picked -> opened in a new tab, cursor on last line", function()
+            local file = h.touch(root, "Saved/Crashes/UECC-A/Game.log", 1000, { "a", "b", "c" })
+            h.use_select(1)
+            local before = tabs()
+            project.ReadCrashLog()
+            assert.are.equal(before + 1, tabs())
+            assert.are.equal(file, vim.api.nvim_buf_get_name(0))
+            assert.are.equal(3, vim.api.nvim_win_get_cursor(0)[1])
+        end)
+
+        it("path with spaces and % -> opened literally", function()
+            project.ProjectRoot = root .. "/My Game%"
+            local file = h.touch(root, "My Game%/Saved/Crashes/UECC A%/My Game%.log", 1000)
+            h.use_select(1)
+            project.ReadCrashLog()
+            assert.are.equal(file, vim.api.nvim_buf_get_name(0))
+        end)
+
+        it("list dismissed -> no tab opened", function()
+            h.touch(root, "Saved/Crashes/UECC-A/Game.log", 1000)
+            h.use_select(nil)
+            local before = tabs()
+            project.ReadCrashLog()
+            assert.are.equal(before, tabs())
+        end)
+    end)
+
+    describe("ParseCrashTrace", function()
+        local root, source
+
+        local function tabs()
+            return #vim.api.nvim_list_tabpages()
+        end
+
+        local function crash(rel, frames)
+            local lines = { "<FGenericCrashContext>", "<CallStack>" .. frames[1] }
+            vim.list_extend(lines, vim.list_slice(frames, 2))
+            vim.list_extend(lines, { "</CallStack>", "</FGenericCrashContext>" })
+            return h.touch(root, rel, 1000, lines)
+        end
+
+        before_each(function()
+            vim.fn.setqflist({}, "f")
+            root = h.project({ ["Game.uproject"] = {}, ["Source/Game/Foo.cpp"] = { "a", "b", "c" } })
+            source = vim.fs.joinpath(root, "Source/Game/Foo.cpp")
+            project.ProjectRoot = root
+        end)
+
+        after_each(function()
+            pcall(vim.cmd.cclose)
+        end)
+
+        it("crash folders -> picker lists them newest first", function()
+            h.touch(root, "Saved/Crashes/UECC-Old/CrashContext.runtime-xml", 1000)
+            h.touch(root, "Saved/Crashes/UECC-New/CrashContext.runtime-xml", 2000)
+            local selects = h.use_select(nil)
+            project.ParseCrashTrace()
+            assert.are.equal("Select Crash File: ", selects[1].opts.prompt)
+            assert.are.same(
+                { "UECC-New", "UECC-Old" },
+                vim.tbl_map(function(item)
+                    return item.name
+                end, selects[1].items)
+            )
+        end)
+
+        it("crash picked -> every frame in quickfix, in order, new tab", function()
+            crash("Saved/Crashes/UECC-A/CrashContext.runtime-xml", {
+                "Game.so!AFoo::Bar() [" .. source .. ":2]",
+                "libc.so.6!__libc_start_main(+0x88)",
+            })
+            h.use_select(1)
+            local before = tabs()
+            project.ParseCrashTrace()
+            assert.are.equal(before + 1, tabs())
+            assert.are.same(
+                { "Game.so!AFoo::Bar()", "libc.so.6!__libc_start_main(+0x88)" },
+                vim.tbl_map(function(item)
+                    return item.text
+                end, vim.fn.getqflist())
+            )
+        end)
+
+        it("first frame has source -> cursor on its file and line", function()
+            crash("Saved/Crashes/UECC-A/CrashContext.runtime-xml", { "Game.so!AFoo::Bar() [" .. source .. ":2]" })
+            h.use_select(1)
+            project.ParseCrashTrace()
+            assert.are.equal(source, vim.api.nvim_buf_get_name(0))
+            assert.are.equal(2, vim.api.nvim_win_get_cursor(0)[1])
+        end)
+
+        it("first frame has no source -> stays in quickfix on entry 1", function()
+            crash("Saved/Crashes/UECC-A/CrashContext.runtime-xml", {
+                "libc.so.6!raise(+0x10)",
+                "Game.so!AFoo::Bar() [" .. source .. ":2]",
+            })
+            h.use_select(1)
+            project.ParseCrashTrace()
+            assert.are.equal("quickfix", vim.bo.buftype)
+            assert.are.equal(1, vim.fn.getqflist({ idx = 0 }).idx)
+        end)
+
+        it("path with spaces and % -> crash still parsed", function()
+            project.ProjectRoot = root .. "/My Game%"
+            crash("My Game%/Saved/Crashes/UECC A%/CrashContext.runtime-xml", { "Game.so!F() [" .. source .. ":1]" })
+            h.use_select(1)
+            project.ParseCrashTrace()
+            assert.are.equal(1, #vim.fn.getqflist())
+            assert.is_false(h.notified(notes, ERROR))
+        end)
+
+        it("no frame with source -> quickfix filled, no error", function()
+            crash("Saved/Crashes/UECC-A/CrashContext.runtime-xml", { "libc.so.6!raise(+0x10)" })
+            h.use_select(1)
+            assert.has_no.errors(project.ParseCrashTrace)
+            assert.are.equal(1, #vim.fn.getqflist())
+        end)
+
+        it("no CallStack -> error, no tab, quickfix untouched", function()
+            h.touch(root, "Saved/Crashes/UECC-A/CrashContext.runtime-xml", 1000, { "<CrashType>Ensure</CrashType>" })
+            h.use_select(1)
+            local before = tabs()
+            project.ParseCrashTrace()
+            assert.are.equal(before, tabs())
+            assert.are.same({}, vim.fn.getqflist())
+            assert.is_true(h.notified(notes, ERROR))
+        end)
+
+        it("list dismissed -> no tab, quickfix untouched", function()
+            h.touch(root, "Saved/Crashes/UECC-A/CrashContext.runtime-xml", 1000)
+            h.use_select(nil)
+            local before = tabs()
+            project.ParseCrashTrace()
+            assert.are.equal(before, tabs())
+            assert.are.same({}, vim.fn.getqflist())
+        end)
+    end)
 end)

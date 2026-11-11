@@ -19,6 +19,7 @@ local function hookFileTypes()
         },
         pattern = {
             [".*/Saved/Logs/.*%.log"] = "unreallog",
+            [".*/Saved/Crashes/.*%.log"] = "unreallog",
         },
     })
 

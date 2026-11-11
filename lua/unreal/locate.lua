@@ -232,17 +232,27 @@ function M.GetUserBuildConfig()
     return filesMap[platform]
 end
 
-local function FindFiles(dir, fileExt)
+---@param dir string
+---@param fileExt string
+---@param depth? number
+---@param labelFunc? fun(name: string): string
+---@return any[] files
+local function FindFiles(dir, fileExt, depth, labelFunc)
+    depth = depth or 1
+    labelFunc = labelFunc or function(name)
+        return name
+    end
+
     local result = {}
 
     if helpers.path.IsDir(dir) then
-        for name, type in vim.fs.dir(dir, { depth = 1 }) do
+        for name, type in vim.fs.dir(dir, { depth = depth }) do
             if type == "file" and vim.fs.ext(name) == fileExt then
                 local filePath = vim.fs.joinpath(dir, name)
                 local stat = vim.uv.fs_stat(filePath)
 
                 table.insert(result, {
-                    name = name,
+                    name = labelFunc(name),
                     value = filePath,
                     mtime = stat and stat.mtime.sec or 0,
                 })
@@ -264,6 +274,28 @@ function M.FindLogFiles(projectRoot)
 
     local logDir = vim.fs.joinpath(projectRoot, "Saved", "Logs")
     return FindFiles(logDir, "log")
+end
+
+function M.FindCrashLogFiles(projectRoot)
+    if projectRoot == nil then
+        return {}
+    end
+
+    local crashDir = vim.fs.joinpath(projectRoot, "Saved", "Crashes")
+    return FindFiles(crashDir, "log", 2, function(name)
+        return vim.fs.dirname(name)
+    end)
+end
+
+function M.FindCrashFiles(projectRoot)
+    if projectRoot == nil then
+        return {}
+    end
+
+    local crashDir = vim.fs.joinpath(projectRoot, "Saved", "Crashes")
+    return FindFiles(crashDir, "runtime-xml", 2, function(name)
+        return vim.fs.dirname(name)
+    end)
 end
 
 return M

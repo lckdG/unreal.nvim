@@ -7,7 +7,9 @@ All notable changes to unreal.nvim are listed here. The format follows [Keep a C
 ### Added
 
 - `:Unreal Project Log`: pick a log from the project's `Saved/Logs`, newest first, and open it in a new tab at the last line.
-- `unreallog` filetype for files under `Saved/Logs`, with highlighting for timestamps, categories, verbosity and source paths.
+- `unreallog` filetype for logs under `Saved/Logs` and `Saved/Crashes`, with highlighting for timestamps, categories, verbosity and source paths.
+- `:Unreal Project CrashLog`: pick a crash from the project's `Saved/Crashes`, newest first, and open its log in a new tab.
+- `:Unreal Project CrashTrace`: pick a crash from `Saved/Crashes` and put its call stack in the quickfix list, in a new tab.
 
 ## [0.3.1] - 2026-11-08
 

@@ -277,4 +277,52 @@ describe("locate", function()
             assert.are.same({ "Game.log" }, names(locate.FindLogFiles(root)))
         end)
     end)
+
+    for _, case in ipairs({
+        { "FindCrashFiles", "CrashContext.runtime-xml" },
+        { "FindCrashLogFiles", "Game.log" },
+    }) do
+        describe(case[1], function()
+            local find = function(root)
+                return locate[case[1]](root)
+            end
+
+            it("nil root -> empty", function()
+                assert.are.same({}, find(nil))
+            end)
+
+            it("no Saved/Crashes -> empty", function()
+                assert.are.same({}, find(h.project({})))
+            end)
+
+            it("crash folders -> named by folder, newest first", function()
+                local root = h.project({})
+                h.touch(root, "Saved/Crashes/UECC-Old/" .. case[2], 1000)
+                local new = h.touch(root, "Saved/Crashes/UECC-New/" .. case[2], 3000)
+                h.touch(root, "Saved/Crashes/UECC-Mid/" .. case[2], 2000)
+                local items = find(root)
+                assert.are.same(
+                    { "UECC-New", "UECC-Mid", "UECC-Old" },
+                    vim.tbl_map(function(item)
+                        return item.name
+                    end, items)
+                )
+                assert.are.same({ name = "UECC-New", value = new, mtime = 3000 }, items[1])
+            end)
+
+            it("other files in the crash folder, deeper files -> ignored", function()
+                local root = h.project({})
+                h.touch(root, "Saved/Crashes/UECC-A/" .. case[2], 1000)
+                h.touch(root, "Saved/Crashes/UECC-A/CrashReportClient.ini", 2000)
+                h.touch(root, "Saved/Crashes/UECC-A/minidump.dmp", 2000)
+                h.touch(root, "Saved/Crashes/UECC-B/Sub/" .. case[2], 2000)
+                assert.are.same(
+                    { "UECC-A" },
+                    vim.tbl_map(function(item)
+                        return item.name
+                    end, find(root))
+                )
+            end)
+        end)
+    end
 end)

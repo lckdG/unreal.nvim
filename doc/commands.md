@@ -117,7 +117,27 @@ Choose which `.uproject` the other commands use, e.g. when the project folder ha
 
 Pick a log from `Saved/Logs` in the project folder, newest first, and open it in a new tab at the last line. A log that is already open is reloaded first, so new lines show.
 
-Files under `Saved/Logs` get the `unreallog` filetype: timestamps, categories, and `Error`, `Warning`, `Fatal`, `Display` and `Verbose` lines are highlighted, and `Foo.cpp(42)` paths can be opened with `gF`. The groups (`unrealLogError`, `unrealLogWarning`, ...) link to standard highlights, so a colorscheme or `:hi` can change them.
+Logs under `Saved/Logs` and `Saved/Crashes` get the `unreallog` filetype: timestamps, categories, and `Error`, `Warning`, `Fatal`, `Display` and `Verbose` lines are highlighted, and `Foo.cpp(42)` paths can be opened with `gF`. The groups (`unrealLogError`, `unrealLogWarning`, ...) link to standard highlights, so a colorscheme or `:hi` can change them.
+
+### Project CrashLog
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                    *:Unreal-Project-CrashLog*
+```
+-->
+
+Pick a crash from `Saved/Crashes` in the project folder, newest first, and open the log of that run in a new tab at the last line, highlighted like `Project Log`. Each crash is listed by its folder name (`UECC-...`, `ensureinfo-...`).
+
+### Project CrashTrace
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                  *:Unreal-Project-CrashTrace*
+```
+-->
+
+Pick a crash from `Saved/Crashes`, newest first, and put its call stack (from `CrashContext.runtime-xml`) in the quickfix list, in a new tab. Frames with a source file and line can be jumped to; frames without one (system libraries) are shown as text. Goes to the first frame; if it has no source, the cursor stays in the quickfix list. A crash file without a call stack shows an error.
 
 ## Build
 
