@@ -338,9 +338,42 @@ function M.ReadLogs()
             return
         end
 
-        local filePath = item.value
-        vim.cmd.tabedit(vim.fn.fnameescape(filePath))
+        local filePath = vim.fn.fnameescape(item.value)
+        vim.cmd.tabedit(filePath)
         vim.cmd("checktime | normal! G")
+    end)
+end
+
+function M.ReadCrashLog()
+    local crashLogs = locate.FindCrashLogFiles(M.ProjectRoot)
+    require("unreal.ui").Select(crashLogs, { prompt = "Select Crash Log: " }, function(item)
+        if not item or not item.value then
+            return
+        end
+
+        local filePath = vim.fn.fnameescape(item.value)
+        vim.cmd.tabedit(filePath)
+        vim.cmd("checktime | normal! G")
+    end)
+end
+
+function M.ParseCrashTrace()
+    local crashFiles = locate.FindCrashFiles(M.ProjectRoot)
+    require("unreal.ui").Select(crashFiles, { prompt = "Select Crash File: " }, function(item)
+        if not item or not item.value then
+            return
+        end
+
+        local qflist = helpers.xml.ParseCallStack(item.value)
+        if not qflist then
+            helpers.log.Notify("Cannot parse callstack from crash xml file", logLevel.ERROR)
+            return
+        end
+
+        vim.cmd.tabnew()
+
+        vim.fn.setqflist(qflist, " ")
+        vim.cmd("cope | cfirst")
     end)
 end
 

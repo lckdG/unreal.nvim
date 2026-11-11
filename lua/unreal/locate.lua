@@ -276,6 +276,17 @@ function M.FindLogFiles(projectRoot)
     return FindFiles(logDir, "log")
 end
 
+function M.FindCrashLogFiles(projectRoot)
+    if projectRoot == nil then
+        return {}
+    end
+
+    local crashDir = vim.fs.joinpath(projectRoot, "Saved", "Crashes")
+    return FindFiles(crashDir, "log", 2, function(name)
+        return vim.fs.dirname(name)
+    end)
+end
+
 function M.FindCrashFiles(projectRoot)
     if projectRoot == nil then
         return {}
