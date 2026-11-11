@@ -1,4 +1,4 @@
-local log = require("unreal.helpers.log")
+local helpers = require("unreal.helpers")
 local logLevels = vim.log.levels
 
 local EngineBuilder = {}
@@ -10,8 +10,8 @@ local function getBuilderInfo()
     local engineSource = config.opts.engine_source
     local cloneDir = vim.fs.normalize(engineSource.clone_dir or "")
 
-    if cloneDir == nil or not require("unreal.path_utils").Exists(cloneDir) then
-        log.Notify("Error: Engine source folder not found " .. tostring(cloneDir), logLevels.ERROR)
+    if cloneDir == nil or not helpers.path.Exists(cloneDir) then
+        helpers.log.Notify("Error: Engine source folder not found " .. tostring(cloneDir), logLevels.ERROR)
         return nil, nil
     end
 
@@ -34,8 +34,8 @@ function EngineBuilder.Checkout()
             local tag = item.value
             local dest = vim.fs.joinpath(cloneDir, item.value)
 
-            if require("unreal.path_utils").Exists(dest) then
-                log.Notify("Cannot clone to existing directory: " .. dest, logLevels.WARN)
+            if helpers.path.Exists(dest) then
+                helpers.log.Notify("Cannot clone to existing directory: " .. dest, logLevels.WARN)
                 return
             end
 
@@ -94,11 +94,9 @@ end
 EngineBuilder.GetBuildScripts = getBuildScripts
 
 local function isSourceDirValid(sourceDir)
-    local pathUtils = require("unreal.path_utils")
-
     local scripts = getBuildScripts(sourceDir)
     for _, scriptPath in pairs(scripts) do
-        if not pathUtils.Exists(scriptPath) then
+        if not helpers.path.Exists(scriptPath) then
             return false
         end
     end
@@ -132,7 +130,7 @@ function EngineBuilder.Build()
     end
 
     if #clonedDirs == 0 then
-        log.Notify("No source directory found, check out first with 'Engine Checkout'", logLevels.WARN)
+        helpers.log.Notify("No source directory found, check out first with 'Engine Checkout'", logLevels.WARN)
         return
     end
 
@@ -209,7 +207,7 @@ function EngineBuilder.BuildFrom(sourceDir)
             end
 
             if code ~= 0 then
-                log.Notify("Build engine failed (" .. code .. ")", logLevels.ERROR)
+                helpers.log.Notify("Build engine failed (" .. code .. ")", logLevels.ERROR)
             else
                 require("unreal.engine").init()
             end
