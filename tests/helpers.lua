@@ -89,6 +89,12 @@ function M.write(root, rel, lines)
     return path
 end
 
+function M.touch(root, rel, sec, lines)
+    local path = M.write(root, rel, lines)
+    vim.uv.fs_utime(path, sec, sec)
+    return path
+end
+
 function M.project(files)
     local root = M.tmpdir()
     for rel, lines in pairs(files) do
