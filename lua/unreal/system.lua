@@ -13,17 +13,6 @@ function M.GetPlatform()
     end
 end
 
-function M.GetArch()
-    local map = {
-        x86_64 = "x64",
-        aarch64 = "arm64",
-        arm64 = "arm64",
-    }
-
-    local uname = vim.loop.os_uname()
-    return map[uname.machine]
-end
-
 function M.OpenBuffer(fileName)
     local buf = vim.fn.bufnr(fileName)
     if buf == -1 or not vim.api.nvim_buf_is_loaded(buf) then
