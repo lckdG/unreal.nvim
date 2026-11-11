@@ -59,7 +59,7 @@ function M.ImplementFunction()
     end
 
     local parsed, signalIndex = M.ParseImplementation(declarationTemplate)
-    local buf = system.OpenBuffer(cppFile)
+    local buf = require("unreal.helpers.buffer").OpenBuffer(cppFile)
 
     local implLine = require("unreal.search").FindImplementation(buf, parsed[signalIndex])
     if implLine == -1 then

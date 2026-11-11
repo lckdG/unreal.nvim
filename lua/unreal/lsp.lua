@@ -54,7 +54,7 @@ function M.GetMacroCompletions(request)
         return {}
     end
 
-    local tempBufnr = require("unreal.system").CreateTempBuffer()
+    local tempBufnr = require("unreal.helpers.buffer").CreateTemp()
 
     local namespace = string.sub(request.identifier, 1, 2)
     local insertTerm = namespace .. "::"
