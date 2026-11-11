@@ -10,6 +10,15 @@ All notable changes to unreal.nvim are listed here. The format follows [Keep a C
 - `unreallog` filetype for logs under `Saved/Logs` and `Saved/Crashes`, with highlighting for timestamps, categories, verbosity and source paths.
 - `:Unreal Project CrashLog`: pick a crash from the project's `Saved/Crashes`, newest first, and open its log in a new tab.
 - `:Unreal Project CrashTrace`: pick a crash from `Saved/Crashes` and put its call stack in the quickfix list, in a new tab.
+- Native projects: when the working directory is inside an engine source tree and the `.uproject` is in a folder listed by that engine's `.uprojectdirs` files, that engine is used. It comes after the `.uproject`'s `EngineAssociation` and before the prompt.
+- `:checkhealth unreal` shows the engine type (`launcher-installed`, `source build, native engine`, `source build, cloned into configured clone dir`, `source build`, `unknown`).
+- `:checkhealth unreal` checks the `Setup`, `GenerateProjectFiles` and `Build` scripts of a source build.
+
+### Changed
+
+- `:Unreal Engine Build` finds the project's engine in the same order as other commands, so it also lists the native engine.
+- `:checkhealth unreal` advises verifying a launcher engine in the launcher when its editor or `RunUBT` script is missing.
+- Internal modules renamed: `unreal.path_utils` is now `unreal.locate`, `unreal.log` is now `unreal.helpers.log`, `unreal.helpers.list_utils` is now `unreal.helpers.list`. Only matters if your config requires them directly.
 
 ## [0.3.1] - 2026-11-08
 
