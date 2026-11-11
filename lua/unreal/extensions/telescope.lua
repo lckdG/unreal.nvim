@@ -7,7 +7,7 @@ local TelescopeUiProvider = {}
 function TelescopeUiProvider.setup(opts)
     local success, _ = pcall(require, "telescope")
     if success == false then
-        require("unreal.log").Notify(
+        require("unreal.helpers.log").Notify(
             "Telescope is set as Unreal's extension, but the plugin is not enabled or installed",
             vim.log.levels.ERROR
         )

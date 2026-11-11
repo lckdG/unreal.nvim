@@ -40,7 +40,7 @@ local function createCommands(config)
             return
         end
 
-        require("unreal.log").Notify("Error: unavailable command " .. opts.args, vim.log.levels.ERROR)
+        require("unreal.helpers.log").Notify("Error: unavailable command " .. opts.args, vim.log.levels.ERROR)
     end, {
         nargs = "+",
         complete = function(arg_lead, cmdline)

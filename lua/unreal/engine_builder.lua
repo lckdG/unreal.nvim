@@ -1,4 +1,4 @@
-local log = require("unreal.log")
+local log = require("unreal.helpers.log")
 local logLevels = vim.log.levels
 
 local EngineBuilder = {}

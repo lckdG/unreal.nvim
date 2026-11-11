@@ -1,7 +1,7 @@
 local system = require("unreal.system")
 local pathUtils = require("unreal.path_utils")
 local listUtils = require("unreal.helpers.list_utils")
-local log = require("unreal.log")
+local log = require("unreal.helpers.log")
 
 local platform = system.GetPlatform()
 local ext = platform == "Win64" and ".bat" or ".sh"

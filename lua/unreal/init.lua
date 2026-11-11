@@ -3,7 +3,7 @@ local function enableExtensions(extensions)
         if extOpts ~= false then
             local ok, ext = pcall(require, "unreal.extensions." .. name)
             if not ok then
-                require("unreal.log").Notify("Unknown extension: " .. name, vim.log.levels.ERROR)
+                require("unreal.helpers.log").Notify("Unknown extension: " .. name, vim.log.levels.ERROR)
             else
                 ext.setup(extOpts == true and {} or extOpts)
             end
@@ -47,7 +47,7 @@ function M.setup(opts)
     local info = config.info
     local configOpts = config.opts
 
-    require("unreal.log").init(info)
+    require("unreal.helpers.log").init(info)
 
     require("unreal.engine").init()
     require("unreal.project").init()

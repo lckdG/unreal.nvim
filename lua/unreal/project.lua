@@ -2,7 +2,7 @@ local config = require("unreal.config")
 local system = require("unreal.system")
 local engine = require("unreal.engine")
 local pathUtils = require("unreal.path_utils")
-local log = require("unreal.log")
+local log = require("unreal.helpers.log")
 
 local info = config.info
 local logLevel = vim.log.levels
