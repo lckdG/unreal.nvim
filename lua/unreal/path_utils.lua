@@ -1,12 +1,5 @@
 local M = {}
 
-function M.Exists(path)
-    if path == nil then
-        return false
-    end
-    return vim.uv.fs_stat(path) ~= nil
-end
-
 ---The folder that counts as "this project": `.uproject` files are searched under it, and moving
 ---the working directory to another project folder resets the chosen `.uproject` and engine path.
 ---Walks up from the working directory and picks the first folder with a `.uproject`,
