@@ -56,7 +56,7 @@ function M.FindDefaultUproject()
     end
 end
 
----Find `.uproject` files under the project folder (see `path_utils.GetProjectRoot`)
+---Find `.uproject` files under the project folder (see `locate.GetProjectRoot`)
 ---and call `cb` with one of them.
 ---Errors if none, prompts if several, skips `cb` if the prompt is dismissed.
 ---@param cb fun(uprojectPath: string?)
