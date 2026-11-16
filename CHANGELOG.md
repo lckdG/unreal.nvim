@@ -7,6 +7,7 @@ All notable changes to unreal.nvim are listed here. The format follows [Keep a C
 ### Fixed
 
 - Windows: no error at startup when no source build is registered (registry key `HKCU\Software\Epic Games\Unreal Engine\Builds` missing).
+- Native projects: an engine tree without `.uprojectdirs`, `Setup` or `GenerateProjectFiles` scripts is detected by its `Engine/Build/Build.version`. Without `.uprojectdirs`, projects in the engine root's direct subfolders count as native, like UE's default `./` entry.
 
 ## [0.4.0] - 2026-11-11
 
