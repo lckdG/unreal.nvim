@@ -2,6 +2,12 @@
 
 All notable changes to unreal.nvim are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.1] - 2026-11-16
+
+### Fixed
+
+- Windows: no error at startup when no source build is registered (registry key `HKCU\Software\Epic Games\Unreal Engine\Builds` missing).
+
 ## [0.4.0] - 2026-11-11
 
 ### Added
