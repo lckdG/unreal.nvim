@@ -71,7 +71,9 @@ local function readInstalledReg(path, cb)
 
     vim.system({ "reg", "query", path }, { text = true }, function(exitInfo)
         vim.schedule(function()
-            if exitInfo.code ~= 0 then
+            if exitInfo.code == 1 then
+                -- Key is absent, nothing to do
+            elseif exitInfo.code ~= 0 then
                 helpers.log.Notify(
                     "Error when reading Unreal's Registry(" .. exitInfo.code .. "): " .. exitInfo.stderr,
                     vim.log.levels.ERROR
