@@ -24,7 +24,7 @@ function M.FindNativeEngineRoot()
     end
 
     local function isEngineDir(name, path)
-        return name == "Engine" and helpers.path.Exists(vim.fs.joinpath(path, "Build", "Build.version"))
+        return name == "Engine" and helpers.path.Exists(vim.fs.joinpath(path, name, "Build", "Build.version"))
     end
 
     return vim.fs.root(cwd, {
