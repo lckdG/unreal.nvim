@@ -133,17 +133,21 @@ function M.ParseNativeProjects()
     M.NativeProjects = {}
 
     local filePaths = locate.GetUprojectdirsFiles(M.NativeEngine)
-    for _, filePath in ipairs(filePaths) do
-        local file = io.open(filePath, "r")
-        if file then
-            for line in file:lines() do
-                line = vim.trim(line)
-                if line ~= "" and line:sub(1, 1) ~= ";" then
-                    M.DiscoverNativeProjects(line)
+    if #filePaths == 0 then
+        M.DiscoverNativeProjects("./")
+    else
+        for _, filePath in ipairs(filePaths) do
+            local file = io.open(filePath, "r")
+            if file then
+                for line in file:lines() do
+                    line = vim.trim(line)
+                    if line ~= "" and line:sub(1, 1) ~= ";" then
+                        M.DiscoverNativeProjects(line)
+                    end
                 end
-            end
 
-            file:close()
+                file:close()
+            end
         end
     end
 end
