@@ -1,3 +1,5 @@
+local helpers = require("unreal.helpers")
+
 local registeringCommands = {
     Engine = {
         SetPath = require("unreal.engine").SetEnginePath_User,
@@ -43,7 +45,7 @@ local function createCommands(config)
             return
         end
 
-        require("unreal.helpers.log").Notify("Error: unavailable command " .. opts.args, vim.log.levels.ERROR)
+        helpers.log.Notify("Error: unavailable command " .. opts.args, vim.log.levels.ERROR)
     end, {
         nargs = "+",
         complete = function(arg_lead, cmdline)
@@ -77,6 +79,15 @@ local function createAbbrevs(config)
 end
 
 local M = {}
+
+function M.Register(group, name, fn)
+    if registeringCommands[group] ~= nil and registeringCommands[group][name] ~= nil then
+        helpers.log.Notify("Error: redefined command " .. group .. " " .. name, vim.log.levels.ERROR)
+    else
+        registeringCommands[group] = registeringCommands[group] or {}
+        registeringCommands[group][name] = fn
+    end
+end
 
 ---@param config ConfigOpts
 function M.init(config)
