@@ -71,7 +71,9 @@ local function readInstalledReg(path, cb)
 
     vim.system({ "reg", "query", path }, { text = true }, function(exitInfo)
         vim.schedule(function()
-            if exitInfo.code ~= 0 then
+            if exitInfo.code == 1 then
+                -- Key is absent, nothing to do
+            elseif exitInfo.code ~= 0 then
                 helpers.log.Notify(
                     "Error when reading Unreal's Registry(" .. exitInfo.code .. "): " .. exitInfo.stderr,
                     vim.log.levels.ERROR
@@ -131,17 +133,21 @@ function M.ParseNativeProjects()
     M.NativeProjects = {}
 
     local filePaths = locate.GetUprojectdirsFiles(M.NativeEngine)
-    for _, filePath in ipairs(filePaths) do
-        local file = io.open(filePath, "r")
-        if file then
-            for line in file:lines() do
-                line = vim.trim(line)
-                if line ~= "" and line:sub(1, 1) ~= ";" then
-                    M.DiscoverNativeProjects(line)
+    if #filePaths == 0 then
+        M.DiscoverNativeProjects("./")
+    else
+        for _, filePath in ipairs(filePaths) do
+            local file = io.open(filePath, "r")
+            if file then
+                for line in file:lines() do
+                    line = vim.trim(line)
+                    if line ~= "" and line:sub(1, 1) ~= ";" then
+                        M.DiscoverNativeProjects(line)
+                    end
                 end
-            end
 
-            file:close()
+                file:close()
+            end
         end
     end
 end
