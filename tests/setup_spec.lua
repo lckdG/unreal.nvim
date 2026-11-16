@@ -66,6 +66,7 @@ describe("commands", function()
 
     local function init(opts)
         config.config(opts)
+        package.loaded["unreal.commands"] = nil
         require("unreal.commands").init(config.opts)
     end
 
