@@ -23,10 +23,15 @@ function M.FindNativeEngineRoot()
         return vim.fs.ext(name) == "uprojectdirs"
     end
 
-    return vim.fs.root(
-        cwd,
-        { isUprojectdirs, { "Setup.bat", "Setup.sh", "GenerateProjectFiles.bat", "GenerateProjectFiles.sh" } }
-    )
+    local function isEngineDir(name, path)
+        return name == "Engine" and helpers.path.Exists(vim.fs.joinpath(path, "Build", "Build.version"))
+    end
+
+    return vim.fs.root(cwd, {
+        isUprojectdirs,
+        { "Setup.bat", "Setup.sh", "GenerateProjectFiles.bat", "GenerateProjectFiles.sh" },
+        isEngineDir,
+    })
 end
 
 ---@param engineRoot string?
