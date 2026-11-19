@@ -1,6 +1,9 @@
 ---@param config ConfigOpts
 local function createCommands(config)
     local subcommands = {
+        Asset = {
+            Hex = require("unreal.asset").Hex,
+        },
         Engine = {
             SetPath = require("unreal.engine").SetEnginePath_User,
             ClearPath = require("unreal.engine").ClearEnginePath_User,
