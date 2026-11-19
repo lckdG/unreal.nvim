@@ -34,6 +34,9 @@ The plugin does not register the built engine itself; it re-reads the installed 
 
 The closest folder above the working directory with a `.uproject`, else with `.git` or `.p4ignore`, else the working directory.
 
-At startup and after `:cd` to another project, a `.uproject` directly in that folder is chosen (one is picked if there are several). If there is none, the first command that needs one searches subfolders (up to [uproject_limits](#uproject_limits)) and asks if it finds several.
+At startup and after `:cd` to another project, a `.uproject` directly in that folder is chosen (one is picked if there are several). If there is none, the first command that needs one searches for it and asks if it finds several:
+
+- inside an engine source tree, the native projects listed by the engine's `.uprojectdirs` files, at any depth (e.g. `Samples/Games/Lyra/Lyra.uproject`)
+- otherwise, or when the engine lists none, the project folder and its subfolders up to two levels deep, stopping after [uproject_limits](#uproject_limits) files. `Binaries`, `Intermediate`, `Saved`, `Content`, `DerivedDataCache`, `Plugins`, `Build` and folders starting with `.` are not searched.
 
 The chosen `.uproject` and the `SetPath` folder last until Neovim closes or you `:cd` to another project. Nothing is saved to disk.

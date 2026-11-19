@@ -2,6 +2,14 @@
 
 All notable changes to unreal.nvim are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.2] - 2026-11-20
+
+### Changed
+
+- `.uproject` search goes at most two folders deep and skips `Binaries`, `Intermediate`, `Saved`, `Content`, `DerivedDataCache`, `Plugins`, `Build` and dot folders, so large projects no longer walk the whole tree.
+- Native projects: inside an engine source tree, the `.uproject` is picked from the projects listed by the engine's `.uprojectdirs` files, at any depth. Falls back to the project folder search when the engine lists none.
+- `:Unreal Project Log`, `CrashLog` and `CrashTrace` read `Saved/` next to the chosen `.uproject` instead of the project folder, so native projects show their own logs and crashes. They find a `.uproject` first if none is chosen.
+
 ## [0.4.1] - 2026-11-16
 
 ### Fixed

@@ -50,40 +50,47 @@ function M.GetUprojectdirsFiles(engineRoot)
     return results
 end
 
----Find `.uproject` files (Unreal project files) in `opts.path` and all folders below it.
+local SKIP_DIRS = {
+    Binaries = true,
+    Intermediate = true,
+    Saved = true,
+    Content = true,
+    DerivedDataCache = true,
+    Plugins = true,
+    Build = true,
+}
+
+---Find `.uproject` files (Unreal project files) in `opts.path` and its subfolders, at most two
+---levels deep, skipping build output, content and hidden folders.
 ---Without `opts` it searches the project folder (see `GetProjectRoot`).
 ---Stops after `uproject_limits` files (5 by default), so a huge folder such as your home directory
 ---does not list everything.
 ---@param opts UprojectFindOpts?
 ---@return string[] files full paths, or basenames when `opts.nameOnly`
 function M.FindUprojects(opts)
-    if opts == nil then
-        opts = {
-            path = M.GetProjectRoot(),
-            nameOnly = false,
-        }
-    end
+    opts = opts or { path = M.GetProjectRoot(), nameOnly = false }
+    local root = opts.path or vim.fn.getcwd()
+    local uproject_limits = require("unreal.config").opts.uproject_limits
 
-    local config = require("unreal.config")
-    local files = vim.fs.find(function(name, _)
-        return vim.fs.ext(name) == "uproject"
-    end, {
-        upward = false,
-        path = opts.path,
-        limit = config.opts.uproject_limits,
-        type = "file",
-    })
-
-    if opts.nameOnly then
-        local result = {}
-        for _, file in ipairs(files) do
-            table.insert(result, vim.fs.basename(file))
+    local result = {}
+    for name, type in
+        vim.fs.dir(root, {
+            depth = 2,
+            skip = function(dir)
+                local base = vim.fs.basename(dir)
+                return not (SKIP_DIRS[base] or vim.startswith(base, "."))
+            end,
+        })
+    do
+        if type == "file" and vim.fs.ext(name) == "uproject" then
+            table.insert(result, opts.nameOnly and vim.fs.basename(name) or vim.fs.joinpath(root, name))
+            if #result >= uproject_limits then
+                break
+            end
         end
-
-        return result
     end
 
-    return files
+    return result
 end
 
 ---The module folder of the current file, where its matching header/source lives.

@@ -34,7 +34,7 @@ Name of the user command. With `command_lead = "UE"` the commands become `:UE Pr
 
 ## uproject_limits
 
-Most `.uproject` files a command looks for below the project folder. Raise it if the picker misses projects.
+Most `.uproject` files a command looks for below the project folder. Raise it if the picker misses projects. Native projects of an engine source tree are always all listed.
 
 ## cmd_abbreviations
 

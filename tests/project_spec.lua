@@ -600,6 +600,82 @@ describe("project", function()
         end)
     end)
 
+    describe("SelectUproject", function()
+        local root, locate
+
+        local function pick()
+            local got = "unset"
+            project.SelectUproject(function(path)
+                got = path
+            end)
+            return got
+        end
+
+        before_each(function()
+            locate = require("unreal.locate")
+            root = h.project({})
+            h.stub(engine, "NativeEngine", nil)
+            h.stub(engine, "NativeProjects", nil)
+        end)
+
+        it("native engine, project 3 levels deep -> found without scanning the tree", function()
+            h.write(root, "Samples/Games/Lyra/Lyra.uproject")
+            engine.NativeEngine = root
+            engine.NativeProjects = { root .. "/Samples/Games/Lyra" }
+            local finds = h.spy(locate, "FindUprojects", {})
+            assert.are.equal(root .. "/Samples/Games/Lyra/Lyra.uproject", pick())
+            assert.are.equal(0, #finds)
+        end)
+
+        it("native engine, 2 projects -> picker lists both", function()
+            h.write(root, "Samples/A/A.uproject")
+            h.write(root, "Templates/B/B.uproject")
+            engine.NativeEngine = root
+            engine.NativeProjects = { root .. "/Samples/A", root .. "/Templates/B" }
+            local selects = h.use_select(2)
+            assert.are.equal(root .. "/Templates/B/B.uproject", pick())
+            assert.are.same(
+                { root .. "/Samples/A/A.uproject", root .. "/Templates/B/B.uproject" },
+                vim.tbl_map(function(item)
+                    return item.value
+                end, selects[1].items)
+            )
+        end)
+
+        it("native project folder has other files -> only .uproject listed", function()
+            h.write(root, "Samples/A/A.uproject")
+            h.write(root, "Samples/A/A.uproject.bak")
+            h.write(root, "Samples/A/Config/DefaultGame.ini")
+            engine.NativeEngine = root
+            engine.NativeProjects = { root .. "/Samples/A" }
+            assert.are.equal(root .. "/Samples/A/A.uproject", pick())
+        end)
+
+        it("native engine without projects -> falls back to searching the project folder", function()
+            h.write(root, "Game/Game.uproject")
+            engine.NativeEngine = root
+            engine.NativeProjects = {}
+            local finds = h.spy(locate, "FindUprojects", { root .. "/Game/Game.uproject" })
+            assert.are.equal(root .. "/Game/Game.uproject", pick())
+            assert.are.equal(1, #finds)
+        end)
+
+        it("no native engine -> native list ignored, project folder searched", function()
+            h.write(root, "Samples/A/A.uproject")
+            h.write(root, "Game/Game.uproject")
+            engine.NativeProjects = { root .. "/Samples/A" }
+            project.ProjectRoot = root .. "/Game"
+            assert.are.equal(root .. "/Game/Game.uproject", pick())
+        end)
+
+        it("nothing found anywhere -> error, callback not called", function()
+            engine.NativeEngine = root
+            engine.NativeProjects = {}
+            assert.are.equal("unset", pick())
+            assert.is_true(h.notified(notes, ERROR, "No uproject file found"))
+        end)
+    end)
+
     describe("SelectUproject_User", function()
         it("2 uprojects, choose 2 -> used by later commands without prompt", function()
             h.project({ ["A/A.uproject"] = {}, ["B/B.uproject"] = {} })
@@ -884,6 +960,7 @@ describe("project", function()
         before_each(function()
             root = h.project({ ["Game.uproject"] = {} })
             project.ProjectRoot = root
+            project.UprojectPath = root .. "/Game.uproject"
         end)
 
         it("logs in Saved/Logs -> picker lists them newest first", function()
@@ -901,6 +978,20 @@ describe("project", function()
             )
         end)
 
+        it("native project -> logs read from the .uproject folder, not the project root", function()
+            project.UprojectPath = root .. "/Samples/Lyra/Lyra.uproject"
+            h.touch(root, "Saved/Logs/Engine.log", 1000)
+            h.touch(root, "Samples/Lyra/Saved/Logs/Lyra.log", 1000)
+            local selects = h.use_select(nil)
+            project.ReadLogs()
+            assert.are.same(
+                { "Lyra.log" },
+                vim.tbl_map(function(item)
+                    return item.name
+                end, selects[1].items)
+            )
+        end)
+
         it("log picked -> opened in a new tab, cursor on last line", function()
             local file = h.touch(root, "Saved/Logs/Game.log", 1000, { "a", "b", "c" })
             h.use_select(1)
@@ -912,7 +1003,7 @@ describe("project", function()
         end)
 
         it("path with spaces and % -> opened literally", function()
-            project.ProjectRoot = root .. "/My Game%"
+            project.UprojectPath = root .. "/My Game%/My Game%.uproject"
             local file = h.touch(root, "My Game%/Saved/Logs/My Game%.log", 1000)
             h.use_select(1)
             project.ReadLogs()
@@ -928,6 +1019,31 @@ describe("project", function()
             assert.are.equal(file, current_file())
             assert.are.same({ "a", "b", "c" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
             assert.are.equal(3, vim.api.nvim_win_get_cursor(0)[1])
+        end)
+
+        it("no .uproject chosen, one in a subfolder -> found and its logs listed", function()
+            project.UprojectPath = nil
+            h.write(root, "Lyra/Lyra.uproject")
+            os.remove(root .. "/Game.uproject")
+            h.touch(root, "Lyra/Saved/Logs/Lyra.log", 1000)
+            local selects = h.use_select(nil)
+            project.ReadLogs()
+            assert.are.equal(root .. "/Lyra/Lyra.uproject", project.UprojectPath)
+            assert.are.same(
+                { "Lyra.log" },
+                vim.tbl_map(function(item)
+                    return item.name
+                end, selects[1].items)
+            )
+        end)
+
+        it("no .uproject anywhere -> error, no picker", function()
+            project.UprojectPath = nil
+            os.remove(root .. "/Game.uproject")
+            local selects = h.use_select(nil)
+            project.ReadLogs()
+            assert.is_true(h.notified(notes, ERROR, "No uproject file found"))
+            assert.are.equal(0, #selects)
         end)
 
         it("list dismissed -> no tab opened", function()
@@ -949,6 +1065,7 @@ describe("project", function()
         before_each(function()
             root = h.project({ ["Game.uproject"] = {} })
             project.ProjectRoot = root
+            project.UprojectPath = root .. "/Game.uproject"
         end)
 
         it("crash logs -> picker lists crash folders newest first", function()
@@ -959,6 +1076,20 @@ describe("project", function()
             assert.are.equal("Select Crash Log: ", selects[1].opts.prompt)
             assert.are.same(
                 { "UECC-New", "UECC-Old" },
+                vim.tbl_map(function(item)
+                    return item.name
+                end, selects[1].items)
+            )
+        end)
+
+        it("native project -> crash logs read from the .uproject folder, not the project root", function()
+            project.UprojectPath = root .. "/Samples/Lyra/Lyra.uproject"
+            h.touch(root, "Saved/Crashes/UECC-Engine/Engine.log", 1000)
+            h.touch(root, "Samples/Lyra/Saved/Crashes/UECC-Lyra/Lyra.log", 1000)
+            local selects = h.use_select(nil)
+            project.ReadCrashLog()
+            assert.are.same(
+                { "UECC-Lyra" },
                 vim.tbl_map(function(item)
                     return item.name
                 end, selects[1].items)
@@ -976,11 +1107,36 @@ describe("project", function()
         end)
 
         it("path with spaces and % -> opened literally", function()
-            project.ProjectRoot = root .. "/My Game%"
+            project.UprojectPath = root .. "/My Game%/My Game%.uproject"
             local file = h.touch(root, "My Game%/Saved/Crashes/UECC A%/My Game%.log", 1000)
             h.use_select(1)
             project.ReadCrashLog()
             assert.are.equal(file, vim.api.nvim_buf_get_name(0))
+        end)
+
+        it("no .uproject chosen, one in a subfolder -> found and its logs listed", function()
+            project.UprojectPath = nil
+            h.write(root, "Lyra/Lyra.uproject")
+            os.remove(root .. "/Game.uproject")
+            h.touch(root, "Lyra/Saved/Crashes/UECC-Lyra/Lyra.log", 1000)
+            local selects = h.use_select(nil)
+            project.ReadCrashLog()
+            assert.are.equal(root .. "/Lyra/Lyra.uproject", project.UprojectPath)
+            assert.are.same(
+                { "UECC-Lyra" },
+                vim.tbl_map(function(item)
+                    return item.name
+                end, selects[1].items)
+            )
+        end)
+
+        it("no .uproject anywhere -> error, no picker", function()
+            project.UprojectPath = nil
+            os.remove(root .. "/Game.uproject")
+            local selects = h.use_select(nil)
+            project.ReadCrashLog()
+            assert.is_true(h.notified(notes, ERROR, "No uproject file found"))
+            assert.are.equal(0, #selects)
         end)
 
         it("list dismissed -> no tab opened", function()
@@ -1011,6 +1167,7 @@ describe("project", function()
             root = h.project({ ["Game.uproject"] = {}, ["Source/Game/Foo.cpp"] = { "a", "b", "c" } })
             source = vim.fs.joinpath(root, "Source/Game/Foo.cpp")
             project.ProjectRoot = root
+            project.UprojectPath = root .. "/Game.uproject"
         end)
 
         after_each(function()
@@ -1029,6 +1186,45 @@ describe("project", function()
                     return item.name
                 end, selects[1].items)
             )
+        end)
+
+        it("native project -> crash files read from the .uproject folder, not the project root", function()
+            project.UprojectPath = root .. "/Samples/Lyra/Lyra.uproject"
+            h.touch(root, "Saved/Crashes/UECC-Engine/CrashContext.runtime-xml", 1000)
+            h.touch(root, "Samples/Lyra/Saved/Crashes/UECC-Lyra/CrashContext.runtime-xml", 1000)
+            local selects = h.use_select(nil)
+            project.ParseCrashTrace()
+            assert.are.same(
+                { "UECC-Lyra" },
+                vim.tbl_map(function(item)
+                    return item.name
+                end, selects[1].items)
+            )
+        end)
+
+        it("no .uproject chosen, one in a subfolder -> found and its crash files listed", function()
+            project.UprojectPath = nil
+            h.write(root, "Lyra/Lyra.uproject")
+            os.remove(root .. "/Game.uproject")
+            h.touch(root, "Lyra/Saved/Crashes/UECC-Lyra/CrashContext.runtime-xml", 1000)
+            local selects = h.use_select(nil)
+            project.ParseCrashTrace()
+            assert.are.equal(root .. "/Lyra/Lyra.uproject", project.UprojectPath)
+            assert.are.same(
+                { "UECC-Lyra" },
+                vim.tbl_map(function(item)
+                    return item.name
+                end, selects[1].items)
+            )
+        end)
+
+        it("no .uproject anywhere -> error, no picker", function()
+            project.UprojectPath = nil
+            os.remove(root .. "/Game.uproject")
+            local selects = h.use_select(nil)
+            project.ParseCrashTrace()
+            assert.is_true(h.notified(notes, ERROR, "No uproject file found"))
+            assert.are.equal(0, #selects)
         end)
 
         it("crash picked -> every frame in quickfix, in order, new tab", function()
@@ -1068,7 +1264,7 @@ describe("project", function()
         end)
 
         it("path with spaces and % -> crash still parsed", function()
-            project.ProjectRoot = root .. "/My Game%"
+            project.UprojectPath = root .. "/My Game%/My Game%.uproject"
             crash("My Game%/Saved/Crashes/UECC A%/CrashContext.runtime-xml", { "Game.so!F() [" .. source .. ":1]" })
             h.use_select(1)
             project.ParseCrashTrace()
