@@ -100,7 +100,7 @@ describe("commands", function()
     end)
 
     for _, case in ipairs({
-        { "Unreal ", { "Build", "Code", "Engine", "Project", "Search" } },
+        { "Unreal ", { "Asset", "Build", "Code", "Engine", "Project", "Search" } },
         { "Unreal Bu", { "Build" } },
         { "Unreal Build ", { "Clangd", "CleanEditor", "Config", "Editor" } },
         { "Unreal Code ", { "Impl", "Macro", "SwitchSourceHeader" } },
