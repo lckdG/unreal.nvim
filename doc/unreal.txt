@@ -29,6 +29,7 @@ Table of Contents                                   *unreal-table-of-contents*
   - Build                                              |unreal-commands-build|
   - Code                                                |unreal-commands-code|
   - Search                                            |unreal-commands-search|
+  - Asset                                              |unreal-commands-asset|
 6. Engine path                                            |unreal-engine-path|
   - Engine from source                 |unreal-engine-path-engine-from-source|
   - Project folder                         |unreal-engine-path-project-folder|
@@ -79,6 +80,7 @@ REQUIREMENTS                                *unreal-installation-requirements*
 - nvim-treesitter <https://github.com/nvim-treesitter/nvim-treesitter>
 - plenary.nvim <https://github.com/nvim-lua/plenary.nvim>
 - `rg` and `clangd` on `$PATH`
+- `xxd` on `$PATH`, for `Asset Hex`
 - clangd enabled with `vim.lsp` (see |unreal-installation-clangd|)
 - An installed Unreal Engine build
 
@@ -590,6 +592,30 @@ extension. For Build Files that is the module or target name: `Editor` finds
 `GameEditor.Target.cs`, `Target` finds nothing.
 
 
+ASSET                                                  *unreal-commands-asset*
+
+
+ASSET HEX ~
+
+                                                           *:Unreal-Asset-Hex*
+
+Edit the raw bytes of the `.uasset` or `.umap` in the current buffer. Opening
+the file does nothing on its own; run this command to switch the buffer to an
+`xxd -g 1` hex dump (`xxd` filetype). Edit the hex bytes, then `:w`: the dump
+is turned back into bytes with `xxd -r`, written to the file, and the buffer
+shows the raw file again. Run the command again for another edit.
+
+- Refuses a buffer with unsaved changes: save or discard them first.
+- If `xxd -r` fails, shows an error and writes nothing; the buffer stays in hex mode.
+- `:e` before saving drops the hex view and its changes; `:w` after that writes the raw buffer as usual.
+- Needs `xxd`. On Linux and Mac it comes with Vim (or the `xxd` package). On Windows, use the one from Git for Windows (`C:\Program Files\Git\usr\bin`) or from a Vim install, and put its folder on `PATH`.
+
+Warnings:
+
+- The hex dump is read through `'shell'` (`:%!xxd`). With PowerShell as `'shell'`, the output redirect can re-encode the text and the dump comes in wrong. Use `cmd` or Git Bash as `'shell'`. Writing runs `xxd` directly, not through `'shell'`.
+- Change bytes in place. Adding or removing bytes (for example making a name longer) shifts every offset after it, and the Unreal editor can no longer load the asset.
+
+
 ==============================================================================
 6. Engine path                                            *unreal-engine-path*
 
@@ -654,7 +680,7 @@ The chosen `.uproject` and the `SetPath` folder last until Neovim closes or you
 
 Run `:checkhealth unreal` to check:
 
-- `rg` and `clangd` are installed
+- `rg`, `clangd` and `xxd` are installed
 - plenary.nvim is installed
 - telescope.nvim is available, only when the telescope extension |unreal-extensions-telescope| is enabled
 - clangd is enabled with `vim.lsp.enable("clangd")`

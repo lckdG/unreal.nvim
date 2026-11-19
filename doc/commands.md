@@ -282,3 +282,25 @@ Grep files with `rg`. Asks for the file type first (scopes are listed below), th
 | Build Files | `*.Build.cs`, `*.Target.cs` |
 
 With the built-in UI, the typed name only matches the part before the extension. For Build Files that is the module or target name: `Editor` finds `GameEditor.Target.cs`, `Target` finds nothing.
+
+## Asset
+
+### Asset Hex
+
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                           *:Unreal-Asset-Hex*
+```
+-->
+
+Edit the raw bytes of the `.uasset` or `.umap` in the current buffer. Opening the file does nothing on its own; run this command to switch the buffer to an `xxd -g 1` hex dump (`xxd` filetype). Edit the hex bytes, then `:w`: the dump is turned back into bytes with `xxd -r`, written to the file, and the buffer shows the raw file again. Run the command again for another edit.
+
+- Refuses a buffer with unsaved changes: save or discard them first.
+- If `xxd -r` fails, shows an error and writes nothing; the buffer stays in hex mode.
+- `:e` before saving drops the hex view and its changes; `:w` after that writes the raw buffer as usual.
+- Needs `xxd`. On Linux and Mac it comes with Vim (or the `xxd` package). On Windows, use the one from Git for Windows (`C:\Program Files\Git\usr\bin`) or from a Vim install, and put its folder on `PATH`.
+
+Warnings:
+
+- The hex dump is read through `'shell'` (`:%!xxd`). With PowerShell as `'shell'`, the output redirect can re-encode the text and the dump comes in wrong. Use `cmd` or Git Bash as `'shell'`. Writing runs `xxd` directly, not through `'shell'`.
+- Change bytes in place. Adding or removing bytes (for example making a name longer) shifts every offset after it, and the Unreal editor can no longer load the asset.

@@ -6,6 +6,7 @@
 - [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter)
 - [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
 - `rg` and `clangd` on `$PATH`
+- `xxd` on `$PATH`, for `Asset Hex`
 - clangd enabled with `vim.lsp` (see [clangd](#clangd))
 - An installed Unreal Engine build
 

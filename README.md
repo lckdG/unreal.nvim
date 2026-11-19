@@ -13,6 +13,7 @@ A Neovim plugin for working on Unreal Engine C++ projects: source/header switchi
 - Find/grep source files
 - Open the `.uproject` in the Unreal editor
 - Edit the `.uproject` in a buffer
+- Edit `.uasset` / `.umap` bytes as an `xxd` hex dump
 - Finds installed engines and picks the one each `.uproject` asks for
 - Optional extensions, e.g. telescope integration
 - Unreal-aware treesitter grammar (via [taku25/tree-sitter-unreal-cpp](https://github.com/taku25/tree-sitter-unreal-cpp))
@@ -23,6 +24,7 @@ A Neovim plugin for working on Unreal Engine C++ projects: source/header switchi
 - [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter), `main` branch (the `master` branch is not supported)
 - [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
 - `rg` and `clangd` on `$PATH`
+- `xxd` on `$PATH`, for `Asset Hex`
 - clangd enabled with `vim.lsp` (see below)
 - Optional: plugins needed by the [extensions](#extensions) you enable
 - An installed Unreal Engine build to point the plugin at
@@ -161,6 +163,7 @@ All functionality is exposed through a single command (`:Unreal` by default, see
 | `:Unreal Code Macro` | Complete a `UCLASS`/`USTRUCT`/`UFUNCTION`/`UPROPERTY` attribute under the cursor |
 | `:Unreal Search Files` | Find header/cpp, `.ini` or `Build.cs`/`Target.cs` files (quickfix list, or live with an extension) |
 | `:Unreal Search Grep` | Grep header/cpp, `.ini` or `Build.cs`/`Target.cs` files (quickfix list, or live with an extension) |
+| `:Unreal Asset Hex` | Edit the current `.uasset` / `.umap` as an `xxd` hex dump; `:w` writes the bytes back |
 
 The `.uproject` and engine are found automatically: the engine comes from the `.uproject`'s `EngineAssociation` and your installed engines, or, for a project inside an engine source tree (a native project), from that engine. If something is not found, the command asks. Nothing is saved to disk; see `:help unreal-engine-path`.
 
