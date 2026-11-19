@@ -332,48 +332,57 @@ function M.BuildEditorClean()
 end
 
 function M.ReadLogs()
-    local logFiles = locate.FindLogFiles(M.ProjectRoot)
-    require("unreal.ui").Select(logFiles, { prompt = "Select Log File: " }, function(item)
-        if not item or not item.value then
-            return
-        end
+    M.EnsureUproject(function()
+        local projectDir = vim.fs.dirname(M.UprojectPath)
+        local logFiles = locate.FindLogFiles(projectDir)
+        require("unreal.ui").Select(logFiles, { prompt = "Select Log File: " }, function(item)
+            if not item or not item.value then
+                return
+            end
 
-        local filePath = vim.fn.fnameescape(item.value)
-        vim.cmd.tabedit(filePath)
-        vim.cmd("checktime | normal! G")
+            local filePath = vim.fn.fnameescape(item.value)
+            vim.cmd.tabedit(filePath)
+            vim.cmd("checktime | normal! G")
+        end)
     end)
 end
 
 function M.ReadCrashLog()
-    local crashLogs = locate.FindCrashLogFiles(M.ProjectRoot)
-    require("unreal.ui").Select(crashLogs, { prompt = "Select Crash Log: " }, function(item)
-        if not item or not item.value then
-            return
-        end
+    M.EnsureUproject(function()
+        local projectDir = vim.fs.dirname(M.UprojectPath)
+        local crashLogs = locate.FindCrashLogFiles(projectDir)
+        require("unreal.ui").Select(crashLogs, { prompt = "Select Crash Log: " }, function(item)
+            if not item or not item.value then
+                return
+            end
 
-        local filePath = vim.fn.fnameescape(item.value)
-        vim.cmd.tabedit(filePath)
-        vim.cmd("checktime | normal! G")
+            local filePath = vim.fn.fnameescape(item.value)
+            vim.cmd.tabedit(filePath)
+            vim.cmd("checktime | normal! G")
+        end)
     end)
 end
 
 function M.ParseCrashTrace()
-    local crashFiles = locate.FindCrashFiles(M.ProjectRoot)
-    require("unreal.ui").Select(crashFiles, { prompt = "Select Crash File: " }, function(item)
-        if not item or not item.value then
-            return
-        end
+    M.EnsureUproject(function()
+        local projectDir = vim.fs.dirname(M.UprojectPath)
+        local crashFiles = locate.FindCrashFiles(projectDir)
+        require("unreal.ui").Select(crashFiles, { prompt = "Select Crash File: " }, function(item)
+            if not item or not item.value then
+                return
+            end
 
-        local qflist = helpers.xml.ParseCallStack(item.value)
-        if not qflist then
-            helpers.log.Notify("Cannot parse callstack from crash xml file", logLevel.ERROR)
-            return
-        end
+            local qflist = helpers.xml.ParseCallStack(item.value)
+            if not qflist then
+                helpers.log.Notify("Cannot parse callstack from crash xml file", logLevel.ERROR)
+                return
+            end
 
-        vim.cmd.tabnew()
+            vim.cmd.tabnew()
 
-        vim.fn.setqflist(qflist, " ")
-        vim.cmd("cope | cfirst")
+            vim.fn.setqflist(qflist, " ")
+            vim.cmd("cope | cfirst")
+        end)
     end)
 end
 
