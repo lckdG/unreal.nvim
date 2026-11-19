@@ -56,12 +56,29 @@ function M.FindDefaultUproject()
     end
 end
 
+local function nativeUprojects()
+    local files = {}
+    for _, dir in ipairs(engine.NativeProjects or {}) do
+        for name, type in vim.fs.dir(dir) do
+            if type == "file" and vim.fs.ext(name) == "uproject" then
+                table.insert(files, vim.fs.joinpath(dir, name))
+            end
+        end
+    end
+
+    return files
+end
+
 ---Find `.uproject` files under the project folder (see `locate.GetProjectRoot`)
 ---and call `cb` with one of them.
 ---Errors if none, prompts if several, skips `cb` if the prompt is dismissed.
 ---@param cb fun(uprojectPath: string?)
 function M.SelectUproject(cb)
-    local files = locate.FindUprojects({ path = M.ProjectRoot, nameOnly = false })
+    local files = engine.NativeEngine and nativeUprojects() or {}
+    if #files == 0 then
+        files = locate.FindUprojects({ path = M.ProjectRoot, nameOnly = false })
+    end
+
     if #files == 0 then
         helpers.log.Notify("No uproject file found!", logLevel.ERROR)
     elseif #files == 1 then

@@ -60,7 +60,8 @@ local SKIP_DIRS = {
     Build = true,
 }
 
----Find `.uproject` files (Unreal project files) in `opts.path` and all folders below it.
+---Find `.uproject` files (Unreal project files) in `opts.path` and its subfolders, at most two
+---levels deep, skipping build output, content and hidden folders.
 ---Without `opts` it searches the project folder (see `GetProjectRoot`).
 ---Stops after `uproject_limits` files (5 by default), so a huge folder such as your home directory
 ---does not list everything.
