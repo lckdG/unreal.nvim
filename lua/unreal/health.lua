@@ -195,7 +195,7 @@ local function check_engine_path(uprojectPath)
 end
 
 ---`:checkhealth unreal`: check everything the plugin needs and explain what is missing:
----programs (`rg`, `clangd`), plugins (plenary.nvim, telescope.nvim when its extension is on),
+---programs (`rg`, `clangd`, `xxd`), plugins (plenary.nvim, telescope.nvim when its extension is on),
 ---whether `setup()` ran, the engine path for the current project, and the engine source
 ---folder used by `:Unreal Engine Checkout` / `Build`.
 function M.check()
@@ -204,6 +204,7 @@ function M.check()
     health.start("System dependencies")
     check_executable("rg", "Required by :Unreal Search commands")
     check_executable("clangd", "Required for LSP features")
+    check_executable("xxd", "Required by :Unreal Asset Hex")
 
     health.start("Plugin dependencies")
 

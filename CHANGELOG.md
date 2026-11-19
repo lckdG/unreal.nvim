@@ -2,6 +2,13 @@
 
 All notable changes to unreal.nvim are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.3] - 2026-11-20
+
+### Added
+
+- `:Unreal Asset Hex`: edit the raw bytes of the current `.uasset` / `.umap` as an `xxd` hex dump. `:w` writes the bytes back with `xxd -r` and the buffer shows the raw file again. Writes nothing if `xxd -r` fails.
+- `:checkhealth unreal` checks that `xxd` is installed.
+
 ## [0.4.2] - 2026-11-20
 
 ### Changed

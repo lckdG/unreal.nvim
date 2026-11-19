@@ -2,7 +2,7 @@
 
 Run `:checkhealth unreal` to check:
 
-- `rg` and `clangd` are installed
+- `rg`, `clangd` and `xxd` are installed
 - plenary.nvim is installed
 - telescope.nvim is available, only when the [telescope extension](#telescope) is enabled
 - clangd is enabled with `vim.lsp.enable("clangd")`

@@ -240,7 +240,7 @@ describe("health", function()
             assert.are.equal("error", core_kinds()[3])
         end)
 
-        for i, exe in ipairs({ "rg", "clangd" }) do
+        for i, exe in ipairs({ "rg", "clangd", "xxd" }) do
             it("missing " .. exe .. " -> error with hint", function()
                 h.stub(vim.fn, "executable", function(name)
                     return name == exe and 0 or 1
@@ -249,7 +249,7 @@ describe("health", function()
                     return "x 1.0\n"
                 end)
                 require("unreal.health").check()
-                local expected = { "ok", "ok" }
+                local expected = { "ok", "ok", "ok" }
                 expected[i] = "error"
                 assert.are.same(expected, kinds(section(SYSTEM)))
                 assert.is_not_nil(section(SYSTEM)[i].hint)
@@ -269,7 +269,7 @@ describe("health", function()
                     return "fake 9.9.9\n"
                 end)
                 require("unreal.health").check()
-                assert.are.same({ "ok", "ok" }, kinds(section(SYSTEM)))
+                assert.are.same({ "ok", "ok", "ok" }, kinds(section(SYSTEM)))
                 assert.are.equal(case[3], section(SYSTEM)[1].msg:find("fake 9.9.9", 1, true) ~= nil)
             end)
         end
