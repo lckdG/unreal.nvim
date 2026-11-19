@@ -1,5 +1,5 @@
 *unreal.txt*                      Neovim plugin for Unreal Engine C++ projects
-                               For NVIM v0.12    Last change: 2026 November 11
+                               For NVIM v0.12    Last change: 2026 November 19
 
 ==============================================================================
 Table of Contents                                   *unreal-table-of-contents*
@@ -182,7 +182,8 @@ Project Open`, `:UE Build Clangd`, …
 UPROJECT_LIMITS                                *unreal-config-uproject_limits*
 
 Most `.uproject` files a command looks for below the project folder. Raise it
-if the picker misses projects.
+if the picker misses projects. Native projects of an engine source tree are
+always all listed.
 
 
 CMD_ABBREVIATIONS                            *unreal-config-cmd_abbreviations*
@@ -393,9 +394,9 @@ PROJECT LOG ~
 
                                                          *:Unreal-Project-Log*
 
-Pick a log from `Saved/Logs` in the project folder, newest first, and open it
-in a new tab at the last line. A log that is already open is reloaded first, so
-new lines show.
+Pick a log from `Saved/Logs` next to the chosen `.uproject`, newest first, and
+open it in a new tab at the last line. A log that is already open is reloaded
+first, so new lines show.
 
 Logs under `Saved/Logs` and `Saved/Crashes` get the `unreallog` filetype:
 timestamps, categories, and `Error`, `Warning`, `Fatal`, `Display` and
@@ -408,20 +409,26 @@ PROJECT CRASHLOG ~
 
                                                     *:Unreal-Project-CrashLog*
 
-Pick a crash from `Saved/Crashes` in the project folder, newest first, and open
-the log of that run in a new tab at the last line, highlighted like `Project
-Log`. Each crash is listed by its folder name (`UECC-...`, `ensureinfo-...`).
+Pick a crash from `Saved/Crashes` next to the chosen `.uproject`, newest first,
+and open the log of that run in a new tab at the last line, highlighted like
+`Project Log`. Each crash is listed by its folder name (`UECC-...`,
+`ensureinfo-...`).
 
 
 PROJECT CRASHTRACE ~
 
                                                   *:Unreal-Project-CrashTrace*
 
-Pick a crash from `Saved/Crashes`, newest first, and put its call stack (from
-`CrashContext.runtime-xml`) in the quickfix list, in a new tab. Frames with a
-source file and line can be jumped to; frames without one (system libraries)
-are shown as text. Goes to the first frame; if it has no source, the cursor
-stays in the quickfix list. A crash file without a call stack shows an error.
+Pick a crash from `Saved/Crashes` next to the chosen `.uproject`, newest first,
+and put its call stack (from `CrashContext.runtime-xml`) in the quickfix list,
+in a new tab. Frames with a source file and line can be jumped to; frames
+without one (system libraries) are shown as text. Goes to the first frame; if
+it has no source, the cursor stays in the quickfix list. A crash file without a
+call stack shows an error.
+
+`Project Log`, `Project CrashLog` and `Project CrashTrace` find a `.uproject`
+first if none is chosen yet (see |unreal-engine-path-project-folder|), so a
+native project’s logs are read from its own folder, not the engine’s.
 
 
 BUILD                                                  *unreal-commands-build*
@@ -633,8 +640,10 @@ The closest folder above the working directory with a `.uproject`, else with
 
 At startup and after `:cd` to another project, a `.uproject` directly in that
 folder is chosen (one is picked if there are several). If there is none, the
-first command that needs one searches subfolders (up to
-|unreal-config-uproject_limits|) and asks if it finds several.
+first command that needs one searches for it and asks if it finds several:
+
+- inside an engine source tree, the native projects listed by the engine’s `.uprojectdirs` files, at any depth (e.g. `Samples/Games/Lyra/Lyra.uproject`)
+- otherwise, or when the engine lists none, the project folder and its subfolders up to two levels deep, stopping after |unreal-config-uproject_limits| files. `Binaries`, `Intermediate`, `Saved`, `Content`, `DerivedDataCache`, `Plugins`, `Build` and folders starting with `.` are not searched.
 
 The chosen `.uproject` and the `SetPath` folder last until Neovim closes or you
 `:cd` to another project. Nothing is saved to disk.
